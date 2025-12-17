@@ -51,47 +51,45 @@ def collapse_identical_triplets(df):
 
 def style_artifact_table(df):
     """
-    Styling for artifact summary tables:
+    Safe styling for Streamlit dataframe.
     - No index
-    - Equal emphasis for non-zero values
-    - Zero values de-emphasized
-    - Larger padding & readable font
+    - Equal weight columns
+    - Center aligned
     """
-    def cell_style(val):
-        if val == 0:
-            return "color: #bbbbbb;"
-        return (
-            "background-color: #eef7f1;"
-            "color: black;"
-            "font-weight: normal;"
-        )
+    if df is None or df.empty:
+        return df
 
     styled = (
-        df.style
-        .applymap(cell_style)
+        df
+        .reset_index(drop=True)
+        .style
         .set_properties(**{
             "text-align": "center",
+            "vertical-align": "middle",
             "font-size": "13px",
-            "padding": "8px",
-            "border": "1px solid #dddddd",
-            "min-width": "48px",
+            "padding": "6px",
         })
         .set_table_styles([
             {
                 "selector": "th",
                 "props": [
-                    ("font-size", "14px"),
-                    ("font-weight", "bold"),
-                    ("background-color", "#f5f5f5"),
                     ("text-align", "center"),
-                    ("padding", "10px"),
-                    ("border", "1px solid #cccccc"),
+                    ("font-weight", "600"),
+                    ("background-color", "#f5f6f7"),
+                    ("border-bottom", "1px solid #ddd"),
                 ],
-            }
+            },
+            {
+                "selector": "td",
+                "props": [
+                    ("border-bottom", "1px solid #eee"),
+                ],
+            },
         ])
     )
 
     return styled
+
 
 
 # ============================================================
