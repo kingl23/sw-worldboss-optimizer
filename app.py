@@ -12,6 +12,29 @@ st.set_page_config(page_title="Rune Analyzer", layout="wide")
 st.title("Summoners War Rune Analyzer")
 
 # ----------------------------
+# Input target
+# ----------------------------
+st.sidebar.header("Optimizer Settings")
+
+target_input = st.sidebar.text_input(
+    "Target Unit Master ID(s)",
+    value="",
+    help="Enter one or more unit_master_id values, separated by commas (e.g. 21511,23111)"
+)
+
+if target_input.strip():
+    try:
+        TARGET_MASTER_IDS = [
+            int(x.strip()) for x in target_input.split(",") if x.strip()
+        ]
+    except ValueError:
+        st.sidebar.error("Please enter valid integer IDs separated by commas.")
+        TARGET_MASTER_IDS = []
+else:
+    TARGET_MASTER_IDS = DEFAULT_TARGET_MASTER_IDS
+
+
+# ----------------------------
 # Upload
 # ----------------------------
 uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"])
@@ -21,6 +44,7 @@ uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"])
 # ----------------------------
 mode = st.radio("Select Mode", ["Optimizer", "Ranking", "Both"],
                 horizontal=True)
+
 
 # ----------------------------
 # Run
