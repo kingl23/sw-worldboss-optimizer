@@ -268,8 +268,11 @@ def score_unit_total(u):
 
     total_add_stat = add_stat(rune_stat_sum, stat_bonus)
 
+    # total_score = (base_stat_score + sum(base_scores) + stat_bonus_score +
+    #                fixed_score + artifact_score_sum + su_score)
     total_score = (base_stat_score + sum(base_scores) + stat_bonus_score +
-                   fixed_score + artifact_score_sum + su_score)
+               fixed_score + su_score)
+
 
     return {
         "unit_id": int(u.get("unit_id", 0)),
