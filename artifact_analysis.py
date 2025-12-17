@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 
 # Change this one number only
-TOP_N = 5
+TOP_N = 3
 
 
 # ----------------------------
