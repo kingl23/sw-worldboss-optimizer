@@ -11,6 +11,28 @@ st.set_page_config(page_title="Rune Analyzer", layout="wide")
 
 st.title("Summoners War Rune Analyzer")
 
+# ============================
+# Access Key Authentication
+# ============================
+st.sidebar.header("Access Control")
+
+input_key = st.sidebar.text_input(
+    "Access Key",
+    type="password",
+    help="Enter a valid access key to unlock private features"
+)
+
+AUTHORIZED = False
+
+if input_key:
+    valid_keys = st.secrets.get("ACCESS_KEYS", [])
+    if input_key in valid_keys:
+        AUTHORIZED = True
+        st.sidebar.success("Access granted")
+    else:
+        st.sidebar.error("Invalid access key")
+
+
 # ----------------------------
 # Input target
 # ----------------------------
