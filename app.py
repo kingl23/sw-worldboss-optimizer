@@ -13,6 +13,8 @@ from artifact_analysis import (
     artifact_archetype_summary,
 )
 
+st.error("### DEBUG: ARTIFACT VERSION ACTIVE")
+
 st.set_page_config(page_title="Rune Analyzer", layout="wide")
 
 st.title("Summoners War Rune Analyzer")
