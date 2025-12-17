@@ -1,206 +1,214 @@
 # artifact_analysis.py
-from collections import defaultdict
-import html
+from __future__ import annotations
 
-TOP_K = 5
+from typing import Any, Dict, List, Tuple
+import pandas as pd
+
+# Change this one number only
+TOP_N = 5
 
 
 # ----------------------------
-# Collect artifacts
+# Collect
 # ----------------------------
-def collect_all_artifacts(data):
-    arts = []
+def collect_all_artifacts(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Collect artifacts from both account-level and each unit."""
+    all_artifacts: List[Dict[str, Any]] = []
 
-    if isinstance(data.get("artifacts"), list):
-        arts.extend(data["artifacts"])
+    # account-level artifacts (some exports use this)
+    root_arts = data.get("artifacts", [])
+    if isinstance(root_arts, list):
+        for a in root_arts:
+            if isinstance(a, dict):
+                all_artifacts.append(a)
 
-    for u in data.get("unit_list", []):
-        if isinstance(u.get("artifacts"), list):
-            arts.extend(u["artifacts"])
+    # unit-level artifacts
+    for u in data.get("unit_list", []) or []:
+        if not isinstance(u, dict):
+            continue
+        arts = u.get("artifacts", [])
+        if isinstance(arts, list):
+            for a in arts:
+                if isinstance(a, dict):
+                    all_artifacts.append(a)
 
-    return arts
+    return all_artifacts
+
+
+# ----------------------------
+# Robust parsers
+# ----------------------------
+def _safe_int(x: Any, default: int = 0) -> int:
+    try:
+        return int(x)
+    except Exception:
+        return default
+
+
+def _parse_pri_effect(art: Dict[str, Any]) -> Tuple[int, float]:
+    """Return (effect_id, value) from pri_effect like [id, val]."""
+    pri = art.get("pri_effect", [])
+    if isinstance(pri, list) and len(pri) >= 2:
+        return _safe_int(pri[0]), float(pri[1])
+    return 0, 0.0
+
+
+def _iter_sec_effects(art: Dict[str, Any]) -> List[Tuple[int, float]]:
+    """
+    Return list of (eff_id, eff_val) from sec_effects.
+    Handles cases:
+      - [[id,val], [id,val], ...]
+      - [[id,val, ...], ...]
+      - weird/empty -> []
+    """
+    sec = art.get("sec_effects", [])
+    out: List[Tuple[int, float]] = []
+
+    if not isinstance(sec, list):
+        return out
+
+    for row in sec:
+        if not isinstance(row, (list, tuple)) or len(row) < 2:
+            continue
+        eff_id = _safe_int(row[0])
+        try:
+            eff_val = float(row[1])
+        except Exception:
+            eff_val = 0.0
+        out.append((eff_id, eff_val))
+
+    return out
+
+
+def _top_n_desc(values: List[float], n: int) -> List[int]:
+    values_sorted = sorted([v for v in values if v is not None], reverse=True)
+    top = values_sorted[: min(n, len(values_sorted))]
+    top += [0] * (n - len(top))
+    return [int(round(x)) for x in top]
+
+
+def _join_slash(nums: List[int]) -> str:
+    return " / ".join(str(x) for x in nums)
 
 
 # ----------------------------
 # Attribute-based summary
 # ----------------------------
-def artifact_attribute_summary(all_artifacts):
-    attr_order = [2, 1, 3, 4, 5]
+def artifact_attribute_summary(all_artifacts: List[Dict[str, Any]]) -> pd.DataFrame:
+    """
+    Output columns:
+      Attribute | Main | Fire | Water | Wind | Light | Dark
+    Each element cell is: "v1 / v2 / ... / v5" (TOP_N)
+    """
+    # Keep same ordering as your MATLAB
+    attr_order = [2, 1, 3, 4, 5]  # show Fire first, then Water...
     attr_names = ["Fire", "Water", "Wind", "Light", "Dark"]
 
+    # (mainId, rowName, effFrom)
     main_defs = [
         (100, "HP_DR", 305),
         (102, "DEF_DR", 305),
         (101, "ATK_DD", 300),
     ]
 
-    rows = []
+    # Filter by presence of 'attribute' (do NOT trust art["type"])
+    attr_arts = [a for a in all_artifacts if isinstance(a, dict) and "attribute" in a]
 
-    for a_idx, art_attr in enumerate(attr_order):
-        for main_id, main_name, eff_from in main_defs:
-            row = {
-                "Attribute": attr_names[a_idx],
-                "Main": main_name,
+    rows: List[Dict[str, Any]] = []
+
+    for a_idx, art_attr_id in enumerate(attr_order):
+        attr_label = attr_names[a_idx]
+
+        for r_idx, (main_id, row_name, eff_from) in enumerate(main_defs):
+            row: Dict[str, Any] = {
+                "Attribute": attr_label if r_idx == 0 else "",
+                "Main": row_name,
             }
 
-            for tgt_idx, tgt_name in enumerate(attr_names):
-                values = []
+            for tgt_attr_name, tgt_attr_index in zip(attr_names, range(1, 6)):
+                values: List[float] = []
 
-                for art in all_artifacts:
-                    if art.get("type") != 2:
-                        continue
-                    if art.get("attribute") != art_attr:
-                        continue
-                    if not isinstance(art.get("pri_effect"), list):
-                        continue
-                    if art["pri_effect"][0] != main_id:
+                for art in attr_arts:
+                    if _safe_int(art.get("attribute")) != art_attr_id:
                         continue
 
-                    sec = art.get("sec_effects")
-                    if not isinstance(sec, list):
+                    pri_id, _ = _parse_pri_effect(art)
+                    if pri_id != main_id:
                         continue
 
-                    best = None
-                    for eff in sec:
-                        if (
-                            isinstance(eff, list)
-                            and len(eff) == 2
-                            and eff_from <= eff[0] <= eff_from + 4
-                            and (eff[0] - eff_from) == tgt_idx
-                        ):
-                            best = max(best or 0, eff[1])
+                    tmp: List[float] = []
+                    for eff_id, eff_val in _iter_sec_effects(art):
+                        # Range match (eff_from ~ eff_from+4), slot match by offset
+                        if eff_from <= eff_id <= eff_from + 4:
+                            if (eff_id - eff_from + 1) == tgt_attr_index:
+                                tmp.append(eff_val)
 
-                    if best is not None:
-                        values.append(best)
+                    if tmp:
+                        values.append(max(tmp))
 
-                values = sorted(values, reverse=True)[:TOP_K]
-                values += [0] * (TOP_K - len(values))
-
-                row[tgt_name] = values
+                top = _top_n_desc(values, TOP_N)
+                row[tgt_attr_name] = _join_slash(top)
 
             rows.append(row)
 
-    return rows
+    df = pd.DataFrame(rows, columns=["Attribute", "Main"] + attr_names)
+    return df.reset_index(drop=True)
 
 
 # ----------------------------
 # Archetype-based summary
 # ----------------------------
-def artifact_archetype_summary(all_artifacts):
-    archetypes = ["Attack", "Defense", "HP", "Support"]
-    main_defs = [(100, "HP"), (101, "ATK"), (102, "DEF")]
+def artifact_archetype_summary(all_artifacts: List[Dict[str, Any]]) -> pd.DataFrame:
+    """
+    Output columns:
+      Archetype | Main | SPD_INC | S1_REC | S2_REC | S3_REC | S1_ACC | S2_ACC | S3_ACC
+    Each cell is: "v1 / v2 / ... / v5" (TOP_N)
+    """
+    archetype_names = ["Attack", "Defense", "HP", "Support"]
 
-    sub_defs = [
-        (206, "SPD_INC"),
-        (404, "S1_REC"),
-        (405, "S2_REC"),
-        (406, "S3_REC"),
-        (407, "S1_ACC"),
-        (408, "S2_ACC"),
-        (409, "S3_ACC"),
+    main_defs = [
+        (100, "HP"),
+        (101, "ATK"),
+        (102, "DEF"),
     ]
 
-    rows = []
+    sub_effects = [206, 404, 405, 406, 407, 408, 409]
+    sub_names = ["SPD_INC", "S1_REC", "S2_REC", "S3_REC", "S1_ACC", "S2_ACC", "S3_ACC"]
+    eff_id_to_name = dict(zip(sub_effects, sub_names))
 
-    for arch_idx, arch_name in enumerate(archetypes, start=1):
-        for main_id, main_name in main_defs:
-            row = {
-                "Archetype": arch_name,
+    # Filter by presence of 'unit_style' (do NOT trust art["type"])
+    arch_arts = [a for a in all_artifacts if isinstance(a, dict) and "unit_style" in a]
+
+    rows: List[Dict[str, Any]] = []
+
+    for arch_id in range(1, 5):
+        arch_label = archetype_names[arch_id - 1]
+
+        for m_idx, (main_id, main_name) in enumerate(main_defs):
+            row: Dict[str, Any] = {
+                "Archetype": arch_label if m_idx == 0 else "",
                 "Main": main_name,
             }
 
-            for eff_id, eff_name in sub_defs:
-                values = []
+            for eff_id in sub_effects:
+                values: List[float] = []
 
-                for art in all_artifacts:
-                    if art.get("type") != 3:
-                        continue
-                    if art.get("unit_style") != arch_idx:
-                        continue
-                    if not isinstance(art.get("pri_effect"), list):
-                        continue
-                    if art["pri_effect"][0] != main_id:
+                for art in arch_arts:
+                    if _safe_int(art.get("unit_style")) != arch_id:
                         continue
 
-                    sec = art.get("sec_effects")
-                    if not isinstance(sec, list):
+                    pri_id, _ = _parse_pri_effect(art)
+                    if pri_id != main_id:
                         continue
 
-                    best = None
-                    for eff in sec:
-                        if isinstance(eff, list) and len(eff) == 2 and eff[0] == eff_id:
-                            best = max(best or 0, eff[1])
+                    tmp = [v for (eid, v) in _iter_sec_effects(art) if eid == eff_id]
+                    if tmp:
+                        values.append(max(tmp))
 
-                    if best is not None:
-                        values.append(best)
-
-                values = sorted(values, reverse=True)[:TOP_K]
-                values += [0] * (TOP_K - len(values))
-
-                row[eff_name] = values
+                top = _top_n_desc(values, TOP_N)
+                row[eff_id_to_name[eff_id]] = _join_slash(top)
 
             rows.append(row)
 
-    return rows
-
-
-# ----------------------------
-# HTML Renderer
-# ----------------------------
-def render_artifact_table_html(rows, mode="attribute"):
-    if not rows:
-        return "<p>No data</p>"
-
-    headers = list(rows[0].keys())
-
-    html_out = """
-    <style>
-    table {
-        border-collapse: collapse;
-        width: 100%;
-        font-size: 12px;
-        text-align: center;
-    }
-    th, td {
-        border: 1px solid #ccc;
-        padding: 6px;
-    }
-    th {
-        background-color: #f4f4f4;
-    }
-    td.group {
-        font-weight: bold;
-        background-color: #fafafa;
-    }
-    </style>
-    <table>
-    <tr>
-    """
-
-    for h in headers:
-        html_out += f"<th>{html.escape(h)}</th>"
-    html_out += "</tr>"
-
-    prev_group = None
-
-    for row in rows:
-        html_out += "<tr>"
-
-        for idx, h in enumerate(headers):
-            val = row[h]
-
-            if idx == 0:
-                if val == prev_group:
-                    html_out += "<td></td>"
-                else:
-                    prev_group = val
-                    html_out += f"<td class='group'>{html.escape(str(val))}</td>"
-            elif isinstance(val, list):
-                html_out += "<td>" + " / ".join(str(x) for x in val) + "</td>"
-            else:
-                html_out += f"<td>{html.escape(str(val))}</td>"
-
-        html_out += "</tr>"
-
-    html_out += "</table>"
-    return html_out
+    df = pd.DataFrame(rows, columns=["Archetype", "Main"] + sub_names)
+    return df.reset_index(drop=True)
