@@ -1,6 +1,8 @@
 import pandas as pd
 from collections import defaultdict
 
+TOP_K = 5
+
 # ============================
 # Collect artifacts
 # ============================
@@ -56,8 +58,9 @@ def artifact_attribute_summary(all_artifacts):
                     if tmp:
                         values.append(max(tmp))
 
-                values = sorted(values, reverse=True)[:3]
-                values += [0] * (3 - len(values))
+                values = sorted(values, reverse=True)
+                top_vals = values[:TOP_K]
+                top_vals += [0] * (TOP_K - len(top_vals))
 
                 row[tgt_name] = values
 
