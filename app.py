@@ -138,19 +138,17 @@ if uploaded is not None:
             st.text(text)
 
     if run_artifact:
-        st.header("Artifact Summary")
-    
         all_artifacts = collect_all_artifacts(data)
     
         st.subheader("Attribute-based Summary")
-        df_attr = artifact_attribute_summary(all_artifacts)
-        html = render_artifact_table_html(df_attr, row_group_col="Attribute")
-        st.markdown(html, unsafe_allow_html=True)
+        rows_attr = artifact_attribute_summary(all_artifacts)
+        html_attr = render_artifact_table_html(rows_attr, mode="attribute")
+        st.components.v1.html(html_attr, height=600, scrolling=True)
     
-        st.subheader("Archetype-based Summary")        
-        df_arch = artifact_archetype_summary(all_artifacts)
-        html = render_artifact_table_html(df_arch, row_group_col="Archetype")
-        st.markdown(html, unsafe_allow_html=True)
+        st.subheader("Archetype-based Summary")
+        rows_arch = artifact_archetype_summary(all_artifacts)
+        html_arch = render_artifact_table_html(rows_arch, mode="archetype")
+        st.components.v1.html(html_arch, height=600, scrolling=True)
 
 
 else:
