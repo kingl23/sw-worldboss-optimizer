@@ -1,240 +1,191 @@
 # artifact_analysis.py
-import pandas as pd
+from collections import defaultdict
+import html
 
-# ============================
-# One knob
-# ============================
-TOP_K = 5  # Change only this (e.g., 3 -> 5)
+TOP_K = 5  # ← 여기 숫자만 바꾸면 3 → 5 → 10 전부 변경됨
 
-# ============================
-# Constants (MATLAB parity)
-# ============================
-ATTR_ORDER = [2, 1, 3, 4, 5]
-ATTR_NAMES = {1: "Fire", 2: "Water", 3: "Wind", 4: "Light", 5: "Dark"}
 
-# mainDefs = { mainId, rowName, effFrom }
-MAIN_DEFS_ATTR = [
-    (100, "HP_DR", 305, 309),
-    (102, "DEF_DR", 305, 309),
-    (101, "ATK_DD", 300, 304),
-]
-
-ARCHETYPE_NAMES = {1: "Attack", 2: "Defense", 3: "HP", 4: "Support"}
-MAIN_DEFS_ARCH = [
-    (100, "HP"),
-    (101, "ATK"),
-    (102, "DEF"),
-]
-SUB_EFFECTS = [206, 404, 405, 406, 407, 408, 409]
-SUB_NAMES = {
-    206: "SPD_INC",
-    404: "S1_REC",
-    405: "S2_REC",
-    406: "S3_REC",
-    407: "S1_ACC",
-    408: "S2_ACC",
-    409: "S3_ACC",
-}
-
-# ============================
-# Helpers
-# ============================
-def _as_list(x):
-    return x if isinstance(x, list) else []
-
-def _iter_sec_effects(sec_effects):
-    """
-    sec_effects can be list of [type, value] or list of lists.
-    Return iterator of (eff_id:int, eff_val:float).
-    """
-    if not isinstance(sec_effects, list):
-        return
-    for row in sec_effects:
-        if not isinstance(row, list) or len(row) < 2:
-            continue
-        try:
-            eff_id = int(row[0])
-            eff_val = float(row[1])
-        except Exception:
-            continue
-        yield eff_id, eff_val
-
-def _top_k_padded(values, k=TOP_K):
-    """
-    Sort desc, take top-k, pad with zeros to exactly k length.
-    """
-    values = sorted(values, reverse=True)
-    out = values[:k]
-    if len(out) < k:
-        out += [0] * (k - len(out))
-    return out
-
-def _join_vals(vals):
-    """
-    Always show exactly TOP_K values in one cell.
-    No emphasis on 1/2/3: equal visual weight.
-    """
-    return " / ".join(str(int(v)) for v in vals)
-
-# ============================
-# Public API
-# ============================
+# ----------------------------
+# Collect artifacts
+# ----------------------------
 def collect_all_artifacts(data):
-    """
-    MATLAB parity:
-      allArtifacts = [data.artifacts] + unit_list[*].artifacts
-    """
-    all_arts = []
-    if isinstance(data, dict):
-        all_arts += _as_list(data.get("artifacts", []))
-        for u in _as_list(data.get("unit_list", [])):
-            if isinstance(u, dict):
-                all_arts += _as_list(u.get("artifacts", []))
-    return all_arts
+    artifacts = []
+    artifacts.extend(data.get("artifacts", []))
 
-def artifact_attribute_summary(all_artifacts, top_k=TOP_K):
-    """
-    Equivalent to artifact_summary.xlsx part (type == 1).
-    Output columns: Attribute | Main | Fire | Water | Wind | Light | Dark
-    Each element is a string of exactly top_k values: "a / b / c / d / e"
-    """
-    cols = ["Attribute", "Main"] + [ATTR_NAMES[i] for i in [1, 2, 3, 4, 5]]
+    for u in data.get("unit_list", []):
+        if "artifacts" in u and u["artifacts"]:
+            artifacts.extend(u["artifacts"])
+
+    return artifacts
+
+
+# ----------------------------
+# Attribute-based summary
+# ----------------------------
+def artifact_attribute_summary(all_artifacts):
+    attr_names = ["Fire", "Water", "Wind", "Light", "Dark"]
+    main_defs = [
+        (100, "HP_DR", 305),
+        (102, "DEF_DR", 305),
+        (101, "ATK_DD", 300),
+    ]
+
     rows = []
 
-    for a_idx, art_attr in enumerate(ATTR_ORDER):
-        attr_name = ATTR_NAMES.get(art_attr, str(art_attr))
+    for attr_idx, attr_name in enumerate(attr_names, start=1):
+        for main_id, main_name, eff_from in main_defs:
+            row = {
+                "Attribute": attr_name,
+                "Main": main_name,
+            }
 
-        for r, (main_id, row_name, eff_from, eff_to) in enumerate(MAIN_DEFS_ATTR):
-            row = {"Attribute": attr_name if r == 0 else "", "Main": row_name}
-
-            # target attribute columns Fire..Dark => 1..5
-            for tgt_attr in [1, 2, 3, 4, 5]:
+            for tgt_attr_idx, tgt_attr_name in enumerate(attr_names, start=1):
                 values = []
 
                 for art in all_artifacts:
-                    if not isinstance(art, dict):
+                    if art.get("type") != 1:
                         continue
-                    # MATLAB: if art.type ~= 1; continue;
-                    if int(art.get("type", 0)) != 1:
+                    if art.get("attribute") != attr_idx:
                         continue
-                    # MATLAB: if art.attribute ~= artAttr; continue;
-                    if int(art.get("attribute", 0)) != int(art_attr):
-                        continue
-                    # MATLAB: if art.pri_effect(1) ~= mainId; continue;
-                    pri = art.get("pri_effect", [])
-                    if not (isinstance(pri, list) and len(pri) >= 1 and int(pri[0]) == int(main_id)):
+                    if art.get("pri_effect", [None])[0] != main_id:
                         continue
 
-                    tmp = []
-                    for eff_id, eff_val in _iter_sec_effects(art.get("sec_effects", [])):
-                        if eff_id < eff_from or eff_id > eff_to:
-                            continue
-                        # MATLAB: if effId - effFrom + 1 == tgtAttr
-                        if (eff_id - eff_from + 1) == tgt_attr:
-                            tmp.append(eff_val)
+                    for eff_id, eff_val in art.get("sec_effects", []):
+                        if eff_from <= eff_id <= eff_from + 4:
+                            if eff_id - eff_from + 1 == tgt_attr_idx:
+                                values.append(eff_val)
 
-                    if tmp:
-                        values.append(max(tmp))
+                values = sorted(values, reverse=True)[:TOP_K]
+                while len(values) < TOP_K:
+                    values.append(0)
 
-                top_vals = _top_k_padded(values, k=top_k)
-                row[ATTR_NAMES[tgt_attr]] = _join_vals(top_vals)
+                row[tgt_attr_name] = values
 
             rows.append(row)
 
-    df = pd.DataFrame(rows, columns=cols)
-    return df
+    return rows
 
-def artifact_archetype_summary(all_artifacts, top_k=TOP_K):
-    """
-    Equivalent to archetype_sub_effect_summary.xlsx part (type == 2).
-    Output columns: Archetype | Main | SPD_INC | S1_REC | ... | S3_ACC
-    Each element is a string of exactly top_k values: "a / b / c / d / e"
-    """
-    effect_cols = [SUB_NAMES[e] for e in SUB_EFFECTS]
-    cols = ["Archetype", "Main"] + effect_cols
+
+# ----------------------------
+# Archetype-based summary
+# ----------------------------
+def artifact_archetype_summary(all_artifacts):
+    archetypes = ["Attack", "Defense", "HP", "Support"]
+    main_defs = [(100, "HP"), (101, "ATK"), (102, "DEF")]
+
+    sub_effects = [
+        (206, "SPD_INC"),
+        (404, "S1_REC"),
+        (405, "S2_REC"),
+        (406, "S3_REC"),
+        (407, "S1_ACC"),
+        (408, "S2_ACC"),
+        (409, "S3_ACC"),
+    ]
+
     rows = []
 
-    for arch in [1, 2, 3, 4]:
-        arch_name = ARCHETYPE_NAMES.get(arch, str(arch))
+    for arch_idx, arch_name in enumerate(archetypes, start=1):
+        for main_id, main_name in main_defs:
+            row = {
+                "Archetype": arch_name,
+                "Main": main_name,
+            }
 
-        for m_i, (main_id, main_name) in enumerate(MAIN_DEFS_ARCH):
-            row = {"Archetype": arch_name if m_i == 0 else "", "Main": main_name}
-
-            for eff_id in SUB_EFFECTS:
+            for eff_id, eff_name in sub_effects:
                 values = []
 
                 for art in all_artifacts:
-                    if not isinstance(art, dict):
+                    if art.get("type") != 2:
                         continue
-                    # MATLAB: if art.type ~= 2; continue;
-                    if int(art.get("type", 0)) != 2:
+                    if art.get("unit_style") != arch_idx:
                         continue
-                    # MATLAB: if art.unit_style ~= arch; continue;
-                    if int(art.get("unit_style", 0)) != int(arch):
-                        continue
-                    # MATLAB: if art.pri_effect(1) ~= mainId; continue;
-                    pri = art.get("pri_effect", [])
-                    if not (isinstance(pri, list) and len(pri) >= 1 and int(pri[0]) == int(main_id)):
+                    if art.get("pri_effect", [None])[0] != main_id:
                         continue
 
-                    tmp = []
-                    for s_id, s_val in _iter_sec_effects(art.get("sec_effects", [])):
-                        if s_id == int(eff_id):
-                            tmp.append(s_val)
+                    for sid, sval in art.get("sec_effects", []):
+                        if sid == eff_id:
+                            values.append(sval)
 
-                    if tmp:
-                        values.append(max(tmp))
+                values = sorted(values, reverse=True)[:TOP_K]
+                while len(values) < TOP_K:
+                    values.append(0)
 
-                top_vals = _top_k_padded(values, k=top_k)
-                row[SUB_NAMES[eff_id]] = _join_vals(top_vals)
+                row[eff_name] = values
 
             rows.append(row)
 
-    df = pd.DataFrame(rows, columns=cols)
-    return df
+    return rows
 
-def style_artifact_table(df: pd.DataFrame):
+
+# ----------------------------
+# HTML Renderer (병합 + 중앙정렬)
+# ----------------------------
+def render_artifact_table_html(rows, mode="attribute"):
+    if not rows:
+        return "<p>No data</p>"
+
+    first_col = "Attribute" if mode == "attribute" else "Archetype"
+
+    headers = [first_col, "Main"] + [
+        k for k in rows[0].keys() if k not in (first_col, "Main")
+    ]
+
+    html_out = """
+    <style>
+    table { border-collapse: collapse; font-size: 12px; }
+    th, td {
+        border: 1px solid #ccc;
+        padding: 4px 6px;
+        text-align: center;
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+    th {
+        background: #f0f2f6;
+        font-weight: 600;
+    }
+    </style>
+    <table>
+    <thead><tr>
     """
-    Streamlit-friendly styling:
-    - Hide index
-    - Center all cells
-    - Improve padding & font
-    - Make table compact
-    """
-    if not isinstance(df, pd.DataFrame):
-        df = pd.DataFrame(df)
 
-    styler = df.style
+    for h in headers:
+        html_out += f"<th>{html.escape(h)}</th>"
+    html_out += "</tr></thead><tbody>"
 
-    # Hide index (works on recent pandas)
-    try:
-        styler = styler.hide(axis="index")
-    except Exception:
-        # fallback: keep index if hide not available
-        pass
+    prev_val = None
+    span_count = 0
 
-    # Center & compact
-    styler = styler.set_table_styles(
-        [
-            {"selector": "table", "props": [("width", "100%"), ("border-collapse", "collapse")]},
-            {"selector": "th", "props": [
-                ("text-align", "center"),
-                ("font-weight", "600"),
-                ("font-size", "13px"),
-                ("padding", "6px 8px"),
-                ("border", "1px solid rgba(0,0,0,0.08)"),
-                ("background-color", "rgba(0,0,0,0.03)"),
-                ("white-space", "nowrap"),
-            ]},
-            {"selector": "td", "props": [
-                ("text-align", "center"),
-                ("font-size", "12px"),
-                ("padding", "6px 8px"),
-                ("border", "1px solid rgba(0,0,0,0.08)"),
-                ("vertical-align", "middle"),
-                ("white-space", "nowrap"),
-            ]},
-        ]
+    for i, row in enumerate(rows):
+        cur_val = row[first_col]
+
+        if cur_val != prev_val:
+            if span_count > 0:
+                html_out = html_out.replace(
+                    f"__ROWSPAN_{prev_val}__",
+                    f'rowspan="{span_count}"'
+                )
+            span_count = 1
+            html_out += "<tr>"
+            html_out += f'<td __ROWSPAN_{cur_val}__>{html.escape(cur_val)}</td>'
+        else:
+            span_count += 1
+            html_out += "<tr>"
+
+        html_out += f"<td>{row['Main']}</td>"
+
+        for h in headers[2:]:
+            v = row[h]
+            html_out += "<td>" + " / ".join(map(str, v)) + "</td>"
+
+        html_out += "</tr>"
+        prev_val = cur_val
+
+    html_out = html_out.replace(
+        f"__ROWSPAN_{prev_val}__",
+        f'rowspan="{span_count}"'
     )
 
-    return styler
+    html_out += "</tbody></table>"
+    return html_out
