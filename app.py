@@ -86,11 +86,14 @@ mode = st.radio("Select Mode", ["Optimizer", "Ranking", "Both"],
 if uploaded is not None:
     try:
         data = json.load(uploaded)
-    except Exception as e:
+    except Exception:
         st.error("Invalid JSON file")
         st.stop()
 
-    if st.button("Run Analysis"):
+    if not AUTHORIZED:
+        st.warning("Enter a valid access key to enable analysis.")
+
+    if st.button("Run Analysis", disabled=not AUTHORIZED):
         # -------- Optimizer --------
         if mode in ("Optimizer", "Both"):
             st.subheader("Optimizer Result")
@@ -104,8 +107,7 @@ if uploaded is not None:
                     continue
 
                 u, ch, runes, picked, base_score = result
-                text = render_optimizer_result(u, ch, runes, picked,
-                                               base_score)
+                text = render_optimizer_result(u, ch, runes, picked, base_score)
                 st.text(text)
 
         # -------- Ranking --------
@@ -120,3 +122,4 @@ if uploaded is not None:
 
 else:
     st.info("Please upload a JSON file to start.")
+
