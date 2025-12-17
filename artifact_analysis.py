@@ -2,7 +2,7 @@
 from collections import defaultdict
 import html
 
-TOP_K = 5  # ← 여기 숫자만 바꾸면 3 → 5 → 10 전부 변경됨
+TOP_K = 5
 
 
 # ----------------------------
