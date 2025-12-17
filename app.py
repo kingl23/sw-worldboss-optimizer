@@ -140,10 +140,10 @@ if uploaded is not None:
     if run_artifact:
         all_artifacts = collect_all_artifacts(data)
     
-        rows_attr = artifact_attribute_summary(all_artifacts)
+        df_attr = artifact_attribute_summary(all_artifacts)
         st.dataframe(df_attr, use_container_width=True)
         
-        rows_arch = artifact_archetype_summary(all_artifacts)
+        df_arch = artifact_archetype_summary(all_artifacts)
         st.dataframe(df_arch, use_container_width=True)
         
 
