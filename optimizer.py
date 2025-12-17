@@ -2,26 +2,35 @@
 from itertools import product
 from collections import defaultdict
 
-from core_scores import (rune_stat_score, set_effect, unit_base_char,
-                         init_stat, add_stat, stat_struct_score)
+from core_scores import (
+    rune_stat_score,
+    set_effect,
+    unit_base_char,
+    init_stat,
+    add_stat,
+    stat_struct_score,
+)
 
 
-def optimize_unit_best_runes(data, target_master_id, k):
-    # Find target unit
-    units = [
-        u for u in data.get("unit_list", [])
-        if int(u.get("unit_master_id", -1)) == int(target_master_id)
-    ]
-    if not units:
-        return None, None, [], [], []
+def _dedupe_runes_by_id(runes):
+    """Keep first occurrence of each rune_id (safety for mixed sources)."""
+    seen = set()
+    out = []
+    for r in runes or []:
+        rid = r.get("rune_id")
+        if rid is None:
+            out.append(r)
+            continue
+        if rid in seen:
+            continue
+        seen.add(rid)
+        out.append(r)
+    return out
 
-    u = units[0]
+
+def _optimize_with_runes(u, runes, k):
+    """Core optimizer (same algorithm as before)."""
     ch = unit_base_char(u)
-
-    # +15 runes only
-    runes = [
-        r for r in data.get("runes", []) if int(r.get("upgrade_curr", 0)) == 15
-    ]
 
     # Base rune scores
     base_score = []
@@ -64,3 +73,49 @@ def optimize_unit_best_runes(data, target_master_id, k):
         return None, None, [], [], []
 
     return u, ch, runes, list(best_pick), base_score
+
+
+def optimize_unit_best_runes(data, target_master_id, k):
+    """Existing behavior: pick by unit_master_id, use ONLY global +15 runes."""
+    # Find target unit
+    units = [
+        u
+        for u in data.get("unit_list", [])
+        if int(u.get("unit_master_id", -1)) == int(target_master_id)
+    ]
+    if not units:
+        return None, None, [], [], []
+
+    u = units[0]
+
+    # +15 runes only (global pool)
+    runes = [r for r in data.get("runes", []) if int(r.get("upgrade_curr", 0)) == 15]
+
+    return _optimize_with_runes(u, runes, k)
+
+
+def optimize_unit_best_runes_by_unit_id(data, target_unit_id, k):
+    """
+    New behavior: pick by unit_id, use ONLY:
+      - runes currently equipped on that unit (u['runes'])
+      - +15 runes in global storage/inventory (data['runes'])
+    """
+    # Find target unit by unit_id
+    units = [
+        u
+        for u in data.get("unit_list", [])
+        if int(u.get("unit_id", -1)) == int(target_unit_id)
+    ]
+    if not units:
+        return None, None, [], [], []
+
+    u = units[0]
+
+    equipped = u.get("runes", []) or []
+    storage = data.get("runes", []) or []
+
+    # Build pool, dedupe, and keep +15 only
+    pool = _dedupe_runes_by_id(list(equipped) + list(storage))
+    runes = [r for r in pool if int(r.get("upgrade_curr", 0)) == 15]
+
+    return _optimize_with_runes(u, runes, k)
