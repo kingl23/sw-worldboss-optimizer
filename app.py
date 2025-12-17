@@ -144,9 +144,8 @@ if uploaded is not None:
         st.dataframe(df_attr, use_container_width=True)
         
         rows_arch = artifact_archetype_summary(all_artifacts)
-        st.markdown(html_arch, unsafe_allow_html=True)
+        st.dataframe(df_arch, use_container_width=True)
         
-
 
 
 
