@@ -1,7 +1,7 @@
 # config.py
 
 # Optimizer targets
-TARGET_MASTER_IDS = [21511]
+TARGET_MASTER_IDS = []
 
 # Optimizer pruning
 K_PER_SLOT = 5
