@@ -13,6 +13,11 @@ from artifact_analysis import (
     artifact_archetype_summary,
     style_artifact_table,
 )
+st.dataframe(
+    style_artifact_table(df_attr),
+    use_container_width=True,
+    height=500
+)
 
 
 st.error("### DEBUG: ARTIFACT VERSION ACTIVE")
