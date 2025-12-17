@@ -7,7 +7,12 @@ from optimizer import optimize_unit_best_runes
 from ranking import rank_all_units
 from visualize import (render_optimizer_result, render_ranking_result)
 
-from artifact_analysis import render_artifact_table_html
+from artifact_analysis import (
+    collect_all_artifacts,
+    artifact_attribute_summary,
+    artifact_archetype_summary,
+    render_artifact_table_html,
+)
 
 html = render_artifact_table_html(df_attr)
 st.markdown(html, unsafe_allow_html=True)
