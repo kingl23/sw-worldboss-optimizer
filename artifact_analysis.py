@@ -133,3 +133,64 @@ def artifact_archetype_summary(all_artifacts):
 
     df = pd.DataFrame(rows)
     return df
+
+
+def render_artifact_table_html(df):
+    df = df.copy()
+    df = df.reset_index(drop=True)
+
+    # Group columns by suffix (_1, _2, _3)
+    grouped_cols = {}
+    for col in df.columns:
+        if "_" in col and col.split("_")[-1] in ("1", "2", "3"):
+            base = col.rsplit("_", 1)[0]
+            grouped_cols.setdefault(base, []).append(col)
+
+    html = """
+    <style>
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+    }
+    th, td {
+        border: 1px solid #ccc;
+        padding: 6px 10px;
+        text-align: center;
+    }
+    th {
+        background-color: #f5f5f5;
+    }
+    </style>
+    <table>
+    """
+
+    # Header
+    html += "<tr>"
+    fixed_cols = [c for c in df.columns if c not in sum(grouped_cols.values(), [])]
+    for c in fixed_cols:
+        html += f"<th>{c}</th>"
+    for g in grouped_cols:
+        html += f"<th colspan='3'>{g}</th>"
+    html += "</tr>"
+
+    # Sub-header
+    html += "<tr>"
+    for _ in fixed_cols:
+        html += "<th></th>"
+    for _ in grouped_cols:
+        html += "<th>①</th><th>②</th><th>③</th>"
+    html += "</tr>"
+
+    # Body
+    for _, row in df.iterrows():
+        html += "<tr>"
+        for c in fixed_cols:
+            html += f"<td>{row[c]}</td>"
+        for g, cols in grouped_cols.items():
+            for c in cols:
+                html += f"<td>{row[c]}</td>"
+        html += "</tr>"
+
+    html += "</table>"
+    return html
