@@ -31,7 +31,7 @@ if target_input.strip():
         st.sidebar.error("Please enter valid integer IDs separated by commas.")
         TARGET_MASTER_IDS = []
 else:
-    TARGET_MASTER_IDS = DEFAULT_TARGET_MASTER_IDS
+    TARGET_MASTER_IDS = []
 
 
 # ----------------------------
