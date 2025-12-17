@@ -1,3 +1,4 @@
+# artifact_analysis.py
 import pandas as pd
 
 # ----------------------------
@@ -16,7 +17,7 @@ def collect_all_artifacts(data):
 
 
 # ----------------------------
-# Artifact Attribute Summary
+# Attribute-based summary
 # ----------------------------
 ATTR_ORDER = [2, 1, 3, 4, 5]
 ATTR_NAMES = ["Fire", "Water", "Wind", "Light", "Dark"]
@@ -32,10 +33,11 @@ def artifact_attribute_summary(all_artifacts):
     rows = []
 
     for attr_idx, attr in enumerate(ATTR_ORDER):
-        attr_name = ATTR_NAMES[attr_idx]
-
         for main_id, main_name, eff_from in MAIN_DEFS_ATTR:
-            row = {"Attribute": attr_name, "Main": main_name}
+            row = {
+                "Attribute": ATTR_NAMES[attr_idx],
+                "Main": main_name,
+            }
 
             for tgt_attr in range(1, 6):
                 values = []
@@ -71,7 +73,7 @@ def artifact_attribute_summary(all_artifacts):
 
 
 # ----------------------------
-# Artifact Archetype Summary
+# Archetype-based summary
 # ----------------------------
 ARCHETYPES = ["Attack", "Defense", "HP", "Support"]
 
@@ -97,7 +99,10 @@ def artifact_archetype_summary(all_artifacts):
 
     for arch_idx, arch_name in enumerate(ARCHETYPES, start=1):
         for main_id, main_name in MAIN_DEFS_ARCH:
-            row = {"Archetype": arch_name, "Main": main_name}
+            row = {
+                "Archetype": arch_name,
+                "Main": main_name,
+            }
 
             for eff_id, eff_name in SUB_EFFECTS:
                 values = []
