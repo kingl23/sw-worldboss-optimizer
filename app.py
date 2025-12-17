@@ -144,20 +144,13 @@ if uploaded is not None:
     
         st.subheader("Attribute-based Summary")
         df_attr = artifact_attribute_summary(all_artifacts)
-
-        html = render_artifact_table_html(df_attr)
+        html = render_artifact_table_html(df_attr, row_group_col="Attribute")
         st.markdown(html, unsafe_allow_html=True)
-
-
     
         st.subheader("Archetype-based Summary")        
         df_arch = artifact_archetype_summary(all_artifacts)
-
-        html = render_artifact_table_html(df_arch)
+        html = render_artifact_table_html(df_arch, row_group_col="Archetype")
         st.markdown(html, unsafe_allow_html=True)
-
-
-
 
 
 else:
