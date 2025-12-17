@@ -9,21 +9,25 @@ TOP_K = 5
 # Collect artifacts
 # ----------------------------
 def collect_all_artifacts(data):
-    artifacts = []
-    artifacts.extend(data.get("artifacts", []))
+    arts = []
+
+    if isinstance(data.get("artifacts"), list):
+        arts.extend(data["artifacts"])
 
     for u in data.get("unit_list", []):
-        if "artifacts" in u and u["artifacts"]:
-            artifacts.extend(u["artifacts"])
+        if isinstance(u.get("artifacts"), list):
+            arts.extend(u["artifacts"])
 
-    return artifacts
+    return arts
 
 
 # ----------------------------
 # Attribute-based summary
 # ----------------------------
 def artifact_attribute_summary(all_artifacts):
+    attr_order = [2, 1, 3, 4, 5]
     attr_names = ["Fire", "Water", "Wind", "Light", "Dark"]
+
     main_defs = [
         (100, "HP_DR", 305),
         (102, "DEF_DR", 305),
@@ -32,34 +36,47 @@ def artifact_attribute_summary(all_artifacts):
 
     rows = []
 
-    for attr_idx, attr_name in enumerate(attr_names, start=1):
+    for a_idx, art_attr in enumerate(attr_order):
         for main_id, main_name, eff_from in main_defs:
             row = {
-                "Attribute": attr_name,
+                "Attribute": attr_names[a_idx],
                 "Main": main_name,
             }
 
-            for tgt_attr_idx, tgt_attr_name in enumerate(attr_names, start=1):
+            for tgt_idx, tgt_name in enumerate(attr_names):
                 values = []
 
                 for art in all_artifacts:
                     if art.get("type") != 1:
                         continue
-                    if art.get("attribute") != attr_idx:
+                    if art.get("attribute") != art_attr:
                         continue
-                    if art.get("pri_effect", [None])[0] != main_id:
+                    if not isinstance(art.get("pri_effect"), list):
+                        continue
+                    if art["pri_effect"][0] != main_id:
                         continue
 
-                    for eff_id, eff_val in art.get("sec_effects", []):
-                        if eff_from <= eff_id <= eff_from + 4:
-                            if eff_id - eff_from + 1 == tgt_attr_idx:
-                                values.append(eff_val)
+                    sec = art.get("sec_effects")
+                    if not isinstance(sec, list):
+                        continue
+
+                    best = None
+                    for eff in sec:
+                        if (
+                            isinstance(eff, list)
+                            and len(eff) == 2
+                            and eff_from <= eff[0] <= eff_from + 4
+                            and (eff[0] - eff_from) == tgt_idx
+                        ):
+                            best = max(best or 0, eff[1])
+
+                    if best is not None:
+                        values.append(best)
 
                 values = sorted(values, reverse=True)[:TOP_K]
-                while len(values) < TOP_K:
-                    values.append(0)
+                values += [0] * (TOP_K - len(values))
 
-                row[tgt_attr_name] = values
+                row[tgt_name] = values
 
             rows.append(row)
 
@@ -73,7 +90,7 @@ def artifact_archetype_summary(all_artifacts):
     archetypes = ["Attack", "Defense", "HP", "Support"]
     main_defs = [(100, "HP"), (101, "ATK"), (102, "DEF")]
 
-    sub_effects = [
+    sub_defs = [
         (206, "SPD_INC"),
         (404, "S1_REC"),
         (405, "S2_REC"),
@@ -92,7 +109,7 @@ def artifact_archetype_summary(all_artifacts):
                 "Main": main_name,
             }
 
-            for eff_id, eff_name in sub_effects:
+            for eff_id, eff_name in sub_defs:
                 values = []
 
                 for art in all_artifacts:
@@ -100,16 +117,25 @@ def artifact_archetype_summary(all_artifacts):
                         continue
                     if art.get("unit_style") != arch_idx:
                         continue
-                    if art.get("pri_effect", [None])[0] != main_id:
+                    if not isinstance(art.get("pri_effect"), list):
+                        continue
+                    if art["pri_effect"][0] != main_id:
                         continue
 
-                    for sid, sval in art.get("sec_effects", []):
-                        if sid == eff_id:
-                            values.append(sval)
+                    sec = art.get("sec_effects")
+                    if not isinstance(sec, list):
+                        continue
+
+                    best = None
+                    for eff in sec:
+                        if isinstance(eff, list) and len(eff) == 2 and eff[0] == eff_id:
+                            best = max(best or 0, eff[1])
+
+                    if best is not None:
+                        values.append(best)
 
                 values = sorted(values, reverse=True)[:TOP_K]
-                while len(values) < TOP_K:
-                    values.append(0)
+                values += [0] * (TOP_K - len(values))
 
                 row[eff_name] = values
 
@@ -119,73 +145,62 @@ def artifact_archetype_summary(all_artifacts):
 
 
 # ----------------------------
-# HTML Renderer (병합 + 중앙정렬)
+# HTML Renderer
 # ----------------------------
 def render_artifact_table_html(rows, mode="attribute"):
     if not rows:
         return "<p>No data</p>"
 
-    first_col = "Attribute" if mode == "attribute" else "Archetype"
-
-    headers = [first_col, "Main"] + [
-        k for k in rows[0].keys() if k not in (first_col, "Main")
-    ]
+    headers = list(rows[0].keys())
 
     html_out = """
     <style>
-    table { border-collapse: collapse; font-size: 12px; }
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 12px;
+        text-align: center;
+    }
     th, td {
         border: 1px solid #ccc;
-        padding: 4px 6px;
-        text-align: center;
-        vertical-align: middle;
-        white-space: nowrap;
+        padding: 6px;
     }
     th {
-        background: #f0f2f6;
-        font-weight: 600;
+        background-color: #f4f4f4;
+    }
+    td.group {
+        font-weight: bold;
+        background-color: #fafafa;
     }
     </style>
     <table>
-    <thead><tr>
+    <tr>
     """
 
     for h in headers:
         html_out += f"<th>{html.escape(h)}</th>"
-    html_out += "</tr></thead><tbody>"
+    html_out += "</tr>"
 
-    prev_val = None
-    span_count = 0
+    prev_group = None
 
-    for i, row in enumerate(rows):
-        cur_val = row[first_col]
+    for row in rows:
+        html_out += "<tr>"
 
-        if cur_val != prev_val:
-            if span_count > 0:
-                html_out = html_out.replace(
-                    f"__ROWSPAN_{prev_val}__",
-                    f'rowspan="{span_count}"'
-                )
-            span_count = 1
-            html_out += "<tr>"
-            html_out += f'<td __ROWSPAN_{cur_val}__>{html.escape(cur_val)}</td>'
-        else:
-            span_count += 1
-            html_out += "<tr>"
+        for idx, h in enumerate(headers):
+            val = row[h]
 
-        html_out += f"<td>{row['Main']}</td>"
-
-        for h in headers[2:]:
-            v = row[h]
-            html_out += "<td>" + " / ".join(map(str, v)) + "</td>"
+            if idx == 0:
+                if val == prev_group:
+                    html_out += "<td></td>"
+                else:
+                    prev_group = val
+                    html_out += f"<td class='group'>{html.escape(str(val))}</td>"
+            elif isinstance(val, list):
+                html_out += "<td>" + " / ".join(str(x) for x in val) + "</td>"
+            else:
+                html_out += f"<td>{html.escape(str(val))}</td>"
 
         html_out += "</tr>"
-        prev_val = cur_val
 
-    html_out = html_out.replace(
-        f"__ROWSPAN_{prev_val}__",
-        f'rowspan="{span_count}"'
-    )
-
-    html_out += "</tbody></table>"
+    html_out += "</table>"
     return html_out
