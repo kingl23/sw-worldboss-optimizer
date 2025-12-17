@@ -171,8 +171,8 @@ def render_artifact_table_html(rows, mode="attribute"):
 
         for h in headers[2:]:
             v = row[h]
-            if isinstance(v, list):
-                html += f"<td>{v[0]} / {v[1]} / {v[2]}</td>"
+            if isinstance(v, list):                
+                html += "<td>" + " / ".join(str(x) for x in v) + "</td>"
             else:
                 html += f"<td>{v}</td>"
 
