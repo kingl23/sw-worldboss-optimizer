@@ -14,10 +14,6 @@ from artifact_analysis import (
     render_artifact_table_html,
 )
 
-html = render_artifact_table_html(df_attr)
-st.markdown(html, unsafe_allow_html=True)
-
-
 st.error("### DEBUG: ARTIFACT VERSION ACTIVE")
 
 st.set_page_config(page_title="Rune Analyzer", layout="wide")
@@ -148,20 +144,18 @@ if uploaded is not None:
     
         st.subheader("Attribute-based Summary")
         df_attr = artifact_attribute_summary(all_artifacts)
-        st.dataframe(
-            df_attr.reset_index(drop=True),
-            use_container_width=True,
-            height=500
-        )
+
+        html = render_artifact_table_html(df_attr)
+        st.markdown(html, unsafe_allow_html=True)
+
 
     
         st.subheader("Archetype-based Summary")        
         df_arch = artifact_archetype_summary(all_artifacts)
-        st.dataframe(
-            df_arch.reset_index(drop=True),
-            use_container_width=True,
-            height=500
-        )
+
+        html = render_artifact_table_html(df_arch)
+        st.markdown(html, unsafe_allow_html=True)
+
 
 
 
