@@ -140,15 +140,14 @@ if uploaded is not None:
     if run_artifact:
         all_artifacts = collect_all_artifacts(data)
     
-        st.subheader("Attribute-based Summary")
         rows_attr = artifact_attribute_summary(all_artifacts)
         html_attr = render_artifact_table_html(rows_attr, mode="attribute")
-        st.components.v1.html(html_attr, height=600, scrolling=True)
-    
-        st.subheader("Archetype-based Summary")
+        st.markdown(html_attr, unsafe_allow_html=True)
+        
         rows_arch = artifact_archetype_summary(all_artifacts)
         html_arch = render_artifact_table_html(rows_arch, mode="archetype")
-        st.components.v1.html(html_arch, height=600, scrolling=True)
+        st.markdown(html_arch, unsafe_allow_html=True)
+
 
 
 else:
