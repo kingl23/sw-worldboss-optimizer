@@ -143,11 +143,12 @@ if uploaded is not None:
     
         st.subheader("Attribute-based Summary")
         df_attr = artifact_attribute_summary(all_artifacts)
-        st.dataframe(df_attr, use_container_width=True)
+        st.dataframe(style_artifact_table(df_attr), use_container_width=True)
     
-        st.subheader("Archetype-based Summary")
+        st.subheader("Archetype-based Summary")        
         df_arch = artifact_archetype_summary(all_artifacts)
-        st.dataframe(df_arch, use_container_width=True)
+        st.dataframe(style_artifact_table(df_arch), use_container_width=True)
+
 
 
 else:
