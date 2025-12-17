@@ -11,8 +11,8 @@ from artifact_analysis import (
     collect_all_artifacts,
     artifact_attribute_summary,
     artifact_archetype_summary,
-    render_artifact_table_html,
 )
+
 
 st.error("### DEBUG: ARTIFACT VERSION ACTIVE")
 
@@ -141,12 +141,11 @@ if uploaded is not None:
         all_artifacts = collect_all_artifacts(data)
     
         rows_attr = artifact_attribute_summary(all_artifacts)
-        html_attr = render_artifact_table_html(rows_attr, mode="attribute")
-        st.markdown(html_attr, unsafe_allow_html=True)
+        st.dataframe(df_attr, use_container_width=True)
         
         rows_arch = artifact_archetype_summary(all_artifacts)
-        html_arch = render_artifact_table_html(rows_arch, mode="archetype")
         st.markdown(html_arch, unsafe_allow_html=True)
+        
 
 
 
