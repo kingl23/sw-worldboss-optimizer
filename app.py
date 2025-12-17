@@ -2,10 +2,10 @@
 import streamlit as st
 import json
 
-from config import TARGET_MASTER_IDS, K_PER_SLOT
-from optimizer import optimize_unit_best_runes
+from config import K_PER_SLOT
+from optimizer import optimize_unit_best_runes, optimize_unit_best_runes_by_unit_id
 from ranking import rank_all_units
-from visualize import (render_optimizer_result, render_ranking_result)
+from visualize import render_optimizer_result, render_ranking_result
 
 from artifact_analysis import (
     collect_all_artifacts,
@@ -13,11 +13,9 @@ from artifact_analysis import (
     artifact_archetype_summary,
 )
 
-
 st.error("### DEBUG: ARTIFACT VERSION ACTIVE")
 
 st.set_page_config(page_title="Rune Analyzer", layout="wide")
-
 st.title("Summoners War Rune Analyzer")
 
 # ============================
@@ -28,7 +26,7 @@ st.sidebar.header("Access Control")
 input_key = st.sidebar.text_input(
     "Access Key",
     type="password",
-    help="Enter a valid access key to unlock private features"
+    help="Enter a valid access key to unlock private features",
 )
 
 AUTHORIZED = False
@@ -41,41 +39,46 @@ if input_key:
     else:
         st.sidebar.error("Invalid access key")
 
-
 # ----------------------------
-# Input target
+# Optimizer Settings
 # ----------------------------
 st.sidebar.header("Optimizer Settings")
 
-target_input = st.sidebar.text_input(
-    "Target Unit Master ID(s)",
-    value="",
-    help="Enter one or more unit_master_id values, separated by commas (e.g. 21511,23111)"
+id_type = st.sidebar.radio(
+    "Target ID Type",
+    ["Unit Master ID (unit_master_id)", "Unit Instance ID (unit_id)"],
+    index=0,
+    help="Choose whether you are targeting by unit_master_id (species) or unit_id (your specific monster).",
 )
 
-TARGET_MASTER_IDS = []
+if id_type.startswith("Unit Master"):
+    target_label = "Target Unit Master ID(s)"
+    target_help = "Enter one or more unit_master_id values, separated by commas (e.g. 21511,23111)"
+else:
+    target_label = "Target Unit ID(s)"
+    target_help = "Enter one or more unit_id values, separated by commas (e.g. 123456789,987654321)"
+
+target_input = st.sidebar.text_input(
+    target_label,
+    value="",
+    help=target_help,
+)
+
+TARGET_IDS = []
 
 if target_input.strip():
     try:
-        TARGET_MASTER_IDS = [
-            int(x.strip()) for x in target_input.split(",") if x.strip()
-        ]
+        TARGET_IDS = [int(x.strip()) for x in target_input.split(",") if x.strip()]
     except ValueError:
         st.sidebar.error("Please enter valid integer IDs separated by commas.")
-        TARGET_MASTER_IDS = []
+        TARGET_IDS = []
 else:
-    TARGET_MASTER_IDS = []
+    TARGET_IDS = []
 
-if TARGET_MASTER_IDS:
-    st.sidebar.success(
-        f"Applied target IDs: {TARGET_MASTER_IDS}"
-    )
+if TARGET_IDS:
+    st.sidebar.success(f"Applied target IDs: {TARGET_IDS}")
 else:
-    st.sidebar.info(
-        "No target unit selected."
-    )
-
-
+    st.sidebar.info("No target unit selected.")
 
 # ----------------------------
 # Upload
@@ -85,9 +88,7 @@ uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"])
 # ----------------------------
 # Mode selection
 # ----------------------------
-mode = st.radio("Select Mode", ["Optimizer", "Ranking", "Both"],
-                horizontal=True)
-
+mode = st.radio("Select Mode", ["Optimizer", "Ranking", "Both"], horizontal=True)
 
 # ----------------------------
 # Run
@@ -106,7 +107,7 @@ if uploaded is not None:
 
     with col1:
         run_analysis = st.button("Run Analysis", disabled=not AUTHORIZED)
-    
+
     with col2:
         run_artifact = st.button("Artifact Summary", disabled=not AUTHORIZED)
 
@@ -115,12 +116,17 @@ if uploaded is not None:
         if mode in ("Optimizer", "Both"):
             st.subheader("Optimizer Result")
 
-            for mid in TARGET_MASTER_IDS:
+            for tid in TARGET_IDS:
                 with st.spinner("Running optimizer..."):
-                    result = optimize_unit_best_runes(data, mid, K_PER_SLOT)
+                    if id_type.startswith("Unit Master"):
+                        result = optimize_unit_best_runes(data, tid, K_PER_SLOT)
+                        id_desc = "master_id"
+                    else:
+                        result = optimize_unit_best_runes_by_unit_id(data, tid, K_PER_SLOT)
+                        id_desc = "unit_id"
 
-                if result is None:
-                    st.warning(f"Unit master_id {mid} not found")
+                if result is None or result[0] is None:
+                    st.warning(f"Target {id_desc} {tid} not found")
                     continue
 
                 u, ch, runes, picked, base_score = result
@@ -139,16 +145,12 @@ if uploaded is not None:
 
     if run_artifact:
         all_artifacts = collect_all_artifacts(data)
-    
+
         df_attr = artifact_attribute_summary(all_artifacts)
         st.dataframe(df_attr, use_container_width=True)
-        
+
         df_arch = artifact_archetype_summary(all_artifacts)
         st.dataframe(df_arch, use_container_width=True)
-        
-
-
 
 else:
     st.info("Please upload a JSON file to start.")
-
