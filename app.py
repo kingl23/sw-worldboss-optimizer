@@ -7,6 +7,12 @@ from optimizer import optimize_unit_best_runes
 from ranking import rank_all_units
 from visualize import (render_optimizer_result, render_ranking_result)
 
+from artifact_analysis import (
+    collect_all_artifacts,
+    artifact_attribute_summary,
+    artifact_archetype_summary,
+)
+
 st.set_page_config(page_title="Rune Analyzer", layout="wide")
 
 st.title("Summoners War Rune Analyzer")
@@ -93,7 +99,15 @@ if uploaded is not None:
     if not AUTHORIZED:
         st.warning("Enter a valid access key to enable analysis.")
 
-    if st.button("Run Analysis", disabled=not AUTHORIZED):
+    col1, col2 = st.columns(2)
+
+    with col1:
+        run_analysis = st.button("Run Analysis", disabled=not AUTHORIZED)
+    
+    with col2:
+        run_artifact = st.button("Artifact Summary", disabled=not AUTHORIZED)
+
+    if run_analysis:
         # -------- Optimizer --------
         if mode in ("Optimizer", "Both"):
             st.subheader("Optimizer Result")
@@ -119,6 +133,20 @@ if uploaded is not None:
 
             text = render_ranking_result(results, top_n=60)
             st.text(text)
+
+    if run_artifact:
+        st.header("Artifact Summary")
+    
+        all_artifacts = collect_all_artifacts(data)
+    
+        st.subheader("Attribute-based Summary")
+        df_attr = artifact_attribute_summary(all_artifacts)
+        st.dataframe(df_attr, use_container_width=True)
+    
+        st.subheader("Archetype-based Summary")
+        df_arch = artifact_archetype_summary(all_artifacts)
+        st.dataframe(df_arch, use_container_width=True)
+
 
 else:
     st.info("Please upload a JSON file to start.")
