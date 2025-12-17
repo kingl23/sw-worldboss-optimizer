@@ -47,7 +47,7 @@ def artifact_attribute_summary(all_artifacts):
                 values = []
 
                 for art in all_artifacts:
-                    if art.get("type") != 1:
+                    if art.get("type") != 2:
                         continue
                     if art.get("attribute") != art_attr:
                         continue
@@ -113,7 +113,7 @@ def artifact_archetype_summary(all_artifacts):
                 values = []
 
                 for art in all_artifacts:
-                    if art.get("type") != 2:
+                    if art.get("type") != 3:
                         continue
                     if art.get("unit_style") != arch_idx:
                         continue
