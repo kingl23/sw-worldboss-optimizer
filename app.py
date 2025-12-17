@@ -11,7 +11,9 @@ from artifact_analysis import (
     collect_all_artifacts,
     artifact_attribute_summary,
     artifact_archetype_summary,
+    style_artifact_table,
 )
+
 
 st.error("### DEBUG: ARTIFACT VERSION ACTIVE")
 
