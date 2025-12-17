@@ -195,7 +195,7 @@ def artifact_sub_score_only(art):
     for row in art.get("sec_effects", []):
         if len(row) >= 2:
             score += (row[1] / 6.0) * 25.0
-    return score
+    return 0 # score
 
 
 def artifact_score_total(art):
@@ -268,10 +268,8 @@ def score_unit_total(u):
 
     total_add_stat = add_stat(rune_stat_sum, stat_bonus)
 
-    # total_score = (base_stat_score + sum(base_scores) + stat_bonus_score +
-    #                fixed_score + artifact_score_sum + su_score)
     total_score = (base_stat_score + sum(base_scores) + stat_bonus_score +
-               fixed_score + su_score)
+                   fixed_score + artifact_score_sum + su_score)
 
 
     return {
