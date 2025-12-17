@@ -22,6 +22,8 @@ target_input = st.sidebar.text_input(
     help="Enter one or more unit_master_id values, separated by commas (e.g. 21511,23111)"
 )
 
+TARGET_MASTER_IDS = []
+
 if target_input.strip():
     try:
         TARGET_MASTER_IDS = [
@@ -32,6 +34,16 @@ if target_input.strip():
         TARGET_MASTER_IDS = []
 else:
     TARGET_MASTER_IDS = []
+
+if TARGET_MASTER_IDS:
+    st.sidebar.success(
+        f"Applied target IDs: {TARGET_MASTER_IDS}"
+    )
+else:
+    st.sidebar.info(
+        "No target unit selected."
+    )
+
 
 
 # ----------------------------
