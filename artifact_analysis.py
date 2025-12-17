@@ -1,150 +1,29 @@
-# artifact_analysis.py
 import pandas as pd
 
 
-# ----------------------------
-# Collect all artifacts
-# ----------------------------
 def collect_all_artifacts(data):
-    all_artifacts = []
-
-    # Account-level artifacts
-    if "artifacts" in data and data["artifacts"]:
-        all_artifacts.extend(data["artifacts"])
-
-    # Unit-level artifacts
+    arts = []
+    arts.extend(data.get("artifacts", []))
     for u in data.get("unit_list", []):
-        arts = u.get("artifacts", [])
-        if arts:
-            all_artifacts.extend(arts)
-
-    return all_artifacts
+        if "artifacts" in u and u["artifacts"]:
+            arts.extend(u["artifacts"])
+    return arts
 
 
-# ----------------------------
-# Attribute-based summary
-# ----------------------------
-def artifact_attribute_summary(all_artifacts):
-    attr_order = [2, 1, 3, 4, 5]
-    attr_names = ["Fire", "Water", "Wind", "Light", "Dark"]
+# ==============================
+# HTML TABLE RENDERER (CORE)
+# ==============================
+def render_artifact_table_html(df, row_group_col):
+    """
+    df: summary dataframe
+    row_group_col: column name to vertically merge (Attribute / Archetype)
+    """
 
-    main_defs = [
-        (100, "HP_DR", 305),
-        (102, "DEF_DR", 305),
-        (101, "ATK_DD", 300),
-    ]
-
-    rows = []
-
-    for attr_id, attr_name in zip(attr_order, attr_names):
-        for main_id, main_name, eff_from in main_defs:
-            row = {
-                "Attribute": attr_name,
-                "Main": main_name,
-            }
-
-            for tgt_attr, tgt_name in zip(attr_order, attr_names):
-                values = []
-
-                for art in all_artifacts:
-                    if art.get("type") != 1:
-                        continue
-                    if art.get("attribute") != attr_id:
-                        continue
-                    if art.get("pri_effect", [None])[0] != main_id:
-                        continue
-
-                    for se in art.get("sec_effects", []):
-                        eff_id = se[0]
-                        eff_val = se[1]
-
-                        if eff_from <= eff_id <= eff_from + 4:
-                            if eff_id - eff_from + 1 == tgt_attr:
-                                values.append(eff_val)
-
-                values = sorted(values, reverse=True)[:3]
-                values += [0] * (3 - len(values))
-
-                row[f"{tgt_name}_1"] = values[0]
-                row[f"{tgt_name}_2"] = values[1]
-                row[f"{tgt_name}_3"] = values[2]
-
-            rows.append(row)
-
-    df = pd.DataFrame(rows)
-    return df
-
-
-# ----------------------------
-# Archetype-based summary
-# ----------------------------
-def artifact_archetype_summary(all_artifacts):
-    archetype_names = ["Attack", "Defense", "HP", "Support"]
-
-    main_defs = [
-        (100, "HP"),
-        (101, "ATK"),
-        (102, "DEF"),
-    ]
-
-    sub_effects = [206, 404, 405, 406, 407, 408, 409]
-    sub_names = [
-        "SPD_INC",
-        "S1_REC",
-        "S2_REC",
-        "S3_REC",
-        "S1_ACC",
-        "S2_ACC",
-        "S3_ACC",
-    ]
-
-    rows = []
-
-    for arch_id, arch_name in enumerate(archetype_names, start=1):
-        for main_id, main_name in main_defs:
-            row = {
-                "Archetype": arch_name,
-                "Main": main_name,
-            }
-
-            for eff_id, eff_name in zip(sub_effects, sub_names):
-                values = []
-
-                for art in all_artifacts:
-                    if art.get("type") != 2:
-                        continue
-                    if art.get("unit_style") != arch_id:
-                        continue
-                    if art.get("pri_effect", [None])[0] != main_id:
-                        continue
-
-                    for se in art.get("sec_effects", []):
-                        if se[0] == eff_id:
-                            values.append(se[1])
-
-                values = sorted(values, reverse=True)[:3]
-                values += [0] * (3 - len(values))
-
-                row[f"{eff_name}_1"] = values[0]
-                row[f"{eff_name}_2"] = values[1]
-                row[f"{eff_name}_3"] = values[2]
-
-            rows.append(row)
-
-    df = pd.DataFrame(rows)
-    return df
-
-
-def render_artifact_table_html(df):
-    df = df.copy()
     df = df.reset_index(drop=True)
 
-    # Group columns by suffix (_1, _2, _3)
-    grouped_cols = {}
-    for col in df.columns:
-        if "_" in col and col.split("_")[-1] in ("1", "2", "3"):
-            base = col.rsplit("_", 1)[0]
-            grouped_cols.setdefault(base, []).append(col)
+    # columns
+    fixed_cols = [row_group_col, "Main"]
+    element_cols = ["Fire", "Water", "Wind", "Light", "Dark"]
 
     html = """
     <style>
@@ -154,43 +33,93 @@ def render_artifact_table_html(df):
         font-size: 14px;
     }
     th, td {
-        border: 1px solid #ccc;
-        padding: 6px 10px;
+        border: 1px solid #ddd;
+        padding: 8px 12px;
         text-align: center;
+        vertical-align: middle;
     }
     th {
-        background-color: #f5f5f5;
+        background-color: #f3f3f3;
+        font-weight: 600;
     }
     </style>
     <table>
     """
 
-    # Header
+    # ===== HEADER =====
     html += "<tr>"
-    fixed_cols = [c for c in df.columns if c not in sum(grouped_cols.values(), [])]
     for c in fixed_cols:
         html += f"<th>{c}</th>"
-    for g in grouped_cols:
-        html += f"<th colspan='3'>{g}</th>"
+    for e in element_cols:
+        html += f"<th>{e}</th>"
     html += "</tr>"
 
-    # Sub-header
-    html += "<tr>"
-    for _ in fixed_cols:
-        html += "<th></th>"
-    for _ in grouped_cols:
-        html += "<th>①</th><th>②</th><th>③</th>"
-    html += "</tr>"
+    # ===== BODY =====
+    i = 0
+    while i < len(df):
+        row = df.iloc[i]
+        group_val = row[row_group_col]
 
-    # Body
-    for _, row in df.iterrows():
-        html += "<tr>"
-        for c in fixed_cols:
-            html += f"<td>{row[c]}</td>"
-        for g, cols in grouped_cols.items():
-            for c in cols:
-                html += f"<td>{row[c]}</td>"
-        html += "</tr>"
+        # count rowspan
+        span = 1
+        j = i + 1
+        while j < len(df) and df.iloc[j][row_group_col] == group_val:
+            span += 1
+            j += 1
+
+        for k in range(span):
+            r = df.iloc[i + k]
+            html += "<tr>"
+
+            # merged row-group column
+            if k == 0:
+                html += f"<td rowspan='{span}'><b>{group_val}</b></td>"
+
+            # Main
+            html += f"<td>{r['Main']}</td>"
+
+            # Elements (already merged ①②③)
+            for e in element_cols:
+                html += f"<td>{r[e]}</td>"
+
+            html += "</tr>"
+
+        i += span
 
     html += "</table>"
     return html
+
+
+# ==============================
+# SUMMARY BUILDERS
+# ==============================
+def artifact_attribute_summary(all_artifacts):
+    rows = []
+    for attr in ["Fire", "Water", "Wind", "Light", "Dark"]:
+        for main in ["HP_DR", "DEF_DR", "ATK_DD"]:
+            rows.append({
+                "Attribute": attr,
+                "Main": main,
+                "Fire": 0,
+                "Water": 0,
+                "Wind": 0,
+                "Light": 0,
+                "Dark": 0,
+            })
+    return pd.DataFrame(rows)
+
+
+def artifact_archetype_summary(all_artifacts):
+    rows = []
+    for arch in ["Attack", "Defense", "HP", "Support"]:
+        for main in ["HP", "ATK", "DEF"]:
+            rows.append({
+                "Archetype": arch,
+                "Main": main,
+                "Fire": 0,
+                "Water": 0,
+                "Wind": 0,
+                "Light": 0,
+                "Dark": 0,
+            })
+    return pd.DataFrame(rows)
