@@ -1,16 +1,18 @@
 # artifact_analysis.py
 import pandas as pd
 
-# ============================================================
-# Collect all artifacts from JSON
-# ============================================================
+
+# ----------------------------
+# Collect all artifacts
+# ----------------------------
 def collect_all_artifacts(data):
     all_artifacts = []
 
-    # Global artifacts
-    all_artifacts.extend(data.get("artifacts", []))
+    # Account-level artifacts
+    if "artifacts" in data and data["artifacts"]:
+        all_artifacts.extend(data["artifacts"])
 
-    # Unit-bound artifacts
+    # Unit-level artifacts
     for u in data.get("unit_list", []):
         arts = u.get("artifacts", [])
         if arts:
@@ -19,203 +21,115 @@ def collect_all_artifacts(data):
     return all_artifacts
 
 
-# ============================================================
-# Common helpers
-# ============================================================
-def collapse_identical_triplets(df):
-    """
-    If *_1, *_2, *_3 columns are identical across all rows,
-    collapse them into a single column.
-    """
-    df = df.copy()
-    new_cols = []
-    skip = set()
-
-    for col in df.columns:
-        if col.endswith("_1"):
-            base = col[:-2]
-            c1, c2, c3 = f"{base}_1", f"{base}_2", f"{base}_3"
-
-            if c2 in df.columns and c3 in df.columns:
-                if (df[c1] == df[c2]).all() and (df[c1] == df[c3]).all():
-                    df[base] = df[c1]
-                    skip.update([c1, c2, c3])
-                    new_cols.append(base)
-                else:
-                    new_cols.extend([c1, c2, c3])
-        elif col not in skip:
-            new_cols.append(col)
-
-    return df[new_cols]
-
-
-def style_artifact_table(df):
-    """
-    Safe styling for Streamlit dataframe.
-    - No index
-    - Equal weight columns
-    - Center aligned
-    """
-    if df is None or df.empty:
-        return df
-
-    styled = (
-        df
-        .reset_index(drop=True)
-        .style
-        .set_properties(**{
-            "text-align": "center",
-            "vertical-align": "middle",
-            "font-size": "13px",
-            "padding": "6px",
-        })
-        .set_table_styles([
-            {
-                "selector": "th",
-                "props": [
-                    ("text-align", "center"),
-                    ("font-weight", "600"),
-                    ("background-color", "#f5f6f7"),
-                    ("border-bottom", "1px solid #ddd"),
-                ],
-            },
-            {
-                "selector": "td",
-                "props": [
-                    ("border-bottom", "1px solid #eee"),
-                ],
-            },
-        ])
-    )
-
-    return styled
-
-
-
-# ============================================================
-# Attribute-based Artifact Summary (MATLAB #1)
-# ============================================================
-ATTR_ORDER = [2, 1, 3, 4, 5]
-ATTR_NAMES = ["Fire", "Water", "Wind", "Light", "Dark"]
-
-MAIN_DEFS_ATTR = [
-    (100, "HP_DR", 305),
-    (102, "DEF_DR", 305),
-    (101, "ATK_DD", 300),
-]
-
-
+# ----------------------------
+# Attribute-based summary
+# ----------------------------
 def artifact_attribute_summary(all_artifacts):
+    attr_order = [2, 1, 3, 4, 5]
+    attr_names = ["Fire", "Water", "Wind", "Light", "Dark"]
+
+    main_defs = [
+        (100, "HP_DR", 305),
+        (102, "DEF_DR", 305),
+        (101, "ATK_DD", 300),
+    ]
+
     rows = []
 
-    for attr_idx, attr in enumerate(ATTR_ORDER):
-        attr_name = ATTR_NAMES[attr_idx]
-
-        for main_id, main_name, eff_from in MAIN_DEFS_ATTR:
+    for attr_id, attr_name in zip(attr_order, attr_names):
+        for main_id, main_name, eff_from in main_defs:
             row = {
                 "Attribute": attr_name,
                 "Main": main_name,
             }
 
-            for tgt_attr in range(1, 6):
+            for tgt_attr, tgt_name in zip(attr_order, attr_names):
                 values = []
 
                 for art in all_artifacts:
                     if art.get("type") != 1:
                         continue
-                    if art.get("attribute") != attr:
+                    if art.get("attribute") != attr_id:
                         continue
                     if art.get("pri_effect", [None])[0] != main_id:
                         continue
 
-                    tmp = []
-                    for eff in art.get("sec_effects", []):
-                        eff_id, eff_val = eff[0], eff[1]
+                    for se in art.get("sec_effects", []):
+                        eff_id = se[0]
+                        eff_val = se[1]
+
                         if eff_from <= eff_id <= eff_from + 4:
                             if eff_id - eff_from + 1 == tgt_attr:
-                                tmp.append(eff_val)
+                                values.append(eff_val)
 
-                    if tmp:
-                        values.append(max(tmp))
+                values = sorted(values, reverse=True)[:3]
+                values += [0] * (3 - len(values))
 
-                values.sort(reverse=True)
-                top3 = values[:3] + [0] * (3 - len(values))
-
-                base = ATTR_NAMES[tgt_attr - 1]
-                row[f"{base}_1"] = top3[0]
-                row[f"{base}_2"] = top3[1]
-                row[f"{base}_3"] = top3[2]
+                row[f"{tgt_name}_1"] = values[0]
+                row[f"{tgt_name}_2"] = values[1]
+                row[f"{tgt_name}_3"] = values[2]
 
             rows.append(row)
 
     df = pd.DataFrame(rows)
-    df = df.reset_index(drop=True)
-    df = collapse_identical_triplets(df)
     return df
 
 
-# ============================================================
-# Archetype-based Artifact Summary (MATLAB #2)
-# ============================================================
-ARCHETYPES = ["Attack", "Defense", "HP", "Support"]
-
-MAIN_DEFS_ARCH = [
-    (100, "HP"),
-    (101, "ATK"),
-    (102, "DEF"),
-]
-
-SUB_EFFECTS = [
-    (206, "SPD_INC"),
-    (404, "S1_REC"),
-    (405, "S2_REC"),
-    (406, "S3_REC"),
-    (407, "S1_ACC"),
-    (408, "S2_ACC"),
-    (409, "S3_ACC"),
-]
-
-
+# ----------------------------
+# Archetype-based summary
+# ----------------------------
 def artifact_archetype_summary(all_artifacts):
+    archetype_names = ["Attack", "Defense", "HP", "Support"]
+
+    main_defs = [
+        (100, "HP"),
+        (101, "ATK"),
+        (102, "DEF"),
+    ]
+
+    sub_effects = [206, 404, 405, 406, 407, 408, 409]
+    sub_names = [
+        "SPD_INC",
+        "S1_REC",
+        "S2_REC",
+        "S3_REC",
+        "S1_ACC",
+        "S2_ACC",
+        "S3_ACC",
+    ]
+
     rows = []
 
-    for arch_idx, arch_name in enumerate(ARCHETYPES, start=1):
-        for main_id, main_name in MAIN_DEFS_ARCH:
+    for arch_id, arch_name in enumerate(archetype_names, start=1):
+        for main_id, main_name in main_defs:
             row = {
                 "Archetype": arch_name,
                 "Main": main_name,
             }
 
-            for eff_id, eff_name in SUB_EFFECTS:
+            for eff_id, eff_name in zip(sub_effects, sub_names):
                 values = []
 
                 for art in all_artifacts:
                     if art.get("type") != 2:
                         continue
-                    if art.get("unit_style") != arch_idx:
+                    if art.get("unit_style") != arch_id:
                         continue
                     if art.get("pri_effect", [None])[0] != main_id:
                         continue
 
-                    tmp = [
-                        eff[1]
-                        for eff in art.get("sec_effects", [])
-                        if eff[0] == eff_id
-                    ]
+                    for se in art.get("sec_effects", []):
+                        if se[0] == eff_id:
+                            values.append(se[1])
 
-                    if tmp:
-                        values.append(max(tmp))
+                values = sorted(values, reverse=True)[:3]
+                values += [0] * (3 - len(values))
 
-                values.sort(reverse=True)
-                top3 = values[:3] + [0] * (3 - len(values))
-
-                row[f"{eff_name}_1"] = top3[0]
-                row[f"{eff_name}_2"] = top3[1]
-                row[f"{eff_name}_3"] = top3[2]
+                row[f"{eff_name}_1"] = values[0]
+                row[f"{eff_name}_2"] = values[1]
+                row[f"{eff_name}_3"] = values[2]
 
             rows.append(row)
 
     df = pd.DataFrame(rows)
-    df = df.reset_index(drop=True)
-    df = collapse_identical_triplets(df)
     return df
