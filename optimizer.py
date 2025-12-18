@@ -59,9 +59,14 @@ def _optimize_with_runes(u, runes, k):
         fixed = 0.0
         for sid, c in cnt.items():
             need, sb, fb = set_effect(sid, ch)
-            if c >= need:
-                statB = add_stat(statB, sb)
-                fixed += fb
+            if need > 0:
+                times = c // need
+                if need >= 4:
+                    times = min(times, 1)           
+                for _ in range(times):
+                    statB = add_stat(statB, sb)
+                    fixed += fb
+
 
         score += stat_struct_score(statB) + fixed
 
