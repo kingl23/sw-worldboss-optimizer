@@ -184,6 +184,7 @@ def set_effect(set_id, ch):
         need = 2
         fixedB = 125
 
+    need = int(need)
     return need, statB, fixedB
 
 
