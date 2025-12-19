@@ -16,7 +16,7 @@ def render_wb_tab(state, monster_names):
     # --------------------------------------------------
     # Run = 기준점 생성
     # --------------------------------------------------
-    if st.button("▶ Run"):
+    if st.button("Run"):
         state.wb_run = True
         state.wb_ranking = rank_all_units(state.working_data, top_n=60)
         state.selected_unit_id = None
@@ -107,16 +107,14 @@ def render_wb_tab(state, monster_names):
             st.info("왼쪽 Ranking에서 유닛을 선택해 Optimize를 누르세요.")
             return
 
-        st.subheader("Optimizer Panel (Before vs After)")
-
         colA, colB = st.columns(2, gap="medium")
 
         with colA:
-            st.markdown("### Before (current equipped)")
+            st.markdown("### Before")
             st.text(state.opt_ctx["before_text"])
 
         with colB:
-            st.markdown("### After (recommended)")
+            st.markdown("### After")
             st.text(state.opt_ctx["after_text"])
 
         st.divider()
