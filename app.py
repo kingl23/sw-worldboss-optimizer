@@ -341,8 +341,8 @@ with tab_wb:
                 u, ch, runes, picked, base_score = optimize_unit_best_runes(
                     st.session_state.working_data, tid, K_PER_SLOT
                 )
-                st.text(render_optimizer_result(u, ch, runes, picked, base_score))
-     
+                final = score_unit_total(u)
+                st.text(render_optimizer_result(u, ch, runes, picked, base_score, final_score=final))
     
     with right:
         st.subheader("Optimizer Panel (Before vs After)")
