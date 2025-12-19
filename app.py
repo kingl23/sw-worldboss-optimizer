@@ -266,7 +266,8 @@ with tab_wb:
                     st.session_state.last_apply_msg = f"unit_id {unit_id} not found."
                 else:
                     before = score_unit_total(u)
-                    before_score = before["total_score"] if before else None
+                    before_text = render_optimizer_result(u, ch0, runes0, picked0, base0, final_score=before)
+
     
                     ch0, runes0, picked0, base0 = _render_current_build(u)
                     before_text = render_optimizer_result(u, ch0, runes0, picked0, base0)
@@ -289,7 +290,8 @@ with tab_wb:
                         u_tmp["runes"] = rec_runes
                         after = score_unit_total(u_tmp)
                         after_score = after["total_score"] if after else None
-                        after_text = render_optimizer_result(u1, ch1, runes1, picked1, base1)
+                        after_text = render_optimizer_result(u1, ch1, runes1, picked1, base1, final_score=after)
+
     
                         st.session_state.last_opt_result = (unit_id, rec_runes)
                         st.session_state.last_before_text = before_text
