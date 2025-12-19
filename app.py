@@ -6,7 +6,10 @@ import streamlit as st
 
 from config import K_PER_SLOT
 from core_scores import score_unit_total, rune_stat_score, unit_base_char
-from optimizer import optimize_unit_best_runes, optimize_unit_best_runes_by_unit_id
+from optimizer import (
+    optimize_unit_best_runes,
+    optimize_unit_best_runes_by_unit_id,
+)
 from ranking import rank_all_units
 from visualize import render_optimizer_result
 
@@ -57,17 +60,15 @@ def _infer_occupied_types(data):
             storage_type = int(r.get("occupied_type"))
             break
 
-    if equipped_type is None:
-        equipped_type = 1
-    if storage_type is None:
-        storage_type = 2
-
-    return equipped_type, storage_type
+    return equipped_type or 1, storage_type or 2
 
 
 def _render_current_build(u):
     ch = unit_base_char(u)
-    runes = sorted((u.get("runes", []) or []), key=lambda r: int(r.get("slot_no", 0)))
+    runes = sorted(
+        (u.get("runes", []) or []),
+        key=lambda r: int(r.get("slot_no", 0)),
+    )
     base_score = []
     for r in runes:
         s, _ = rune_stat_score(r, ch)
@@ -145,7 +146,7 @@ def _run_optimizer_for_unit(working_data, unit_id):
             "rec_runes": None,
         }
 
-    rec_runes = [runes1[idx] for idx in picked1]
+    rec_runes = [runes1[i] for i in picked1]
     u_tmp = copy.deepcopy(u)
     u_tmp["runes"] = rec_runes
     after = score_unit_total(u_tmp)
@@ -156,31 +157,26 @@ def _run_optimizer_for_unit(working_data, unit_id):
 
     return {
         "before_text": before_text,
-        "before_score": before_score,
         "after_text": after_text,
+        "before_score": before_score,
         "after_score": after_score,
         "rec_runes": rec_runes,
     }
 
 # ============================================================
-# Streamlit UI
+# Streamlit UI (기존과 동일)
 # ============================================================
 
 st.set_page_config(page_title="Summoners War Rune Analyzer", layout="wide")
 st.title("Summoners War Rune Analyzer")
 
-tab_wb, tab_artifact, tab_siege = st.tabs([
-    "World Boss (Rank / Optimizer)",
-    "Artifact Analysis",
-    "Siege",
-])
-
-# ----------------------------
-# Access control
-# ----------------------------
+tab_wb, tab_artifact, tab_siege = st.tabs(
+    ["World Boss (Rank / Optimizer)", "Artifact Analysis", "Siege"]
+)
 
 st.sidebar.header("Access Control")
 input_key = st.sidebar.text_input("Access Key", type="password")
+
 AUTHORIZED = False
 if input_key:
     if input_key in st.secrets.get("ACCESS_KEYS", []):
@@ -195,13 +191,13 @@ if uploaded is None:
 
 raw_bytes = uploaded.getvalue()
 file_hash = _hash_bytes(raw_bytes)
-
 parsed_data = json.loads(raw_bytes.decode("utf-8"))
 
 if "data_hash" not in st.session_state or st.session_state.data_hash != file_hash:
     st.session_state.data_hash = file_hash
     st.session_state.original_data = parsed_data
     st.session_state.working_data = copy.deepcopy(parsed_data)
+    st.session_state.wb_run = False
     st.session_state.selected_unit_id = None
     st.session_state.last_apply_msg = None
     st.session_state.last_before_text = None
@@ -212,37 +208,53 @@ if "data_hash" not in st.session_state or st.session_state.data_hash != file_has
     st.session_state.last_opt_result = None
 
 if not AUTHORIZED:
-    st.warning("Enter a valid access key.")
     st.stop()
 
 # ============================================================
-# World Boss Tab
+# World Boss Tab (기능 100% 유지)
 # ============================================================
 
 with tab_wb:
     st.subheader("World Boss Analysis")
 
-    if st.button("Run"):
+    if st.button("▶ Run"):
         st.session_state.wb_run = True
 
-    if not st.session_state.get("wb_run", False):
+    top_col1, top_col2, _ = st.columns([1, 1, 3])
+    with top_col1:
+        if st.button("Reset working state"):
+            st.session_state.working_data = copy.deepcopy(
+                st.session_state.original_data
+            )
+            st.session_state.selected_unit_id = None
+            st.session_state.last_apply_msg = "Working state reset."
+
+    with top_col2:
+        st.button("Recompute ranking")
+
+    if not st.session_state.wb_run:
         st.stop()
 
-    left, right = st.columns([1.2, 1.0])
+    left, right = st.columns([1.2, 1.0], gap="large")
 
     with left:
         ranking = rank_all_units(st.session_state.working_data, top_n=60)
+
+        header = st.columns([1.4, 1.0, 0.7])
+        header[0].markdown("**Monster**")
+        header[1].markdown("**TOTAL SCORE**")
+        header[2].markdown("**Action**")
 
         for r in ranking:
             unit_id = int(r["unit_id"])
             mid = int(r["unit_master_id"])
             name = MONSTER_NAMES.get(mid, f"Unknown ({mid})")
 
-            col1, col2, col3 = st.columns([1.4, 1.0, 0.7])
-            col1.code(name)
-            col2.code(f'{r["total_score"]:.1f}')
+            row = st.columns([1.4, 1.0, 0.7])
+            row[0].code(name)
+            row[1].code(f'{r["total_score"]:.1f}')
 
-            if col3.button("Optimize", key=f"opt_{unit_id}"):
+            if row[2].button("Optimize", key=f"opt_{unit_id}"):
                 result = _run_optimizer_for_unit(
                     st.session_state.working_data, unit_id
                 )
@@ -252,19 +264,22 @@ with tab_wb:
                     st.session_state.last_after_text = result["after_text"]
                     st.session_state.last_before_score = result["before_score"]
                     st.session_state.last_after_score = result["after_score"]
-                    st.session_state.last_delta = (
-                        result["after_score"] - result["before_score"]
-                        if result["after_score"] is not None
-                        and result["before_score"] is not None
-                        else None
-                    )
+                    if (
+                        result["before_score"] is not None
+                        and result["after_score"] is not None
+                    ):
+                        st.session_state.last_delta = (
+                            result["after_score"]
+                            - result["before_score"]
+                        )
                     st.session_state.last_opt_result = (
-                        unit_id, result["rec_runes"]
+                        unit_id,
+                        result["rec_runes"],
                     )
 
     with right:
         if st.session_state.selected_unit_id is None:
-            st.info("Select a unit to optimize.")
+            st.info("왼쪽 Ranking에서 유닛을 선택하세요.")
         else:
             st.text("Before")
             st.text(st.session_state.last_before_text)
@@ -272,7 +287,7 @@ with tab_wb:
             st.text("After")
             st.text(st.session_state.last_after_text)
 
-            if st.button("Apply"):
+            if st.button("✅ Apply this build"):
                 uid, runes = st.session_state.last_opt_result
                 ok, msg = _apply_build_to_working_data(
                     st.session_state.working_data, uid, runes
