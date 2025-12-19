@@ -10,7 +10,8 @@ from core_scores import (rune_stat_score, init_stat, add_stat,
 # ============================================================
 
 
-def _build_optimizer_lines(u, ch, runes, picked, base_score):
+def _build_optimizer_lines(u, ch, runes, picked, base_score, final_score=None):
+
     lines = []
 
     # Set effects
@@ -126,7 +127,7 @@ def _build_ranking_lines(results, top_n=60):
 
 
 def print_unit_optimizer_result(u, ch, runes, picked, base_score):
-    lines = _build_optimizer_lines(u, ch, runes, picked, base_score)
+    lines = _build_optimizer_lines(u, ch, runes, picked, base_score, final_score)
     print("\n".join(lines))
 
 
