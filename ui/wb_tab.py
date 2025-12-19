@@ -10,48 +10,84 @@ from domain.unit_repo import apply_build_to_working_data
 from config import K_PER_SLOT
 
 
+def _strip_optimizer_header(text: str) -> str:
+    """
+    Remove leading:
+      === Best Rune Set (World Boss) ===
+      ===
+    from render_optimizer_result output.
+    """
+    if not text:
+        return text
+
+    lines = text.splitlines()
+    cleaned = []
+
+    skip = True
+    for line in lines:
+        if skip and line.strip().startswith("[Slot"):
+            skip = False
+        if not skip:
+            cleaned.append(line)
+
+    return "\n".join(cleaned)
+
+
 def render_wb_tab(state, monster_names):
     st.subheader("World Boss Analysis")
 
-    # --------------------------------------------------
-    # Run = 기준점 생성
-    # --------------------------------------------------
-    if st.button("Run"):
+    # ==================================================
+    # Controls: Run / Reset / Recompute (같은 행)
+    # ==================================================
+    c1, c2, c3, _ = st.columns([1, 1.4, 1.4, 4])
+
+    with c1:
+        run_clicked = st.button("▶ Run")
+
+    with c2:
+        reset_clicked = st.button("Reset working state")
+
+    with c3:
+        recompute_clicked = st.button("Recompute ranking")
+
+    if run_clicked:
         state.wb_run = True
         state.wb_ranking = rank_all_units(state.working_data, top_n=60)
         state.selected_unit_id = None
         state.opt_ctx = None
 
-    top_col1, top_col2, _ = st.columns([1, 1, 3])
+    if reset_clicked:
+        state.working_data = copy.deepcopy(state.original_data)
+        state.wb_run = False
+        state.wb_ranking = None
+        state.selected_unit_id = None
+        state.opt_ctx = None
+        st.info("Working state reset. Run again to restart analysis.")
+        return
 
-    with top_col1:
-        if st.button("Reset working state"):
-            state.working_data = copy.deepcopy(state.original_data)
-            state.wb_run = False
-            state.wb_ranking = None
-            state.selected_unit_id = None
-            state.opt_ctx = None
-
-    with top_col2:
-        if st.button("Recompute ranking") and state.wb_run:
-            state.wb_ranking = rank_all_units(state.working_data, top_n=60)
-            state.selected_unit_id = None
-            state.opt_ctx = None
+    if recompute_clicked and state.wb_run:
+        state.wb_ranking = rank_all_units(state.working_data, top_n=60)
+        state.selected_unit_id = None
+        state.opt_ctx = None
+        st.success("Ranking recomputed.")
 
     if not state.wb_run:
         st.info("Run 버튼을 눌러 World Boss 분석을 시작하세요.")
         return
 
     ranking = state.wb_ranking
-    if ranking is None:
+    if not ranking:
         st.warning("Ranking data not available.")
         return
 
+    # ==================================================
+    # Layout
+    # ==================================================
     left, right = st.columns([1.5, 1.2], gap="large")
 
-    # --------------------------------------------------
-    # LEFT: Ranking (고정)
-    # --------------------------------------------------
+    # ==================================================
+    # LEFT: Ranking
+    # ==================================================
     with left:
         header = st.columns([1.6, 1.0, 0.8])
         header[0].markdown("**Monster**")
@@ -70,11 +106,19 @@ def render_wb_tab(state, monster_names):
             if row[2].button("Optimize", key=f"opt_{unit_id}"):
                 result = run_optimizer_for_unit(state.working_data, unit_id)
                 if result:
+                    # header 제거
+                    result["before_text"] = _strip_optimizer_header(
+                        result["before_text"]
+                    )
+                    result["after_text"] = _strip_optimizer_header(
+                        result["after_text"]
+                    )
+
                     state.selected_unit_id = unit_id
                     state.opt_ctx = result
 
         # --------------------------------------------------
-        # Manual Optimizer (기존 기능 유지)
+        # Manual Optimizer (유지)
         # --------------------------------------------------
         st.divider()
         st.subheader("Manual Optimizer")
@@ -93,15 +137,14 @@ def render_wb_tab(state, monster_names):
                     state.working_data, int(tid), K_PER_SLOT
                 )
                 final = score_unit_total(u)
-                st.text(
-                    render_optimizer_result(
-                        u, ch, runes, picked, base, final_score=final
-                    )
+                txt = render_optimizer_result(
+                    u, ch, runes, picked, base, final_score=final
                 )
+                st.text(_strip_optimizer_header(txt))
 
-    # --------------------------------------------------
-    # RIGHT: Before / After
-    # --------------------------------------------------
+    # ==================================================
+    # RIGHT: Optimizer Panel
+    # ==================================================
     with right:
         if state.selected_unit_id is None or state.opt_ctx is None:
             st.info("왼쪽 Ranking에서 유닛을 선택해 Optimize를 누르세요.")
