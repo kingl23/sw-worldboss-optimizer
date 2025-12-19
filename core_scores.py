@@ -245,9 +245,14 @@ def score_unit_total(u):
     fixed_score = 0.0
     for sid, c in cnt.items():
         need, statB, fixedB = set_effect(sid, ch)
-        if c >= need:
-            stat_bonus = add_stat(stat_bonus, statB)
-            fixed_score += fixedB
+        if need > 0:
+            times = c // need
+            if need >= 4:
+                times = min(times, 1)
+            for _ in range(times):
+                stat_bonus = add_stat(stat_bonus, statB)
+                fixed_score += fixedB
+
 
     base_stat_score = stat_struct_score(ch)
     stat_bonus_score = stat_struct_score(stat_bonus)
