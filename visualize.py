@@ -75,9 +75,12 @@ def _build_optimizer_lines(u, ch, runes, picked, base_score):
         lines.append(f"{k:3}: {ceil(ch[k])} + {ceil(total_add_stat[k])} "
                      f"= {ceil(ch[k] + total_add_stat[k])}")
 
-    lines.append(f"Stat-set bonus score : {stat_bonus_score:.1f}")
-    lines.append(f"Fixed set score      : {fixed_score:.1f}")
-    lines.append(f"TOTAL SCORE          : {total_score:.1f}")
+    # lines.append(f"Stat-set bonus score : {stat_bonus_score:.1f}")
+    # lines.append(f"Fixed set score      : {fixed_score:.1f}")
+    # lines.append(f"TOTAL SCORE          : {total_score:.1f}")
+    lines.append(f"Stat-set bonus score : {final_score['stat_bonus_score']:.1f}")
+    lines.append(f"Fixed set score      : {final_score['fixed_score']:.1f}")
+    lines.append(f"TOTAL SCORE          : {final_score['total_score']:.1f}")
 
     return lines
 
@@ -127,7 +130,8 @@ def print_unit_optimizer_result(u, ch, runes, picked, base_score):
     print("\n".join(lines))
 
 
-def render_optimizer_result(u, ch, runes, picked, base_score):
+# def render_optimizer_result(u, ch, runes, picked, base_score):
+def render_optimizer_result(u, ch, runes, picked, base_score, final_score=None):
     lines = _build_optimizer_lines(u, ch, runes, picked, base_score)
     return "\n".join(lines)
 
