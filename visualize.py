@@ -126,12 +126,11 @@ def _build_ranking_lines(results, top_n=60):
 # --- Optimizer ---
 
 
-def print_unit_optimizer_result(u, ch, runes, picked, base_score):
+def print_unit_optimizer_result(u, ch, runes, picked, base_score, final_score=None):
     lines = _build_optimizer_lines(u, ch, runes, picked, base_score, final_score)
     print("\n".join(lines))
 
 
-# def render_optimizer_result(u, ch, runes, picked, base_score):
 def render_optimizer_result(u, ch, runes, picked, base_score, final_score=None):
     lines = _build_optimizer_lines(u, ch, runes, picked, base_score)
     return "\n".join(lines)
