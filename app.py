@@ -78,8 +78,10 @@ if "data_hash" not in st.session_state or st.session_state.data_hash != data_has
 
     # World Boss state
     st.session_state.wb_run = False
+    st.session_state.wb_ranking = None
     st.session_state.selected_unit_id = None
     st.session_state.opt_ctx = None
+    
 
 # ------------------------------------------------------------
 # Tabs
