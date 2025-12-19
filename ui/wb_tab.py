@@ -29,19 +29,21 @@ def render_wb_tab(state, monster_names):
     st.subheader("World Boss Analysis")
 
     # ==================================================
-    # ▶ Top controls (Run left / Reset+Recompute right, 붙여서)
+    # ▶ Top controls
+    #   - Run : left column
+    #   - Reset / Recompute : right column (start aligned)
     # ==================================================
-    top_left, top_right = st.columns([1, 3])
+    top_left, top_right = st.columns([1.2, 1.8])
 
     with top_left:
         run_clicked = st.button("▶ Run")
 
     with top_right:
-        spacer, c_reset, c_recompute = st.columns([4, 1.4, 1.4])
-        with c_reset:
-            reset_clicked = st.button("Reset working state")
-        with c_recompute:
-            recompute_clicked = st.button("Recompute ranking")
+        reset_clicked, recompute_clicked = st.columns([1, 1])
+        with reset_clicked:
+            reset = st.button("Reset working state")
+        with recompute_clicked:
+            recompute = st.button("Recompute ranking")
 
     # --------------------------------------------------
     # Button actions
@@ -52,7 +54,7 @@ def render_wb_tab(state, monster_names):
         state.selected_unit_id = None
         state.opt_ctx = None
 
-    if reset_clicked:
+    if reset:
         state.working_data = copy.deepcopy(state.original_data)
         state.wb_run = False
         state.wb_ranking = None
@@ -61,7 +63,7 @@ def render_wb_tab(state, monster_names):
         st.info("Working state reset. Run again.")
         return
 
-    if recompute_clicked and state.wb_run:
+    if recompute and state.wb_run:
         state.wb_ranking = rank_all_units(state.working_data, top_n=60)
         state.selected_unit_id = None
         state.opt_ctx = None
@@ -71,15 +73,15 @@ def render_wb_tab(state, monster_names):
         return
 
     # ==================================================
-    # Layout
+    # Main layout (폭 조정)
     # ==================================================
-    left, right = st.columns([1.5, 1.2], gap="large")
+    left, right = st.columns([1.2, 1.8], gap="large")
 
     # ==================================================
-    # LEFT: Ranking (행 간격 줄임)
+    # LEFT: Ranking (폭 축소)
     # ==================================================
     with left:
-        header = st.columns([1.6, 1.0, 0.8])
+        header = st.columns([1.3, 0.9, 0.8])
         header[0].markdown("**Monster**")
         header[1].markdown("**TOTAL SCORE**")
         header[2].markdown("**Action**")
@@ -89,7 +91,7 @@ def render_wb_tab(state, monster_names):
             mid = int(r["unit_master_id"])
             name = monster_names.get(mid, f"Unknown ({mid})")
 
-            row = st.columns([1.6, 1.0, 0.8])
+            row = st.columns([1.3, 0.9, 0.8])
             row[0].markdown(f"`{name}`")
             row[1].markdown(f"`{r['total_score']:.1f}`")
 
@@ -101,7 +103,7 @@ def render_wb_tab(state, monster_names):
                     state.selected_unit_id = unit_id
                     state.opt_ctx = ctx
 
-        # Manual Optimizer (그대로 유지)
+        # Manual Optimizer 유지
         st.divider()
         st.subheader("Manual Optimizer")
 
@@ -123,7 +125,7 @@ def render_wb_tab(state, monster_names):
                 st.text(_strip_header(txt))
 
     # ==================================================
-    # RIGHT: Optimizer Panel
+    # RIGHT: Optimizer Panel (폭 확장)
     # ==================================================
     with right:
         if state.selected_unit_id is None or state.opt_ctx is None:
