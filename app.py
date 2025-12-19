@@ -27,6 +27,7 @@ def load_monster_names():
         if v
     }
 
+
 MONSTER_NAMES = load_monster_names()
 
 # ============================================================
@@ -83,7 +84,6 @@ def _apply_build_to_working_data(working_data, unit_id: int, new_runes):
         return False, "Target unit not found."
 
     equipped_type, storage_type = _infer_occupied_types(working_data)
-
     old_runes = list(u.get("runes", []) or [])
 
     def rid(r):
@@ -140,8 +140,8 @@ def _run_optimizer_for_unit(working_data, unit_id):
     if u1 is None:
         return {
             "before_text": before_text,
-            "before_score": before_score,
             "after_text": "Optimizer: no result.",
+            "before_score": before_score,
             "after_score": None,
             "rec_runes": None,
         }
@@ -164,7 +164,7 @@ def _run_optimizer_for_unit(working_data, unit_id):
     }
 
 # ============================================================
-# Streamlit UI (기존과 동일)
+# Streamlit UI
 # ============================================================
 
 st.set_page_config(page_title="Summoners War Rune Analyzer", layout="wide")
@@ -173,6 +173,10 @@ st.title("Summoners War Rune Analyzer")
 tab_wb, tab_artifact, tab_siege = st.tabs(
     ["World Boss (Rank / Optimizer)", "Artifact Analysis", "Siege"]
 )
+
+# ----------------------------
+# Access Control
+# ----------------------------
 
 st.sidebar.header("Access Control")
 input_key = st.sidebar.text_input("Access Key", type="password")
@@ -211,7 +215,7 @@ if not AUTHORIZED:
     st.stop()
 
 # ============================================================
-# World Boss Tab (기능 100% 유지)
+# World Boss Tab
 # ============================================================
 
 with tab_wb:
@@ -235,12 +239,15 @@ with tab_wb:
     if not st.session_state.wb_run:
         st.stop()
 
-    left, right = st.columns([1.2, 1.0], gap="large")
+    left, right = st.columns([1.5, 1.2], gap="large")
 
+    # ----------------------------
+    # LEFT: Ranking
+    # ----------------------------
     with left:
         ranking = rank_all_units(st.session_state.working_data, top_n=60)
 
-        header = st.columns([1.4, 1.0, 0.7])
+        header = st.columns([1.6, 1.0, 0.8])
         header[0].markdown("**Monster**")
         header[1].markdown("**TOTAL SCORE**")
         header[2].markdown("**Action**")
@@ -250,7 +257,7 @@ with tab_wb:
             mid = int(r["unit_master_id"])
             name = MONSTER_NAMES.get(mid, f"Unknown ({mid})")
 
-            row = st.columns([1.4, 1.0, 0.7])
+            row = st.columns([1.6, 1.0, 0.8])
             row[0].code(name)
             row[1].code(f'{r["total_score"]:.1f}')
 
@@ -277,15 +284,66 @@ with tab_wb:
                         result["rec_runes"],
                     )
 
+        # ----------------------------
+        # Manual Optimizer (복구)
+        # ----------------------------
+        st.divider()
+        st.subheader("Manual Optimizer")
+
+        run_manual = st.button("Run manual optimizer")
+
+        manual_target_input = st.text_input(
+            "Target Unit Master ID(s) (comma-separated)",
+            value="",
+            help="Enter unit_master_id(s) to run optimizer using global +15 rune pool",
+        )
+
+        MANUAL_TARGET_IDS = []
+        if manual_target_input.strip():
+            try:
+                MANUAL_TARGET_IDS = [
+                    int(x.strip())
+                    for x in manual_target_input.split(",")
+                    if x.strip()
+                ]
+            except ValueError:
+                st.error("Please enter valid integer Master IDs separated by commas.")
+                MANUAL_TARGET_IDS = []
+
+        if run_manual:
+            for tid in MANUAL_TARGET_IDS:
+                u, ch, runes, picked, base_score = optimize_unit_best_runes(
+                    st.session_state.working_data, tid, K_PER_SLOT
+                )
+                final = score_unit_total(u)
+                st.text(
+                    render_optimizer_result(
+                        u, ch, runes, picked, base_score, final_score=final
+                    )
+                )
+
+    # ----------------------------
+    # RIGHT: Before / After
+    # ----------------------------
     with right:
         if st.session_state.selected_unit_id is None:
             st.info("왼쪽 Ranking에서 유닛을 선택하세요.")
         else:
-            st.text("Before")
-            st.text(st.session_state.last_before_text)
+            st.subheader("Optimizer Panel (Before vs After)")
 
-            st.text("After")
-            st.text(st.session_state.last_after_text)
+            colA, colB = st.columns(2, gap="medium")
+
+            with colA:
+                st.markdown("### Before (current equipped)")
+                if st.session_state.last_before_text:
+                    st.text(st.session_state.last_before_text)
+
+            with colB:
+                st.markdown("### After (recommended)")
+                if st.session_state.last_after_text:
+                    st.text(st.session_state.last_after_text)
+
+            st.divider()
 
             if st.button("✅ Apply this build"):
                 uid, runes = st.session_state.last_opt_result
