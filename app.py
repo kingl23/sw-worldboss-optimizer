@@ -274,19 +274,19 @@ with tab_wb:
             ranking = rank_all_units(st.session_state.working_data, top_n=60)
     
         # Render as interactive list with buttons
-        header = st.columns([0.9, 0.9, 0.9, 0.7])
-        header[0].markdown("**unit_id**")
-        header[1].markdown("**master_id**")
-        header[2].markdown("**TOTAL SCORE**")
-        header[3].markdown("**Action**")
+        header = st.columns([1.4, 1.0, 0.7])
+        header[0].markdown("**Monster**")
+        header[1].markdown("**TOTAL SCORE**")
+        header[2].markdown("**Action**")
     
         for i, r in enumerate(ranking, start=1):
-            row = st.columns([0.9, 0.9, 0.9, 0.7])
-            row[0].code(str(r["unit_id"]), language=None)
-            row[1].code(str(r["unit_master_id"]), language=None)
-            row[2].code(f'{r["total_score"]:.1f}', language=None)
+            row = st.columns([1.4, 1.0, 0.7])
+            mid = int(r["unit_master_id"])
+            name = MONSTER_NAMES.get(mid, f"Unknown ({mid})")           
+            row[0].code(name, language=None)
+            row[1].code(f'{r["total_score"]:.1f}', language=None)
     
-            if row[3].button("Optimize", key=f"opt_{r['unit_id']}"):
+            if row[2].button("Optimize", key=f"opt_{r['unit_id']}"):
                 unit_id = int(r["unit_id"])
                 st.session_state.selected_unit_id = unit_id
     
@@ -368,9 +368,12 @@ with tab_wb:
             b = st.session_state.last_before_score
             a = st.session_state.last_after_score
             d = st.session_state.last_delta
-    
+
+            u = _get_unit_by_unit_id(st.session_state.working_data, unit_id)
+            mid = int(u.get("unit_master_id"))
+            name = MONSTER_NAMES.get(mid, f"Unknown ({mid})")            
             summary = []
-            summary.append(f"Selected unit_id: {unit_id}")
+            summary.append(f"Selected Monster: {name}")
             if b is not None:
                 summary.append(f"Before score: {b:.1f}")
             if a is not None:
