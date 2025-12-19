@@ -11,6 +11,20 @@ from optimizer import optimize_unit_best_runes, optimize_unit_best_runes_by_unit
 from ranking import rank_all_units
 from visualize import render_optimizer_result, render_ranking_result
 
+# ----------------------------
+# Mapping
+# ----------------------------
+@st.cache_resource
+def load_monster_names():
+    with open("mapping.txt", "r", encoding="utf-8") as f:
+        m = json.load(f)
+    return {
+        int(k): v
+        for k, v in m.get("monster", {}).get("names", {}).items()
+        if v
+    }
+
+MONSTER_NAMES = load_monster_names()
 
 # ----------------------------
 # Helpers
