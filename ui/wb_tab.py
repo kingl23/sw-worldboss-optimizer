@@ -17,13 +17,11 @@ def _strip_header(text: str) -> str:
     lines = text.splitlines()
     out = []
     started = False
-
     for line in lines:
         if not started and line.strip().startswith("[Slot"):
             started = True
         if started:
             out.append(line)
-
     return "\n".join(out)
 
 
@@ -31,18 +29,18 @@ def render_wb_tab(state, monster_names):
     st.subheader("World Boss Analysis")
 
     # ==================================================
-    # ▶ Top controls (같은 행, 좌/우 분리)
+    # ▶ Top controls (Run left / Reset+Recompute right, 붙여서)
     # ==================================================
-    top_left, top_right = st.columns([1, 2])
+    top_left, top_right = st.columns([1, 3])
 
     with top_left:
         run_clicked = st.button("▶ Run")
 
     with top_right:
-        r1, r2 = st.columns([1, 1])
-        with r1:
+        spacer, c_reset, c_recompute = st.columns([4, 1.4, 1.4])
+        with c_reset:
             reset_clicked = st.button("Reset working state")
-        with r2:
+        with c_recompute:
             recompute_clicked = st.button("Recompute ranking")
 
     # --------------------------------------------------
@@ -78,7 +76,7 @@ def render_wb_tab(state, monster_names):
     left, right = st.columns([1.5, 1.2], gap="large")
 
     # ==================================================
-    # LEFT: Ranking
+    # LEFT: Ranking (행 간격 줄임)
     # ==================================================
     with left:
         header = st.columns([1.6, 1.0, 0.8])
@@ -92,8 +90,8 @@ def render_wb_tab(state, monster_names):
             name = monster_names.get(mid, f"Unknown ({mid})")
 
             row = st.columns([1.6, 1.0, 0.8])
-            row[0].code(name)
-            row[1].code(f'{r["total_score"]:.1f}')
+            row[0].markdown(f"`{name}`")
+            row[1].markdown(f"`{r['total_score']:.1f}`")
 
             if row[2].button("Optimize", key=f"opt_{unit_id}"):
                 ctx = run_optimizer_for_unit(state.working_data, unit_id)
@@ -103,7 +101,7 @@ def render_wb_tab(state, monster_names):
                     state.selected_unit_id = unit_id
                     state.opt_ctx = ctx
 
-        # Manual Optimizer 유지
+        # Manual Optimizer (그대로 유지)
         st.divider()
         st.subheader("Manual Optimizer")
 
