@@ -133,7 +133,7 @@ def rune_stat_score(r, ch):
 def set_effect(set_id, ch):
     statB = init_stat()
     fixedB = 0.0
-    need = 4
+    need = 0
 
     if set_id == 1:
         need = 2
