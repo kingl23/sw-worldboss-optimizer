@@ -180,7 +180,7 @@ id_type = st.sidebar.radio(
     help="This affects ONLY manual optimizer input below. Ranking-click optimizer always uses unit_id.",
 )
 
-# Manual optimizer input (optional)
+# Manual optimizer input
 target_input = st.sidebar.text_input(
     "Manual Target ID(s) (comma-separated)",
     value="",
@@ -236,12 +236,6 @@ if "wb_run" not in st.session_state:
 
 with tab_wb:
     st.subheader("World Boss Analysis")
-
-    wb_mode = st.radio(
-        "Mode",
-        ["Ranking", "Optimizer"],
-        horizontal=True
-    )
 
     if st.button("▶ Run"):
         st.session_state.wb_run = True
@@ -341,8 +335,8 @@ with tab_wb:
     
         st.divider()
     
-        # Optional: manual optimizer run (kept for convenience)
-        st.subheader("Manual Optimizer (optional)")
+        # Manual optimizer run (kept for convenience)
+        st.subheader("Manual Optimizer")
         if st.button("Run manual optimizer"):
             for tid in TARGET_IDS:
                 if id_type.startswith("Unit Master"):
