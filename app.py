@@ -172,26 +172,6 @@ if input_key:
     else:
         st.sidebar.error("Invalid access key")
 
-st.subheader("Manual Optimizer")
-
-manual_target_input = st.text_input(
-    "Target Unit Master ID(s) (comma-separated)",
-    value="",
-    help="Enter unit_master_id(s) to run optimizer using global +15 rune pool"
-)
-
-MANUAL_TARGET_IDS = []
-if manual_target_input.strip():
-    try:
-        MANUAL_TARGET_IDS = [
-            int(x.strip())
-            for x in manual_target_input.split(",")
-            if x.strip()
-        ]
-    except ValueError:
-        st.error("Please enter valid integer Master IDs separated by commas.")
-        MANUAL_TARGET_IDS = []
-
 uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"])
 
 if uploaded is None:
@@ -333,12 +313,34 @@ with tab_wb:
     
         # Manual optimizer run (kept for convenience)
         st.subheader("Manual Optimizer")
-        if st.button("Run manual optimizer"):
+
+        run_manual = st.button("Run manual optimizer")
+        
+        manual_target_input = st.text_input(
+            "Target Unit Master ID(s) (comma-separated)",
+            value="",
+            help="Enter unit_master_id(s) to run optimizer using global +15 rune pool"
+        )
+        
+        MANUAL_TARGET_IDS = []
+        if manual_target_input.strip():
+            try:
+                MANUAL_TARGET_IDS = [
+                    int(x.strip())
+                    for x in manual_target_input.split(",")
+                    if x.strip()
+                ]
+            except ValueError:
+                st.error("Please enter valid integer Master IDs separated by commas.")
+                MANUAL_TARGET_IDS = []
+        
+        if run_manual:
             for tid in MANUAL_TARGET_IDS:
                 u, ch, runes, picked, base_score = optimize_unit_best_runes(
                     st.session_state.working_data, tid, K_PER_SLOT
                 )
-                st.text(render_optimizer_result(u, ch, runes, picked, base_score))        
+                st.text(render_optimizer_result(u, ch, runes, picked, base_score))
+     
     
     with right:
         st.subheader("Optimizer Panel (Before vs After)")
