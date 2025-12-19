@@ -172,28 +172,25 @@ if input_key:
     else:
         st.sidebar.error("Invalid access key")
 
-st.sidebar.header("Optimizer Settings")
-id_type = st.sidebar.radio(
-    "Target ID Type (manual optimizer only)",
-    ["Unit Master ID (unit_master_id)", "Unit Instance ID (unit_id)"],
-    index=0,
-    help="This affects ONLY manual optimizer input below. Ranking-click optimizer always uses unit_id.",
-)
+st.subheader("Manual Optimizer")
 
-# Manual optimizer input
-target_input = st.sidebar.text_input(
-    "Manual Target ID(s) (comma-separated)",
+manual_target_input = st.text_input(
+    "Target Unit Master ID(s) (comma-separated)",
     value="",
-    help="Optional: run optimizer directly by these IDs.",
+    help="Enter unit_master_id(s) to run optimizer using global +15 rune pool"
 )
 
-TARGET_IDS = []
-if target_input.strip():
+MANUAL_TARGET_IDS = []
+if manual_target_input.strip():
     try:
-        TARGET_IDS = [int(x.strip()) for x in target_input.split(",") if x.strip()]
+        MANUAL_TARGET_IDS = [
+            int(x.strip())
+            for x in manual_target_input.split(",")
+            if x.strip()
+        ]
     except ValueError:
-        st.sidebar.error("Please enter valid integer IDs separated by commas.")
-        TARGET_IDS = []
+        st.error("Please enter valid integer Master IDs separated by commas.")
+        MANUAL_TARGET_IDS = []
 
 uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"])
 
@@ -259,7 +256,6 @@ with tab_wb:
         st.info("Mode를 선택한 후 Run을 눌러주세요.")
         st.stop()
 
-    # 기존 코드 그대로 ↓
     left, right = st.columns([1.2, 1.0], gap="large")
     
     with left:
@@ -338,17 +334,11 @@ with tab_wb:
         # Manual optimizer run (kept for convenience)
         st.subheader("Manual Optimizer")
         if st.button("Run manual optimizer"):
-            for tid in TARGET_IDS:
-                if id_type.startswith("Unit Master"):
-                    u, ch, runes, picked, base_score = optimize_unit_best_runes(
-                        st.session_state.working_data, tid, K_PER_SLOT
-                    )
-                    st.text(render_optimizer_result(u, ch, runes, picked, base_score))
-                else:
-                    u, ch, runes, picked, base_score = optimize_unit_best_runes_by_unit_id(
-                        st.session_state.working_data, tid, K_PER_SLOT
-                    )
-                    st.text(render_optimizer_result(u, ch, runes, picked, base_score))
+            for tid in MANUAL_TARGET_IDS:
+                u, ch, runes, picked, base_score = optimize_unit_best_runes(
+                    st.session_state.working_data, tid, K_PER_SLOT
+                )
+                st.text(render_optimizer_result(u, ch, runes, picked, base_score))        
     
     with right:
         st.subheader("Optimizer Panel (Before vs After)")
