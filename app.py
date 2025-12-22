@@ -7,12 +7,8 @@ from ui.wb_tab import render_wb_tab
 from siege_logs import render_siege_tab
 from ui.auth import require_access_or_stop
 
-from artifact_analysis import (
-    collect_all_artifacts,
-    artifact_attribute_summary,
-    artifact_archetype_summary,
-)
-from ui.artifact_render import render_google_style
+from artifact_analysis import collect_all_artifacts, artifact_attribute_matrix, artifact_archetype_matrix
+from ui.artifact_render import render_matrix
 
 
 # ============================================================
@@ -96,7 +92,7 @@ with tab_wb:
 with tab_artifact:
     st.subheader("Artifact Analysis")
 
-    uploaded = st.file_uploader(
+    uploaded_art = st.file_uploader(
         "Upload JSON file exported from SW",
         type=["json"],
         key="artifact_json",
@@ -105,24 +101,25 @@ with tab_artifact:
     run_art = st.button("Run analysis", type="primary", key="artifact_run")
 
     if run_art:
+        # ✅ Run 누를 때만 Access Key 체크
         require_access_or_stop("Artifact analysis")
 
-        if uploaded is None:
+        if uploaded_art is None:
             st.error("JSON 파일을 업로드해 주세요.")
             st.stop()
 
-        raw = uploaded.getvalue()
+        raw = uploaded_art.getvalue()
         data = json.loads(raw.decode("utf-8"))
 
         all_arts = collect_all_artifacts(data)
-        df_attr = artifact_attribute_summary(all_arts)
-        df_arch = artifact_archetype_summary(all_arts)
 
-        # 여기서 "색칠된 테이블" 렌더링 호출
-        render_google_style(df_attr, label_cols=["Attribute","Main"], value_cols=["Fire","Water","Wind","Light","Dark"])
+        df_attr = artifact_attribute_matrix(all_arts, top_n=3)
+        render_matrix(df_attr, label_cols=["Attribute", "Main"], title="Attribute Matrix")
+
         st.divider()
-        render_google_style(df_arch, label_cols=["Archetype","Main"], value_cols=["SPD_INC","S1_REC","S2_REC","S3_REC","S1_ACC","S2_ACC","S3_ACC"])
 
+        df_arch = artifact_archetype_matrix(all_arts, top_n=3)
+        render_matrix(df_arch, label_cols=["Archetype", "Main"], title="Archetype Matrix")
 
 
 # ------------------------------------------------------------
