@@ -4,6 +4,7 @@ import json
 import streamlit as st
 
 from ui.wb_tab import render_wb_tab
+from siege_logs import render_siege_tab
 
 # ============================================================
 # Utils
@@ -98,4 +99,4 @@ with tab_artifact:
     st.info("Artifact Analysis – WIP")
 
 with tab_siege:
-    st.info("Siege – WIP")
+    render_siege_tab()
