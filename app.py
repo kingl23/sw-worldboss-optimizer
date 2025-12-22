@@ -143,7 +143,7 @@ with tab_siege:
 # Siege Worst Offense Tab
 # ------------------------------------------------------------
 
-with tab4:
+with tab_worst:
     render_worst_offense_tab()
 
 
