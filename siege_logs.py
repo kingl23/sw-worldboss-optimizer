@@ -144,6 +144,20 @@ def _fmt_team(r, a, b, c) -> str:
     parts = [p for p in parts if p]
     return " / ".join(parts)
 
+def _badge_style(win_rate: float) -> str:
+    try:
+        wr = float(win_rate)
+    except Exception:
+        wr = 0.0
+
+    if wr >= 70:
+        return "background:#00cc44;color:#fff;"
+    if wr >= 50:
+        return "background:#66ff66;color:#000;"
+    if wr >= 30:
+        return "background:#ffff00;color:#000;"
+    return "background:#ff0000;color:#fff;"
+
 
 def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
     d = _normalize_matchups(df, limit)
