@@ -65,3 +65,42 @@ def render_worst_offense_tab():
         hide_index=True,
     )
 
+
+
+# 기존 리스트 테이블 (행 선택 가능)
+event = st.dataframe(
+    output[["Unit #1", "Unit #2", "Unit #3", "Summary", "Win Rate", "Total"]],
+    use_container_width=True,
+    hide_index=True,
+    on_select="rerun",
+    selection_mode="single-row",
+    key="worst_def_table",
+)
+
+# 선택된 행이 있으면 아래에 블럭 출력
+sel_rows = event.selection.get("rows", []) if event and hasattr(event, "selection") else []
+if sel_rows:
+    i = int(sel_rows[0])
+    picked = output.iloc[i]
+
+    def1 = picked["Unit #1"]
+    def2 = picked["Unit #2"]
+    def3 = picked["Unit #3"]
+
+    st.divider()
+    st.subheader("Offense stats vs selected defense")
+    st.write(f"Selected Defense: **{def1} / {def2} / {def3}**")
+
+    # (선택) 여기서 limit를 별도 입력으로 받을 수도 있음
+    off_limit = st.number_input("Max offense rows", min_value=5, max_value=200, value=50, step=5, key="off_limit")
+
+    off_df = get_offense_stats_by_defense(def1, def2, def3, limit=int(off_limit))
+    if off_df.empty:
+        st.info("No offense records found for this defense.")
+    else:
+        st.dataframe(
+            off_df[["Unit #1", "Unit #2", "Unit #3", "wins", "losses", "Win Rate", "Summary", "total"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
