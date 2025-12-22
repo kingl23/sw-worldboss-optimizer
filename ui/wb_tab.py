@@ -9,7 +9,7 @@ from services.wb_service import run_optimizer_for_unit
 from domain.unit_repo import apply_build_to_working_data
 from config import K_PER_SLOT
 
-from ui.auth import require_access_or_stop  # ✅ Run 클릭 시 Access gate
+from ui.auth import require_access_or_stop  # Run 클릭 시 Access gate
 
 
 def _strip_header(text: str) -> str:
@@ -32,26 +32,29 @@ def render_wb_tab(state, monster_names):
 
     # ==================================================
     # Top controls
-    # - Run (primary/red 느낌) + Reset + Recompute를 한 줄에 가깝게 배치
+    #  - Run: left
+    #  - Reset/Recompute: right (Reset 위치 유지, Recompute를 Reset 옆으로)
     # ==================================================
-    ctl1, ctl2, ctl3 = st.columns([1.0, 1.0, 1.6])
+    top_left, top_right = st.columns([1.2, 1.8])
 
-    with ctl1:
-        # ✅ 1) Artifact Run analysis처럼 (색/텍스트)
+    with top_left:
         run_clicked = st.button("Run analysis", type="primary")
 
-    with ctl2:
-        reset = st.button("Reset working state")
-
-    with ctl3:
-        # ✅ 4) recompute를 reset 근처(같은 라인)로 이동
-        recompute = st.button("Recompute ranking")
+    with top_right:
+        # ✅ Reset은 기존처럼 오른쪽 그룹에 유지
+        # ✅ Recompute만 Reset 옆으로 가까이
+        c1, c2, c3 = st.columns([1.0, 1.0, 2.0])
+        with c1:
+            reset = st.button("Reset working state")
+        with c2:
+            recompute = st.button("Recompute ranking")
+        with c3:
+            st.empty()
 
     # --------------------------------------------------
     # Button actions
     # --------------------------------------------------
     if run_clicked:
-        # ✅ Run 시점 Access Key 검증
         require_access_or_stop("World Boss Run")
 
         state.wb_run = True
@@ -83,51 +86,47 @@ def render_wb_tab(state, monster_names):
     left, right = st.columns([1.2, 1.8], gap="large")
 
     # ==================================================
-    # LEFT: Ranking table
-    # 요청:
-    #  3) Monster 열 폭 줄이고, 왼쪽에 Rank 열 추가
+    # LEFT: Ranking
+    #  - Rank 헤더 줄바꿈 방지: Rank 컬럼 폭 ↑
+    #  - Monster 컬럼 폭 ↓
     # ==================================================
     with left:
-        # Header
-        header = st.columns([0.35, 1.15, 0.9, 0.8])
+        # ✅ Rank 폭을 0.5로 늘려서 "Rank"가 한 줄로
+        # ✅ Monster 폭을 1.0으로 줄여서 전체 밸런스 유지
+        col_spec = [0.5, 1.0, 0.9, 0.8]
+
+        header = st.columns(col_spec)
         header[0].markdown("**Rank**")
         header[1].markdown("**Monster**")
         header[2].markdown("**TOTAL SCORE**")
         header[3].markdown("**Action**")
+
+        # Optimize 버튼 크기 약간 축소 (기존 유지)
+        st.markdown(
+            """
+            <style>
+            div[data-testid="stButton"] > button[kind="secondary"] {
+                padding: 0.25rem 0.6rem;
+                min-height: 2.0rem;
+                line-height: 1.1rem;
+                font-size: 0.7rem;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
 
         for idx, r in enumerate(state.wb_ranking, start=1):
             unit_id = int(r["unit_id"])
             mid = int(r["unit_master_id"])
             name = monster_names.get(mid, f"Unknown ({mid})")
 
-            # Row columns: Rank | Monster | Score | Action
-            row = st.columns([0.35, 1.15, 0.9, 0.8], vertical_alignment="center")
-
+            row = st.columns(col_spec, vertical_alignment="center")
             row[0].markdown(f"`{idx}`")
             row[1].markdown(f"`{name}`")
             row[2].markdown(f"`{r['total_score']:.1f}`")
 
-            # ✅ 2) Optimize 버튼 크기 조정: 기본 버튼은 커보이므로
-            #     label을 짧게 + CSS로 padding/height 축소
-            #     (Streamlit 버튼은 기본적으로 크게 잡힘)
-            btn_key = f"opt_{unit_id}"
-
-            row[3].markdown(
-                """
-                <style>
-                div[data-testid="stButton"] > button[kind="secondary"] {
-                    padding: 0.25rem 0.6rem;
-                    min-height: 2.0rem;
-                    line-height: 1.1rem;
-                    font-size: 0.9rem;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            if row[3].button("Optimize", key=btn_key):
-                # (원하면 여기에도 Access gate 걸 수 있음. 지금은 요구사항대로 Run에서만.)
+            if row[3].button("Optimize", key=f"opt_{unit_id}"):
                 ctx = run_optimizer_for_unit(state.working_data, unit_id)
                 if ctx:
                     ctx["before_text"] = _strip_header(ctx["before_text"])
