@@ -1,3 +1,8 @@
+# ui/worst_offense.py
+import streamlit as st
+from data.siege_data import build_worst_offense_list
+
+
 def render_worst_offense_tab():
     st.subheader("Worst offense List")
 
@@ -29,14 +34,14 @@ def render_worst_offense_tab():
         st.info("조건에 맞는 방덱 데이터가 없습니다.")
         return
 
-    # GAS 로직과 동일한 정렬
-    df = df.sort_values(
-        ["win_rate", "total"],
-        ascending=[True, True]
-    ).head(int(top_n))
+    df = (
+        df.sort_values(["win_rate", "total"], ascending=[True, True])
+        .head(int(top_n))
+        .copy()
+    )
 
     df["승률"] = (df["win_rate"] * 100).round(2).astype(str) + "%"
-    df["요약"] = df["승"].astype(str) + "W-" + df["lose"].astype(str) + "L"
+    df["요약"] = df["win"].astype(str) + "W-" + df["lose"].astype(str) + "L"
 
     output = df.rename(
         columns={
@@ -49,10 +54,8 @@ def render_worst_offense_tab():
         }
     )
 
-    cols = ["방덱1", "방덱2", "방덱3", "요약", "승률", "경기수"]
-
     st.dataframe(
-        output[cols],
+        output[["방덱1", "방덱2", "방덱3", "요약", "승률", "경기수"]],
         use_container_width=True,
         hide_index=True,
     )
