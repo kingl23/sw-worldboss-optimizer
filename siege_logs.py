@@ -4,6 +4,9 @@ import pandas as pd
 from supabase import create_client
 
 
+# -------------------------
+# Supabase helpers
+# -------------------------
 def sb():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
 
@@ -22,6 +25,9 @@ def make_def_key(a: str, b: str, c: str) -> str:
     return "|".join([a] + rest)
 
 
+# -------------------------
+# Cached option loaders
+# -------------------------
 @st.cache_data(ttl=3600)
 def get_first_units():
     res = sb().table("defense_list").select("a").execute()
@@ -55,6 +61,9 @@ def get_third_units(a: str, b: str):
     return sorted(s)
 
 
+# -------------------------
+# Matchups
+# -------------------------
 @st.cache_data(ttl=120)
 def get_matchups(def_key: str, limit: int = 200):
     res = (
@@ -64,7 +73,7 @@ def get_matchups(def_key: str, limit: int = 200):
         .eq("def_key", def_key)
         .order("total", desc=True)
         .order("win_rate", desc=True)
-        .limit(limit)
+        .limit(int(limit))
         .execute()
     )
     return pd.DataFrame(res.data or [])
@@ -76,6 +85,21 @@ def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
 
     d = df.copy()
 
+    # 필요한 컬럼 보장
+    for col in ["o1", "o2", "o3", "win", "lose", "total", "win_rate"]:
+        if col not in d.columns:
+            d[col] = "" if col in ["o1", "o2", "o3"] else 0
+
+    # 숫자 컬럼 안정화
+    d["win"] = pd.to_numeric(d["win"], errors="coerce").fillna(0).astype(int)
+    d["lose"] = pd.to_numeric(d["lose"], errors="coerce").fillna(0).astype(int)
+    d["total"] = pd.to_numeric(d["total"], errors="coerce").fillna(d["win"] + d["lose"]).astype(int)
+
+    if "win_rate" in d.columns:
+        d["win_rate"] = pd.to_numeric(d["win_rate"], errors="coerce").fillna(0.0)
+    else:
+        d["win_rate"] = 0.0
+
     def to_offense(r):
         parts = [r.get("o1", ""), r.get("o2", ""), r.get("o3", "")]
         parts = [p for p in parts if p]
@@ -83,27 +107,38 @@ def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
 
     d["offense"] = d.apply(to_offense, axis=1)
 
-    # total/win_rate 보정
-    if "total" not in d.columns:
-        d["total"] = d.get("win", 0).fillna(0) + d.get("lose", 0).fillna(0)
+    # win_rate가 0으로만 들어오거나 total 기반 재계산이 필요한 경우를 대비
+    # (이미 테이블에 win_rate가 있더라도, total==0 이거나 None이면 보정)
+    def _calc_wr(r):
+        t = int(r.get("total", 0) or 0)
+        w = int(r.get("win", 0) or 0)
+        if t <= 0:
+            return 0.0
+        return float(w) / float(t) * 100.0
 
-    if "win_rate" not in d.columns:
-        d["win_rate"] = d.apply(
-            lambda r: (float(r.get("win", 0) or 0) / float(r["total"]) * 100) if r["total"] else 0.0,
-            axis=1,
-        )
+    d["win_rate"] = d.apply(lambda r: _calc_wr(r) if (r.get("win_rate") is None) else float(r.get("win_rate") or 0), axis=1)
 
     d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit)).reset_index(drop=True)
     return d
-    
+
 
 def _sorted3(a: str, b: str, c: str):
     return sorted([x for x in [a, b, c] if x])
 
 
-@st.cache_data(ttl=120)
-def get_siege_loss_logs(match_id: str, o1: str, o2: str, o3: str, limit: int = 200) -> pd.DataFrame:
+def _q(v: str) -> str:
+    """
+    postgrest or_ 문자열에서 안전하게 쓰기 위한 값 quoting.
+    """
+    v = (v or "").replace('"', '\\"')
+    return f'"{v}"'
 
+
+# -------------------------
+# Siege loss logs (B안: match_id 필터 제거)
+# -------------------------
+@st.cache_data(ttl=120)
+def get_siege_loss_logs(o1: str, o2: str, o3: str, limit: int = 200) -> pd.DataFrame:
     a, b, c = _sorted3(o1, o2, o3)
     if not (a and b and c):
         return pd.DataFrame()
@@ -115,10 +150,10 @@ def get_siege_loss_logs(match_id: str, o1: str, o2: str, o3: str, limit: int = 2
             "ts, wizard, opp_wizard, opp_guild, result, base, "
             "deck1_1,deck1_2,deck1_3, deck2_1,deck2_2,deck2_3"
         )
-        .eq("match_id", match_id)
         .eq("result", "Lose")
     )
 
+    # deck1(공격덱) 3개는 순서가 로그마다 달라질 수 있으니 모든 순열을 OR로 매칭
     perms = [
         (a, b, c),
         (a, c, b),
@@ -127,7 +162,10 @@ def get_siege_loss_logs(match_id: str, o1: str, o2: str, o3: str, limit: int = 2
         (c, a, b),
         (c, b, a),
     ]
-    or_clauses = [f"and(deck1_1.eq.{x},deck1_2.eq.{y},deck1_3.eq.{z})" for x, y, z in perms]
+    or_clauses = [
+        f"and(deck1_1.eq.{_q(x)},deck1_2.eq.{_q(y)},deck1_3.eq.{_q(z)})"
+        for x, y, z in perms
+    ]
     q = q.or_(",".join(or_clauses))
 
     res = q.order("ts", desc=True).limit(int(limit)).execute()
@@ -137,12 +175,11 @@ def get_siege_loss_logs(match_id: str, o1: str, o2: str, o3: str, limit: int = 2
 # -------------------------
 # UI helpers (Cards)
 # -------------------------
-
-
 def _fmt_team(r, a, b, c) -> str:
     parts = [r.get(a, ""), r.get(b, ""), r.get(c, "")]
     parts = [p for p in parts if p]
     return " / ".join(parts)
+
 
 def _badge_style(win_rate: float) -> str:
     try:
@@ -165,8 +202,15 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
         st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
         return
 
-    # ✅ 상세보기 안 눌렀으면 None → 오른쪽은 빈칸
+    # selected_idx state init
     if "selected_idx" not in st.session_state:
+        st.session_state["selected_idx"] = None
+    if "selected_def_key" not in st.session_state:
+        st.session_state["selected_def_key"] = None
+
+    # def_key가 바뀌면 기존 선택을 리셋(이전 결과의 인덱스가 남아있는 문제 방지)
+    if st.session_state.get("selected_def_key") != def_key:
+        st.session_state["selected_def_key"] = def_key
         st.session_state["selected_idx"] = None
 
     st.markdown(
@@ -243,7 +287,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
     with right:
         sel = st.session_state.get("selected_idx", None)
         if sel is None:
-            # ✅ 완전 빈칸
             st.empty()
             return
 
@@ -266,7 +309,7 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
         st.divider()
 
         st.markdown("#### Lose 로그 (Siege Logs)")
-        logs = get_siege_loss_logs(def_key, o1, o2, o3, limit=200)
+        logs = get_siege_loss_logs(o1, o2, o3, limit=200)
 
         if logs.empty:
             st.info("해당 조합의 Lose 로그가 없습니다.")
@@ -294,7 +337,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             use_container_width=True,
             hide_index=True,
         )
-
 
 
 def render_siege_tab():
@@ -327,6 +369,9 @@ def render_siege_tab():
     if search:
         require_access_or_stop("Siege Search")
 
+        # Search를 누를 때마다 이전 상세선택이 남는 것 방지(추가 안전장치)
+        st.session_state["selected_idx"] = None
+
         if not (u1 and u2 and u3):
             st.warning("유닛 3개를 모두 선택하세요.")
             st.stop()
@@ -335,9 +380,5 @@ def render_siege_tab():
         df = get_matchups(def_key, int(limit))
 
         render_matchups_master_detail(df, limit=int(limit), def_key=def_key)
-
-
-
     else:
         st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
-
