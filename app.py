@@ -102,7 +102,9 @@ with tab_artifact:
         key="artifact_json",
     )
 
-    if st.button("Run analysis", type="primary", key="artifact_run"):
+    run_art = st.button("Run analysis", type="primary", key="artifact_run")
+
+    if run_art:
         require_access_or_stop("Artifact analysis")
 
         if uploaded is None:
@@ -113,24 +115,13 @@ with tab_artifact:
         data = json.loads(raw.decode("utf-8"))
 
         all_arts = collect_all_artifacts(data)
-
-        st.markdown("## Attribute Summary (Top1)")
         df_attr = artifact_attribute_summary(all_arts)
-        render_colored_topn_table(
-            df_summary=df_attr,
-            label_cols=["Attribute", "Main"],
-            value_cols=["Fire", "Water", "Wind", "Light", "Dark"],
-            top_index=0,   # Top1
-        )
-
-        st.markdown("## Archetype Summary (Top1)")
         df_arch = artifact_archetype_summary(all_arts)
-        render_colored_topn_table(
-            df_summary=df_arch,
-            label_cols=["Archetype", "Main"],
-            value_cols=["SPD_INC", "S1_REC", "S2_REC", "S3_REC", "S1_ACC", "S2_ACC", "S3_ACC"],
-            top_index=0,   # Top1
-        )
+
+        # 여기서 "색칠된 테이블" 렌더링 호출
+        render_google_style(df_attr, label_cols=["Attribute","Main"], value_cols=["Fire","Water","Wind","Light","Dark"])
+        st.divider()
+        render_google_style(df_arch, label_cols=["Archetype","Main"], value_cols=["SPD_INC","S1_REC","S2_REC","S3_REC","S1_ACC","S2_ACC","S3_ACC"])
 
 
 
