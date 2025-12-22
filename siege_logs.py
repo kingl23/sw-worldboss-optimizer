@@ -61,7 +61,7 @@ def render_siege_tab():
 
     col1, col2, col3 = st.columns(3)
 
-    u1 = col1.selectbox("Unit #1 (고정)", [""] + get_first_units())
+    u1 = col1.selectbox("Unit #1 (Leader)", [""] + get_first_units())
 
     u2_opts = [""] + (get_second_units(u1) if u1 else [])
     u2 = col2.selectbox("Unit #2", u2_opts)
@@ -69,7 +69,7 @@ def render_siege_tab():
     u3_opts = [""] + (get_third_units(u1, u2) if (u1 and u2) else [])
     u3 = col3.selectbox("Unit #3", u3_opts)
 
-    limit = st.number_input("최대 추천 공덱 수", min_value=20, max_value=1000, value=200, step=20)
+    limit = st.number_input("최대 추천 공덱 수", min_value=5, max_value=200, value=10, step=5)
 
     if st.button("Search", type="primary"):
         require_access_or_stop("Siege Search")
