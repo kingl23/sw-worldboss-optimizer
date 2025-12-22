@@ -58,7 +58,7 @@ def render_worst_offense_tab():
 
 # 기존 리스트 테이블 (행 선택 가능)
 event = st.dataframe(
-    output[["Unit #1", "Unit #2", "Unit #3", "Summary", "Win Rate", "Total"]],
+    df[["Unit #1", "Unit #2", "Unit #3", "Summary", "Win Rate", "Total"]],
     use_container_width=True,
     hide_index=True,
     on_select="rerun",
