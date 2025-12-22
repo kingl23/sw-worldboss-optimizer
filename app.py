@@ -12,6 +12,8 @@ from artifact_analysis import (
     artifact_attribute_summary,
     artifact_archetype_summary,
 )
+from ui.artifact_render import render_colored_topn_table
+
 
 # ============================================================
 # Utils
@@ -100,10 +102,9 @@ with tab_artifact:
         key="artifact_json",
     )
 
-    run = st.button("Run analysis", type="primary", key="artifact_run_btn")
-
-    if run:
+    if st.button("Run analysis", type="primary", key="artifact_run"):
         require_access_or_stop("Artifact analysis")
+
         if uploaded is None:
             st.error("JSON 파일을 업로드해 주세요.")
             st.stop()
@@ -111,26 +112,26 @@ with tab_artifact:
         raw = uploaded.getvalue()
         data = json.loads(raw.decode("utf-8"))
 
-        # 1) collect
-        all_artifacts = collect_all_artifacts(data)
-        if not all_artifacts:
-            st.warning("아티팩트 데이터를 찾지 못했습니다.")
-            st.stop()
+        all_arts = collect_all_artifacts(data)
 
-        st.success(f"Collected {len(all_artifacts)} artifacts")
+        st.markdown("## Attribute Summary (Top1)")
+        df_attr = artifact_attribute_summary(all_arts)
+        render_colored_topn_table(
+            df_summary=df_attr,
+            label_cols=["Attribute", "Main"],
+            value_cols=["Fire", "Water", "Wind", "Light", "Dark"],
+            top_index=0,   # Top1
+        )
 
-        # 2) Attribute
-        st.markdown("### Attribute-based Summary")
-        df_attr = artifact_attribute_summary(all_artifacts)
-        st.dataframe(df_attr, use_container_width=True)
+        st.markdown("## Archetype Summary (Top1)")
+        df_arch = artifact_archetype_summary(all_arts)
+        render_colored_topn_table(
+            df_summary=df_arch,
+            label_cols=["Archetype", "Main"],
+            value_cols=["SPD_INC", "S1_REC", "S2_REC", "S3_REC", "S1_ACC", "S2_ACC", "S3_ACC"],
+            top_index=0,   # Top1
+        )
 
-        # 3) Archetype
-        st.markdown("### Archetype-based Summary")
-        df_arch = artifact_archetype_summary(all_artifacts)
-        st.dataframe(df_arch, use_container_width=True)
-
-    else:
-        st.info("JSON 업로드 후 'Run analysis'를 누르면 분석이 실행됩니다.")
 
 
 # ------------------------------------------------------------
