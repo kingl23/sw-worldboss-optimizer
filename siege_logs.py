@@ -138,9 +138,14 @@ def _q(v: str) -> str:
 # Siege loss logs (B안: match_id 필터 제거)
 # -------------------------
 @st.cache_data(ttl=120)
-def get_siege_loss_logs(o1: str, o2: str, o3: str, limit: int = 200) -> pd.DataFrame:
-    a, b, c = _sorted3(o1, o2, o3)
-    if not (a and b and c):
+def get_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 200) -> pd.DataFrame:
+    parts = [p for p in (def_key or "").split("|") if p]
+    if len(parts) < 3:
+        return pd.DataFrame()
+
+    d1, d2, d3 = parts[0], parts[1], parts[2]
+
+    if not (o1 and o2 and o3):
         return pd.DataFrame()
 
     q = (
@@ -153,22 +158,20 @@ def get_siege_loss_logs(o1: str, o2: str, o3: str, limit: int = 200) -> pd.DataF
         .eq("result", "Lose")
     )
 
-    # deck1(공격덱) 3개는 순서가 로그마다 달라질 수 있으니 모든 순열을 OR로 매칭
-    perms = [
-        (a, b, c),
-        (a, c, b),
-        (b, a, c),
-        (b, c, a),
-        (c, a, b),
-        (c, b, a),
-    ]
-    or_clauses = [
-        f"and(deck1_1.eq.{_q(x)},deck1_2.eq.{_q(y)},deck1_3.eq.{_q(z)})"
-        for x, y, z in perms
-    ]
-    q = q.or_(",".join(or_clauses))
+    perms_off = [(o1, o2, o3), (o1, o3, o2)]
+    perms_def = [(d1, d2, d3), (d1, d3, d2)]
 
-    res = q.order("ts", desc=True).limit(int(limit)).execute()
+    or_clauses = []
+    for x, y, z in perms_off:
+        for p, q2, r in perms_def:
+            or_clauses.append(
+                "and("
+                f"deck1_1.eq.{_q(x)},deck1_2.eq.{_q(y)},deck1_3.eq.{_q(z)},"
+                f"deck2_1.eq.{_q(p)},deck2_2.eq.{_q(q2)},deck2_3.eq.{_q(r)}"
+                ")"
+            )
+
+    res = q.or_(",".join(or_clauses)).order("ts", desc=True).limit(int(limit)).execute()
     return pd.DataFrame(res.data or [])
 
 
@@ -278,28 +281,33 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             st.markdown("#### Lose 로그 (Siege Logs)")
 
             o1, o2, o3 = row.get("o1", ""), row.get("o2", ""), row.get("o3", "")
-            logs = get_siege_loss_logs(o1, o2, o3, limit=200)
-
+            logs = get_siege_loss_logs(def_key, o1, o2, o3, limit=200)
+            
             if logs.empty:
-                st.info("해당 조합의 Lose 로그가 없습니다.")
+                st.info("해당 공덱/방덱 조합의 Lose 로그가 없습니다.")
                 continue
-
+            
             logs = logs.copy()
-            logs["공격덱"] = logs.apply(lambda r: _fmt_team(r, "deck1_1", "deck1_2", "deck1_3"), axis=1)
+            
             logs["방어덱"] = logs.apply(lambda r: _fmt_team(r, "deck2_1", "deck2_2", "deck2_3"), axis=1)
-
+            
+            # 컬럼명 정리
             logs = logs.rename(
                 columns={
-                    "ts": "시간",
                     "wizard": "공격자",
                     "opp_wizard": "방어자",
-                    "opp_guild": "상대길드",
-                    "base": "거점",
+                    "opp_guild": "방어길드",
                 }
             )
+            
+            cols = [c for c in ["공격자", "방어덱", "방어길드", "방어자"] if c in logs.columns]
+            
+            st.dataframe(
+                logs[cols],
+                use_container_width=True,
+                hide_index=True,
+            )
 
-            cols = [c for c in ["시간", "상대길드", "공격자", "공격덱", "방어자", "방어덱", "거점"] if c in logs.columns]
-            st.dataframe(logs[cols], use_container_width=True, hide_index=True)
 
 
 def render_siege_tab():
