@@ -32,8 +32,8 @@ def load_monster_names():
 # Streamlit App
 # ============================================================
 
-st.set_page_config(page_title="Summoners War Rune Analyzer", layout="wide")
-st.title("Summoners War Rune Analyzer")
+st.set_page_config(page_title="Summoners War Analyzer", layout="wide")
+st.title("Summoners War Analyzer")
 
 # ------------------------------------------------------------
 # Sidebar: Access Key Input
