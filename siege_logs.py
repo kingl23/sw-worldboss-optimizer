@@ -69,18 +69,41 @@ def get_matchups(def_key: str, limit: int = 200):
     )
     return pd.DataFrame(res.data or [])
 
+
+def _sorted3(a: str, b: str, c: str):
+    return sorted([x for x in [a, b, c] if x])
+
+
 @st.cache_data(ttl=120)
-def get_matchup_details(def_key: str, o1: str, o2: str, o3: str, limit: int = 50):
-    res = (
+def get_siege_loss_logs(match_id: str, o1: str, o2: str, o3: str, limit: int = 200) -> pd.DataFrame:
+
+    a, b, c = _sorted3(o1, o2, o3)
+    if not (a and b and c):
+        return pd.DataFrame()
+
+    q = (
         sb()
-        .table("defense_battles")
-        .select("battle_time, result, attacker, note")
-        .eq("def_key", def_key)
-        .eq("o1", o1).eq("o2", o2).eq("o3", o3)
-        .order("battle_time", desc=True)
-        .limit(limit)
-        .execute()
+        .table("siege_logs")
+        .select(
+            "ts, wizard, opp_wizard, opp_guild, result, base, "
+            "deck1_1,deck1_2,deck1_3, deck2_1,deck2_2,deck2_3"
+        )
+        .eq("match_id", match_id)
+        .eq("result", "Lose")
     )
+
+    perms = [
+        (a, b, c),
+        (a, c, b),
+        (b, a, c),
+        (b, c, a),
+        (c, a, b),
+        (c, b, a),
+    ]
+    or_clauses = [f"and(deck1_1.eq.{x},deck1_2.eq.{y},deck1_3.eq.{z})" for x, y, z in perms]
+    q = q.or_(",".join(or_clauses))
+
+    res = q.order("ts", desc=True).limit(int(limit)).execute()
     return pd.DataFrame(res.data or [])
 
 
@@ -88,46 +111,11 @@ def get_matchup_details(def_key: str, o1: str, o2: str, o3: str, limit: int = 50
 # UI helpers (Cards)
 # -------------------------
 
-def _badge_style(win_rate: float) -> str:
-    try:
-        wr = float(win_rate)
-    except Exception:
-        wr = 0.0
 
-    if wr >= 70:
-        return "background:#00cc44;color:#fff;"
-    if wr >= 50:
-        return "background:#66ff66;color:#000;"
-    if wr >= 30:
-        return "background:#ffff00;color:#000;"
-    return "background:#ff0000;color:#fff;"
-
-
-def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
-    if df is None or df.empty:
-        return pd.DataFrame()
-
-    d = df.copy()
-
-    def to_offense(r):
-        parts = [r.get("o1", ""), r.get("o2", ""), r.get("o3", "")]
-        parts = [p for p in parts if p]
-        return " / ".join(parts)
-
-    d["offense"] = d.apply(to_offense, axis=1)
-
-    if "total" not in d.columns:
-        d["total"] = d.get("win", 0) + d.get("lose", 0)
-
-    if "win_rate" not in d.columns:
-        d["win_rate"] = d.apply(
-            lambda r: (r.get("win", 0) / r["total"] * 100) if r["total"] else 0,
-            axis=1,
-        )
-
-    d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit))
-    d = d.reset_index(drop=True)
-    return d
+def _fmt_team(r, a, b, c) -> str:
+    parts = [r.get(a, ""), r.get(b, ""), r.get(c, "")]
+    parts = [p for p in parts if p]
+    return " / ".join(parts)
 
 
 def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
@@ -136,62 +124,47 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
         st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
         return
 
-    # 선택 상태 초기화
+    # ✅ 상세보기 안 눌렀으면 None → 오른쪽은 빈칸
     if "selected_idx" not in st.session_state:
-        st.session_state["selected_idx"] = 0
+        st.session_state["selected_idx"] = None
 
-    # CSS: 좌측 카드 1열 리스트 + 버튼 스타일
     st.markdown(
         textwrap.dedent(
             """
             <style>
-              .card-list { display: flex; flex-direction: column; gap: 10px; }
               .card {
                 border: 1px solid rgba(49, 51, 63, 0.2);
                 border-radius: 12px;
                 padding: 12px 14px;
                 background: rgba(255,255,255,0.02);
+                margin-bottom: 8px;
               }
-              .card-title {
-                font-weight: 700;
-                font-size: 15px;
-                margin-bottom: 6px;
-              }
+              .card-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
               .card-row {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: 10px;
-                margin-top: 6px;
+                display: flex; align-items: center; justify-content: space-between;
+                gap: 10px; margin-top: 6px;
               }
               .meta { font-size: 12px; opacity: 0.85; }
               .pill {
-                padding: 4px 10px;
-                border-radius: 999px;
-                font-size: 12px;
-                font-weight: 700;
-                display: inline-block;
-                white-space: nowrap;
+                padding: 4px 10px; border-radius: 999px; font-size: 12px;
+                font-weight: 700; display: inline-block; white-space: nowrap;
               }
-              /* Streamlit button spacing tighten */
-              div.stButton > button {
-                padding: 0.35rem 0.6rem;
-                border-radius: 10px;
-              }
+              div.stButton > button { padding: 0.35rem 0.6rem; border-radius: 10px; }
             </style>
             """
         ).strip(),
         unsafe_allow_html=True,
     )
 
-    # 전체 레이아웃: 좌(마스터) / 우(디테일)
     left, right = st.columns([0.48, 0.52], gap="large")
 
+    # -------------------------
+    # 좌: 카드 1열 리스트 + 상세보기 버튼
+    # -------------------------
     with left:
         st.subheader("추천 공덱")
-        st.caption("카드의 '상세보기'를 누르면 오른쪽에 상세가 표시됩니다.")
+        st.caption("상세보기를 누르면 오른쪽에 Lose 로그가 표시됩니다.")
 
-        # 카드 1열 리스트: 각 카드 아래에 '상세보기' 버튼을 둬서 클릭 이벤트를 안정적으로 처리
         for idx, row in enumerate(d.to_dict(orient="records"), start=0):
             offense = row.get("offense", "")
             win = int(row.get("win", 0) or 0)
@@ -203,7 +176,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             summary = f"{win}W-{lose}L"
             wr_text = f"{win_rate:.0f}%"
 
-            # 카드 본문 (HTML)
             st.markdown(
                 textwrap.dedent(
                     f"""
@@ -219,16 +191,24 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                 unsafe_allow_html=True,
             )
 
-            # 카드 액션: 상세보기 버튼
-            cols = st.columns([0.7, 0.3])
-            with cols[1]:
+            btn_cols = st.columns([0.72, 0.28])
+            with btn_cols[1]:
                 if st.button("상세보기", key=f"detail_btn_{idx}", use_container_width=True):
                     st.session_state["selected_idx"] = idx
 
+    # -------------------------
+    # 우: 상세 (선택 전 = 빈칸 / 선택 후 = Lose 로그)
+    # -------------------------
     with right:
-        idx = int(st.session_state.get("selected_idx", 0))
-        idx = max(0, min(idx, len(d) - 1))
-        row = d.iloc[idx].to_dict()
+        sel = st.session_state.get("selected_idx", None)
+        if sel is None:
+            # ✅ 완전 빈칸
+            st.empty()
+            return
+
+        sel = int(sel)
+        sel = max(0, min(sel, len(d) - 1))
+        row = d.iloc[sel].to_dict()
 
         offense = row.get("offense", "")
         win = int(row.get("win", 0) or 0)
@@ -236,22 +216,43 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
         total = int(row.get("total", win + lose) or (win + lose))
         win_rate = float(row.get("win_rate", 0) or 0)
 
-        st.subheader("상세")
-        st.markdown(f"### #{idx+1} {offense}")
-        st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)")
-        st.write(f"- 승률: **{win_rate:.1f}%**")
-
         o1, o2, o3 = row.get("o1", ""), row.get("o2", ""), row.get("o3", "")
 
-        # 예시: 원천 로그 테이블이 있으면 아래를 활성화
-        # details_df = get_matchup_details(def_key, o1, o2, o3, limit=30)
-        # if details_df.empty:
-        #     st.info("상세 전투 로그가 없습니다.")
-        # else:
-        #     st.dataframe(details_df, use_container_width=True, hide_index=True)
+        st.subheader("상세")
+        st.markdown(f"### #{sel+1} {offense}")
+        st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)")
+        st.write(f"- 승률: **{win_rate:.1f}%**")
+        st.divider()
 
-        st.info("상세 데이터(전투 로그/룬/스피드 튜닝 등)를 연결하면 이 영역에 표시됩니다.")
-        st.write({"def_key": def_key, "offense_units": [o1, o2, o3]})
+        st.markdown("#### Lose 로그 (Siege Logs)")
+        logs = get_siege_loss_logs(def_key, o1, o2, o3, limit=200)
+
+        if logs.empty:
+            st.info("해당 조합의 Lose 로그가 없습니다.")
+            return
+
+        logs = logs.copy()
+        logs["공격덱"] = logs.apply(lambda r: _fmt_team(r, "deck1_1", "deck1_2", "deck1_3"), axis=1)
+        logs["방어덱"] = logs.apply(lambda r: _fmt_team(r, "deck2_1", "deck2_2", "deck2_3"), axis=1)
+
+        logs = logs.rename(
+            columns={
+                "ts": "시간",
+                "wizard": "공격자",
+                "opp_wizard": "방어자",
+                "opp_guild": "상대길드",
+                "base": "거점",
+            }
+        )
+
+        # 요구사항: 공격자 공격덱(3) / 방어자 방어덱(3) / 상대길드 나열
+        cols = [c for c in ["시간", "상대길드", "공격자", "공격덱", "방어자", "방어덱", "거점"] if c in logs.columns]
+
+        st.dataframe(
+            logs[cols],
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 
@@ -293,6 +294,7 @@ def render_siege_tab():
         df = get_matchups(def_key, int(limit))
 
         render_matchups_master_detail(df, limit=int(limit), def_key=def_key)
+
 
 
     else:
