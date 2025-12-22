@@ -242,6 +242,3 @@ def render_siege_tab():
     else:
         st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
 
-        _render_offense_cards(df, limit=int(limit))
-    else:
-        st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
