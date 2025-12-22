@@ -42,9 +42,20 @@ def render_matrix(
     labels = df[label_cols].copy()
     values = df.drop(columns=label_cols)
 
-    # value columns must be MultiIndex
-    if not isinstance(values.columns, pd.MultiIndex) or values.columns.nlevels != 2:
+    # value columns must be a 2-level MultiIndex like (Group, k)
+    # NOTE: when df has both string columns (labels) + tuple columns, pandas may keep columns as plain Index(object).
+    # In that case, coerce tuple columns into MultiIndex here.
+    if not isinstance(values.columns, pd.MultiIndex):
+        if all(isinstance(c, tuple) and len(c) == 2 for c in values.columns):
+            values.columns = pd.MultiIndex.from_tuples(values.columns)
+        else:
+            raise ValueError(
+                "Value columns must be 2-tuples (Group, k) or a 2-level MultiIndex."
+            )
+    
+    if values.columns.nlevels != 2:
         raise ValueError("Value columns must be a 2-level MultiIndex like (Group, k).")
+
 
     groups = []
     # preserve order
