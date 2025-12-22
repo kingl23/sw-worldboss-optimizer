@@ -55,10 +55,6 @@ st.sidebar.text_input(
 # Tabs
 # ------------------------------------------------------------
 
-tab_wb, tab_artifact, tab_siege = st.tabs(
-    ["World Boss", "Artifact Analysis", "Siege Battle"]
-)
-
 tab_wb, tab_artifact, tab_siege, tab_worst = st.tabs([
     "World Boss",
     "Artifact Analysis",
