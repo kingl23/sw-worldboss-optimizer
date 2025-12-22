@@ -8,7 +8,7 @@ from ui.auth import require_access_or_stop
 from ui.wb_tab import render_wb_tab
 from siege_logs import render_siege_tab
 
-from ui.worst_defense import render_worst_offense_tab
+from ui.worst_offense import render_worst_offense_tab
 
 from artifact_analysis import collect_all_artifacts, artifact_attribute_matrix, artifact_archetype_matrix
 from ui.artifact_render import render_matrix
