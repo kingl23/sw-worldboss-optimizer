@@ -87,12 +87,8 @@ def render_wb_tab(state, monster_names):
 
     # ==================================================
     # LEFT: Ranking
-    #  - Rank 헤더 줄바꿈 방지: Rank 컬럼 폭 ↑
-    #  - Monster 컬럼 폭 ↓
     # ==================================================
     with left:
-        # ✅ Rank 폭을 0.5로 늘려서 "Rank"가 한 줄로
-        # ✅ Monster 폭을 1.0으로 줄여서 전체 밸런스 유지
         col_spec = [0.5, 1.0, 0.9, 0.8]
 
         header = st.columns(col_spec)
@@ -101,7 +97,6 @@ def render_wb_tab(state, monster_names):
         header[2].markdown("**TOTAL SCORE**")
         header[3].markdown("**Action**")
 
-        # Optimize 버튼 크기 약간 축소 (기존 유지)
         st.markdown(
             """
             <style>
@@ -109,7 +104,7 @@ def render_wb_tab(state, monster_names):
                 padding: 0.25rem 0.6rem;
                 min-height: 2.0rem;
                 line-height: 1.1rem;
-                font-size: 0.7rem;
+                font-size: 0.5rem;
             }
             </style>
             """,
