@@ -73,13 +73,17 @@ def get_matchups(def_key: str, limit: int = 200):
 # -------------------------
 # UI helpers (Cards)
 # -------------------------
+import textwrap
+import streamlit as st
+import pandas as pd
+
+
 def _badge_style(win_rate: float) -> str:
     try:
         wr = float(win_rate)
     except Exception:
         wr = 0.0
 
-    # 필요하면 기준 조정 가능
     if wr >= 70:
         return "background:#00cc44;color:#fff;"
     if wr >= 50:
@@ -90,6 +94,11 @@ def _badge_style(win_rate: float) -> str:
 
 
 def _render_offense_cards(df: pd.DataFrame, limit: int):
+    """
+    - Streamlit markdown이 '줄 시작 4칸 들여쓰기'를 코드블록으로 인식하는 문제 방지:
+      CSS/HTML 문자열에 대해 textwrap.dedent + strip 적용
+    - df가 None/빈 DF인 경우 안전 처리
+    """
     if df is None or df.empty:
         st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
         return
@@ -107,89 +116,102 @@ def _render_offense_cards(df: pd.DataFrame, limit: int):
     # 필드 보정
     if "total" not in d.columns:
         d["total"] = d.get("win", 0) + d.get("lose", 0)
+
     if "win_rate" not in d.columns:
         d["win_rate"] = d.apply(
-            lambda r: (r["win"] / r["total"] * 100) if r["total"] else 0,
+            lambda r: (r.get("win", 0) / r["total"] * 100) if r["total"] else 0,
             axis=1,
         )
 
     d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit))
 
+    # CSS (dedent/strip로 코드블록 인식 방지)
     st.markdown(
-        """
-        <style>
-        .card-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(320px, 1fr));
-          gap: 12px;
-          margin-top: 10px;
-        }
-        @media (max-width: 900px) {
-          .card-grid { grid-template-columns: 1fr; }
-        }
-        .card {
-          border: 1px solid rgba(49, 51, 63, 0.2);
-          border-radius: 12px;
-          padding: 12px 14px;
-          background: rgba(255,255,255,0.02);
-        }
-        .card-title {
-          font-weight: 700;
-          font-size: 15px;
-          margin-bottom: 6px;
-        }
-        .card-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          margin-top: 6px;
-        }
-        .pill {
-          padding: 4px 10px;
-          border-radius: 999px;
-          font-size: 12px;
-          font-weight: 700;
-          display: inline-block;
-          white-space: nowrap;
-        }
-        .meta {
-          font-size: 12px;
-          opacity: 0.85;
-        }
-        </style>
-        """,
+        textwrap.dedent(
+            """
+            <style>
+              .card-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(320px, 1fr));
+                gap: 12px;
+                margin-top: 10px;
+              }
+              @media (max-width: 900px) {
+                .card-grid { grid-template-columns: 1fr; }
+              }
+              .card {
+                border: 1px solid rgba(49, 51, 63, 0.2);
+                border-radius: 12px;
+                padding: 12px 14px;
+                background: rgba(255,255,255,0.02);
+              }
+              .card-title {
+                font-weight: 700;
+                font-size: 15px;
+                margin-bottom: 6px;
+              }
+              .card-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                margin-top: 6px;
+              }
+              .pill {
+                padding: 4px 10px;
+                border-radius: 999px;
+                font-size: 12px;
+                font-weight: 700;
+                display: inline-block;
+                white-space: nowrap;
+              }
+              .meta {
+                font-size: 12px;
+                opacity: 0.85;
+              }
+            </style>
+            """
+        ).strip(),
         unsafe_allow_html=True,
     )
 
-    # 카드 영역
+    # 카드 영역 HTML (dedent/strip로 코드블록 인식 방지)
     blocks = ['<div class="card-grid">']
+
     for i, row in enumerate(d.to_dict(orient="records"), start=1):
         offense = row.get("offense", "")
-        win = int(row.get("win", 0))
-        lose = int(row.get("lose", 0))
-        total = int(row.get("total", win + lose))
-        win_rate = float(row.get("win_rate", 0))
+        win = int(row.get("win", 0) or 0)
+        lose = int(row.get("lose", 0) or 0)
+        total = int(row.get("total", win + lose) or (win + lose))
+
+        try:
+            win_rate = float(row.get("win_rate", 0) or 0)
+        except Exception:
+            win_rate = 0.0
 
         pill_style = _badge_style(win_rate)
         summary = f"{win}W-{lose}L"
         wr_text = f"{win_rate:.0f}%"
 
         blocks.append(
-            f"""
-            <div class="card">
-              <div class="card-title">{i}. {offense}</div>
-              <div class="card-row">
-                <span class="meta">{summary} · {total} games</span>
-                <span class="pill" style="{pill_style}">{wr_text}</span>
-              </div>
-            </div>
-            """
+            textwrap.dedent(
+                f"""
+                <div class="card">
+                  <div class="card-title">{i}. {offense}</div>
+                  <div class="card-row">
+                    <span class="meta">{summary} · {total} games</span>
+                    <span class="pill" style="{pill_style}">{wr_text}</span>
+                  </div>
+                </div>
+                """
+            ).strip()
         )
+
     blocks.append("</div>")
+
     st.markdown("".join(blocks), unsafe_allow_html=True)
-    
-    # 펼치기(상세) – 지금은 placeholder, 나중에 여기만 채우면 됨
+
+    # 상세(확장) 영역
     st.divider()
     st.caption("상세 보기 (추후 확장)")
 
