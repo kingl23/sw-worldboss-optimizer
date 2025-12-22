@@ -8,54 +8,47 @@ def render_worst_offense_tab():
 
     with st.form("worst_off_form"):
         col1, col2 = st.columns(2)
-        cutoff = col1.number_input(
-            "최소 경기 수 (cutoff)",
-            min_value=1,
-            max_value=100,
-            value=4,
-            step=1,
-        )
-        top_n = col2.number_input(
-            "표시 개수 (Top N)",
-            min_value=1,
-            max_value=200,
-            value=50,
-            step=5,
-        )
+        cutoff = col1.number_input("최소 경기 수 (cutoff)", 1, 100, 4, 1, key="wo_cutoff")
+        top_n  = col2.number_input("표시 개수 (Top N)", 1, 200, 50, 5, key="wo_top_n")
         submitted = st.form_submit_button("Search")
 
-    if not submitted:
+    # ✅ Search 눌렀을 때만 DB 조회해서 session에 저장
+    if submitted:
+        base = build_worst_offense_list(cutoff=int(cutoff))
+        if base is None or base.empty:
+            st.session_state["wo_df"] = None
+        else:
+            df = (
+                base.sort_values(["win_rate", "total"], ascending=[False, False])
+                .head(int(top_n))
+                .copy()
+                .reset_index(drop=True)
+            )
+
+            df["Unit #1"] = df["d1"]
+            df["Unit #2"] = df["d2"]
+            df["Unit #3"] = df["d3"]
+            df["Total"]   = df["total"]
+
+            wins   = df["lose"].fillna(0).astype(int)   # attacker wins
+            losses = df["win"].fillna(0).astype(int)    # attacker losses
+            totalv = df["total"].fillna(0).astype(int)
+
+            df["Win Rate"] = (wins / totalv.replace(0, 1) * 100).round(2).map(lambda x: f"{x:.2f}%")
+            df["Summary"]  = wins.astype(str) + "W-" + losses.astype(str) + "L"
+
+            st.session_state["wo_df"] = df
+
+        # 선택도 초기화(원하면 유지해도 됨)
+        st.session_state["wo_selected_idx"] = None
+
+    # ✅ rerun(행 선택) 시에도 session에 저장된 df로 계속 렌더
+    df = st.session_state.get("wo_df", None)
+    if df is None or df is False or (hasattr(df, "empty") and df.empty):
         st.info("조건을 설정한 뒤 Search를 눌러주세요.")
         return
 
-    base = build_worst_offense_list(cutoff=int(cutoff))
-    if base is None or base.empty:
-        st.info("조건에 맞는 데이터가 없습니다.")
-        return
-
-    # 정렬/컷
-    df = (
-        base.sort_values(["win_rate", "total"], ascending=[False, False])
-        .head(int(top_n))
-        .copy()
-        .reset_index(drop=True)
-    )
-
-    # 표시 컬럼 생성: Unit #1/2/3, Total
-    df["Unit #1"] = df["d1"]
-    df["Unit #2"] = df["d2"]
-    df["Unit #3"] = df["d3"]
-    df["Total"] = df["total"]
-
-    # 공격자 기준 W/L 정상화 (네 build 함수 기준: win=공격자 Lose, lose=공격자 Win)
-    wins = df["lose"].fillna(0).astype(int)    # 공격자 Win
-    losses = df["win"].fillna(0).astype(int)   # 공격자 Lose
-    total = df["total"].fillna(0).astype(int)
-
-    df["Win Rate"] = (wins / total.replace(0, 1) * 100).round(2).map(lambda x: f"{x:.2f}%")
-    df["Summary"] = wins.astype(str) + "W-" + losses.astype(str) + "L"
-
-    # ✅ 리스트 테이블 (행 선택 가능)
+    # 리스트 표시 + 선택
     event = st.dataframe(
         df[["Unit #1", "Unit #2", "Unit #3", "Summary", "Win Rate", "Total"]],
         use_container_width=True,
@@ -65,37 +58,29 @@ def render_worst_offense_tab():
         key="worst_off_table",
     )
 
-    # ✅ 선택된 행이 있으면 아래 블럭 출력
     sel_rows = []
     if event is not None and hasattr(event, "selection"):
         sel_rows = event.selection.get("rows", []) or []
 
-    if not sel_rows:
+    if sel_rows:
+        st.session_state["wo_selected_idx"] = int(sel_rows[0])
+
+    sel = st.session_state.get("wo_selected_idx", None)
+    if sel is None:
         return
 
-    i = int(sel_rows[0])
-    if i < 0 or i >= len(df):
-        return
-
-    picked = df.iloc[i]  # ✅ output 말고 df
-    def1 = picked["Unit #1"]
-    def2 = picked["Unit #2"]
-    def3 = picked["Unit #3"]
+    # 상세 출력
+    sel = max(0, min(int(sel), len(df) - 1))
+    picked = df.iloc[sel]
+    def1, def2, def3 = picked["Unit #1"], picked["Unit #2"], picked["Unit #3"]
 
     st.divider()
     st.subheader("Offense stats vs selected defense")
     st.write(f"Selected Defense: **{def1} / {def2} / {def3}**")
 
-    off_limit = st.number_input(
-        "Max offense rows",
-        min_value=5,
-        max_value=200,
-        value=50,
-        step=5,
-        key="off_limit",
-    )
-
+    off_limit = st.number_input("Max offense rows", 5, 200, 50, 5, key="off_limit")
     off_df = get_offense_stats_by_defense(def1, def2, def3, limit=int(off_limit))
+
     if off_df is None or off_df.empty:
         st.info("No offense records found for this defense.")
         return
