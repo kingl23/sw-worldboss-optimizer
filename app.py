@@ -76,34 +76,28 @@ with tab_wb:
     st.subheader("World Boss (Rank / Optimizer)")
 
     uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"], key="wb_json")
-    run = st.button("Run analysis", type="primary", key="wb_run_btn")
 
-    if run:
-        require_access_or_stop("World Boss analysis")
-
-        if uploaded is None:
-            st.error("JSON 파일을 업로드해 주세요.")
-            st.stop()
-
+    if uploaded is None:
+        st.info("Please upload a JSON file to start.")
+    else:
         raw = uploaded.getvalue()
         data = json.loads(raw.decode("utf-8"))
         data_hash = hash_bytes(raw)
 
-        # Session State Init (기존 로직 유지)
         if "data_hash" not in st.session_state or st.session_state.data_hash != data_hash:
             st.session_state.data_hash = data_hash
             st.session_state.original_data = data
             st.session_state.working_data = copy.deepcopy(data)
 
-            # World Boss state
+            # World Boss state (기존대로)
             st.session_state.wb_run = False
             st.session_state.wb_ranking = None
             st.session_state.selected_unit_id = None
             st.session_state.opt_ctx = None
 
+        # ✅ 기존 탭 UI/버튼을 원래대로 렌더링
         render_wb_tab(st.session_state, load_monster_names())
-    else:
-        st.info("JSON 업로드 후 'Run analysis'를 누르면 분석이 실행됩니다.")
+
 
 # ------------------------------------------------------------
 # Artifact Tab
