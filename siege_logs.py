@@ -1,7 +1,7 @@
+import textwrap
 import streamlit as st
 import pandas as pd
 from supabase import create_client
-
 
 
 def sb():
@@ -69,14 +69,24 @@ def get_matchups(def_key: str, limit: int = 200):
     )
     return pd.DataFrame(res.data or [])
 
+@st.cache_data(ttl=120)
+def get_matchup_details(def_key: str, o1: str, o2: str, o3: str, limit: int = 50):
+    res = (
+        sb()
+        .table("defense_battles")
+        .select("battle_time, result, attacker, note")
+        .eq("def_key", def_key)
+        .eq("o1", o1).eq("o2", o2).eq("o3", o3)
+        .order("battle_time", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return pd.DataFrame(res.data or [])
+
 
 # -------------------------
 # UI helpers (Cards)
 # -------------------------
-import textwrap
-import streamlit as st
-import pandas as pd
-
 
 def _badge_style(win_rate: float) -> str:
     try:
@@ -93,19 +103,13 @@ def _badge_style(win_rate: float) -> str:
     return "background:#ff0000;color:#fff;"
 
 
-def _render_offense_cards(df: pd.DataFrame, limit: int):
-    """
-    - Streamlit markdown이 '줄 시작 4칸 들여쓰기'를 코드블록으로 인식하는 문제 방지:
-      CSS/HTML 문자열에 대해 textwrap.dedent + strip 적용
-    - df가 None/빈 DF인 경우 안전 처리
-    """
+def _render_offense_cards_with_details(df: pd.DataFrame, limit: int, def_key: str):
     if df is None or df.empty:
         st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
         return
 
     d = df.copy()
 
-    # offense 표시용
     def to_offense(r):
         parts = [r.get("o1", ""), r.get("o2", ""), r.get("o3", "")]
         parts = [p for p in parts if p]
@@ -113,7 +117,6 @@ def _render_offense_cards(df: pd.DataFrame, limit: int):
 
     d["offense"] = d.apply(to_offense, axis=1)
 
-    # 필드 보정
     if "total" not in d.columns:
         d["total"] = d.get("win", 0) + d.get("lose", 0)
 
@@ -123,9 +126,11 @@ def _render_offense_cards(df: pd.DataFrame, limit: int):
             axis=1,
         )
 
-    d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit))
+    d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit)).reset_index(drop=True)
 
-    # CSS (dedent/strip로 코드블록 인식 방지)
+    # -------------------------
+    # CSS
+    # -------------------------
     st.markdown(
         textwrap.dedent(
             """
@@ -175,19 +180,16 @@ def _render_offense_cards(df: pd.DataFrame, limit: int):
         unsafe_allow_html=True,
     )
 
-    # 카드 영역 HTML (dedent/strip로 코드블록 인식 방지)
+    # -------------------------
+    # 카드 그리드(요약)
+    # -------------------------
     blocks = ['<div class="card-grid">']
-
     for i, row in enumerate(d.to_dict(orient="records"), start=1):
         offense = row.get("offense", "")
         win = int(row.get("win", 0) or 0)
         lose = int(row.get("lose", 0) or 0)
         total = int(row.get("total", win + lose) or (win + lose))
-
-        try:
-            win_rate = float(row.get("win_rate", 0) or 0)
-        except Exception:
-            win_rate = 0.0
+        win_rate = float(row.get("win_rate", 0) or 0)
 
         pill_style = _badge_style(win_rate)
         summary = f"{win}W-{lose}L"
@@ -206,19 +208,54 @@ def _render_offense_cards(df: pd.DataFrame, limit: int):
                 """
             ).strip()
         )
-
     blocks.append("</div>")
-
     st.markdown("".join(blocks), unsafe_allow_html=True)
 
-    # 상세(확장) 영역
+    # -------------------------
+    # 마스터-디테일(좌: 리스트, 우: 상세)
+    # -------------------------
     st.divider()
-    st.caption("상세 보기 (추후 확장)")
+    st.subheader("상세 보기")
 
-    for i, row in enumerate(d.to_dict(orient="records"), start=1):
+    # 초기 선택값
+    if "selected_idx" not in st.session_state:
+        st.session_state["selected_idx"] = 0
+
+    left, right = st.columns([0.35, 0.65], gap="large")
+
+    with left:
+        st.caption("추천 공덱 목록")
+        # 버튼 리스트(원하면 radio로 변경 가능)
+        for idx, row in enumerate(d.to_dict(orient="records")):
+            offense = row.get("offense", "")
+            win_rate = float(row.get("win_rate", 0) or 0)
+            total = int(row.get("total", 0) or 0)
+
+            label = f"#{idx+1} {offense}  ·  {win_rate:.0f}%  ·  {total}G"
+            if st.button(label, use_container_width=True, key=f"pick_{idx}"):
+                st.session_state["selected_idx"] = idx
+
+    with right:
+        idx = int(st.session_state.get("selected_idx", 0))
+        idx = max(0, min(idx, len(d) - 1))
+        row = d.iloc[idx].to_dict()
+
         offense = row.get("offense", "")
-        with st.expander(f"#{i} 상세: {offense}", expanded=False):
-            st.write("여기에 나중에 상세 내용을 넣으면 됩니다.")
+        win = int(row.get("win", 0) or 0)
+        lose = int(row.get("lose", 0) or 0)
+        total = int(row.get("total", win + lose) or (win + lose))
+        win_rate = float(row.get("win_rate", 0) or 0)
+
+        st.markdown(f"### #{idx+1} {offense}")
+        st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)  \n- 승률: **{win_rate:.1f}%**")
+
+        o1, o2, o3 = row.get("o1", ""), row.get("o2", ""), row.get("o3", "")
+
+        details_df = get_matchup_details(def_key, o1, o2, o3, limit=30)
+        if details_df.empty:
+            st.info("상세 전투 로그가 없습니다.")
+        else:
+            st.dataframe(details_df, use_container_width=True, hide_index=True)
 
 
 def render_siege_tab():
@@ -258,9 +295,8 @@ def render_siege_tab():
         def_key = make_def_key(u1, u2, u3)
         df = get_matchups(def_key, int(limit))
 
-        st.markdown(f"**Defense:** {u1} / {u2} / {u3}")
+        _render_offense_cards_with_details(df, limit=int(limit), def_key=def_key)
 
-        _render_offense_cards(df, limit=int(limit))
     else:
         st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
 
