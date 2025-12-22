@@ -24,23 +24,6 @@ def load_monster_names():
             if v
         }
 
-
-def require_access_or_stop(context: str):
-    """
-    Access Key 입력 UI는 사이드바에 상시 노출.
-    실제 검증은 각 탭의 Run/Search 버튼 클릭 시점에만 수행.
-    """
-    allowed = set(st.secrets.get("ACCESS_KEYS", []))
-    if not allowed:
-        st.error("ACCESS_KEYS is not configured in Streamlit Secrets.")
-        st.stop()
-
-    key = st.session_state.get("access_key_input", "")
-    if key not in allowed:
-        st.warning(f"Access Key required for {context}.")
-        st.stop()
-
-
 # ============================================================
 # Streamlit App
 # ============================================================
