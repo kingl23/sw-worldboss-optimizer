@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import streamlit.components.v1 as components
 from supabase import create_client
+
 
 
 def sb():
@@ -187,9 +187,8 @@ def _render_offense_cards(df: pd.DataFrame, limit: int):
             """
         )
     blocks.append("</div>")
-    # st.markdown("".join(blocks), unsafe_allow_html=True)
-    components.html("".join(blocks), height=520, scrolling=True)
-
+    st.markdown("".join(blocks), unsafe_allow_html=True)
+    
     # 펼치기(상세) – 지금은 placeholder, 나중에 여기만 채우면 됨
     st.divider()
     st.caption("상세 보기 (추후 확장)")
@@ -206,15 +205,22 @@ def render_siege_tab():
     col1, col2, col3 = st.columns(3)
 
     u1 = col1.selectbox("Unit #1 (Leader)", [""] + get_first_units())
-
     u2_opts = [""] + (get_second_units(u1) if u1 else [])
     u2 = col2.selectbox("Unit #2", u2_opts)
-
     u3_opts = [""] + (get_third_units(u1, u2) if (u1 and u2) else [])
     u3 = col3.selectbox("Unit #3", u3_opts)
 
-    # limit + search 같은 행
-    left, right = st.columns([0.5, 1.5], vertical_alignment="bottom")
+    # number_input 폭 줄이기 CSS
+    st.markdown(
+        """
+        <style>
+          div[data-testid="stNumberInput"] { max-width: 220px; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left, right = st.columns([0.35, 0.65], vertical_alignment="bottom")
     with left:
         limit = st.number_input("최대 추천 공덱 수", min_value=5, max_value=200, value=10, step=5)
     with right:
@@ -230,8 +236,11 @@ def render_siege_tab():
         def_key = make_def_key(u1, u2, u3)
         df = get_matchups(def_key, int(limit))
 
-        # defense key 제거, 자연어만
         st.markdown(f"**Defense:** {u1} / {u2} / {u3}")
+
+        _render_offense_cards(df, limit=int(limit))
+    else:
+        st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
 
         _render_offense_cards(df, limit=int(limit))
     else:
