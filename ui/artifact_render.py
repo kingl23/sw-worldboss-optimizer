@@ -3,14 +3,12 @@ import pandas as pd
 import streamlit as st
 
 
-def _parse_top_values(cell: str) -> list[int]:
+def _parse_first(cell: str) -> int:
     if cell is None:
-        return []
+        return 0
     s = str(cell).strip()
-    if not s:
-        return []
     nums = re.findall(r"-?\d+", s)
-    return [int(n) for n in nums]
+    return int(nums[0]) if nums else 0
 
 
 def _color_for_value(v: int) -> str:
@@ -23,24 +21,31 @@ def _color_for_value(v: int) -> str:
     return "background-color:#00cc44;color:#ffffff;"
 
 
-def _style_df(df: pd.DataFrame) -> str:
-    def style_cell(val):
-        if val is None:
-            return ""
-        try:
-            v = int(val)
-        except Exception:
-            return ""
-        return _color_for_value(v)
+def render_google_style(df_summary: pd.DataFrame, label_cols: list[str], value_cols: list[str]):
+    key_df = df_summary[value_cols].applymap(_parse_first)
 
-    styler = (
-        df.style
-        .applymap(style_cell)
+    def style_cell(cell_text, key_val):
+        if cell_text is None or str(cell_text).strip() == "":
+            return ""
+        return _color_for_value(int(key_val))
+
+    def apply_styles(data: pd.DataFrame):
+        styles = pd.DataFrame("", index=data.index, columns=data.columns)
+        for c in value_cols:
+            for i in data.index:
+                styles.loc[i, c] = style_cell(data.loc[i, c], key_df.loc[i, c])
+        return styles
+
+    styled = (
+        df_summary[label_cols + value_cols]
+        .style
+        .apply(apply_styles, axis=None)
         .set_properties(**{
             "text-align": "center",
             "border": "1px solid #333",
             "font-size": "13px",
             "padding": "6px",
+            "white-space": "nowrap",
         })
         .set_table_styles([
             {"selector": "th", "props": [
@@ -48,6 +53,7 @@ def _style_df(df: pd.DataFrame) -> str:
                 ("font-weight", "700"),
                 ("border", "1px solid #000"),
                 ("padding", "6px"),
+                ("background-color", "#f3f3f3"),
             ]},
             {"selector": "table", "props": [
                 ("border-collapse", "collapse"),
@@ -55,21 +61,5 @@ def _style_df(df: pd.DataFrame) -> str:
             ]},
         ])
     )
-    return styler.to_html()
 
-
-def render_colored_topn_table(df_summary: pd.DataFrame, label_cols: list[str], value_cols: list[str], top_index: int = 0):
-    out = pd.DataFrame()
-    for col in value_cols:
-        out[col] = df_summary[col].apply(lambda s: (_parse_top_values(s) + [0, 0, 0])[top_index])
-
-    labels = df_summary[label_cols].copy()
-
-    left, right = st.columns([1.0, 3.2], gap="small")
-
-    with left:
-        st.dataframe(labels, use_container_width=True, hide_index=True)
-
-    with right:
-        html = _style_df(out)
-        st.markdown(html, unsafe_allow_html=True)
+    st.markdown(styled.to_html(), unsafe_allow_html=True)
