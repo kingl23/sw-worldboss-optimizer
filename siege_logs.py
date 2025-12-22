@@ -70,6 +70,33 @@ def get_matchups(def_key: str, limit: int = 200):
     return pd.DataFrame(res.data or [])
 
 
+def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    d = df.copy()
+
+    def to_offense(r):
+        parts = [r.get("o1", ""), r.get("o2", ""), r.get("o3", "")]
+        parts = [p for p in parts if p]
+        return " / ".join(parts)
+
+    d["offense"] = d.apply(to_offense, axis=1)
+
+    # total/win_rate 보정
+    if "total" not in d.columns:
+        d["total"] = d.get("win", 0).fillna(0) + d.get("lose", 0).fillna(0)
+
+    if "win_rate" not in d.columns:
+        d["win_rate"] = d.apply(
+            lambda r: (float(r.get("win", 0) or 0) / float(r["total"]) * 100) if r["total"] else 0.0,
+            axis=1,
+        )
+
+    d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit)).reset_index(drop=True)
+    return d
+    
+
 def _sorted3(a: str, b: str, c: str):
     return sorted([x for x in [a, b, c] if x])
 
