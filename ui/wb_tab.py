@@ -33,7 +33,7 @@ def render_wb_tab(state, monster_names):
     # ==================================================
     # Top controls
     # ==================================================
-    top_left, top_right = st.columns([1.2, 1.8])
+    top_left, top_right = st.columns([1.3, 1.7])
     
     with top_left:
         run_clicked = st.button("Run analysis", type="primary")
