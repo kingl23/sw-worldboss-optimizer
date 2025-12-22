@@ -8,6 +8,7 @@ from visualize import render_optimizer_result
 from services.wb_service import run_optimizer_for_unit
 from domain.unit_repo import apply_build_to_working_data
 from config import K_PER_SLOT
+from ui.auth import require_access_or_stop
 
 
 def _strip_header(text: str) -> str:
@@ -49,6 +50,7 @@ def render_wb_tab(state, monster_names):
     # Button actions
     # --------------------------------------------------
     if run_clicked:
+        require_access_or_stop("World Boss Run")
         state.wb_run = True
         state.wb_ranking = rank_all_units(state.working_data, top_n=60)
         state.selected_unit_id = None
