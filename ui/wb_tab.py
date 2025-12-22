@@ -32,24 +32,26 @@ def render_wb_tab(state, monster_names):
 
     # ==================================================
     # Top controls
-    #  - Run: left
-    #  - Reset/Recompute: right (Reset 위치 유지, Recompute를 Reset 옆으로)
     # ==================================================
     top_left, top_right = st.columns([1.2, 1.8])
-
+    
     with top_left:
         run_clicked = st.button("Run analysis", type="primary")
-
+    
     with top_right:
-        # ✅ Reset은 기존처럼 오른쪽 그룹에 유지
-        # ✅ Recompute만 Reset 옆으로 가까이
-        c1, c2, c3 = st.columns([1.0, 1.0, 2.0])
-        with c1:
-            reset = st.button("Reset working state")
-        with c2:
-            recompute = st.button("Recompute ranking")
-        with c3:
+        if state.wb_run:
+            c1, c2, c3 = st.columns([0.9, 1.1, 2.0])
+            with c1:
+                reset = st.button("Reset", help="Reset working state")
+            with c2:
+                recompute = st.button("Recompute", help="Recompute ranking")
+            with c3:
+                st.empty()
+        else:
+            reset = False
+            recompute = False
             st.empty()
+
 
     # --------------------------------------------------
     # Button actions
@@ -100,11 +102,17 @@ def render_wb_tab(state, monster_names):
         st.markdown(
             """
             <style>
-            div[data-testid="stButton"] > button[kind="secondary"] {
-                padding: 0.25rem 0.6rem;
-                min-height: 2.0rem;
-                line-height: 1.1rem;
-                font-size: 0.5rem;
+            div[data-testid="stButton"] button {
+                padding: 0.18rem 0.55rem !important;
+                min-height: 1.8rem !important;
+                font-size: 0.82rem !important;
+                line-height: 1.0rem !important;
+                white-space: nowrap !important;
+            }
+        
+            div[data-testid="stButton"] {
+                margin-top: 0.05rem !important;
+                margin-bottom: 0.05rem !important;
             }
             </style>
             """,
