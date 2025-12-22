@@ -1,10 +1,6 @@
 # ui/worst_offense.py
 import streamlit as st
-from data.siege_data import (
-    build_worst_defense_list,
-    get_offense_stats_by_defense,
-)
-
+from data.siege_data import build_worst_defense_list, get_offense_stats_by_defense
 
 def render_worst_offense_tab():
     st.subheader("Worst offense List")
