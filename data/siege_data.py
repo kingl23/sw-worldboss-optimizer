@@ -12,7 +12,7 @@ def sb():
 
 
 @st.cache_data(ttl=300)
-def build_worst_defense_list(cutoff: int = 4) -> pd.DataFrame:
+def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
     res = (
         sb()
         .table("siege_logs")
