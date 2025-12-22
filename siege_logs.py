@@ -338,17 +338,17 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             hide_index=True,
         )
 
-
 def render_siege_tab():
     st.subheader("Siege")
 
+    # --- UI: select boxes ---
     col1, col2, col3 = st.columns(3)
 
-    u1 = col1.selectbox("Unit #1 (Leader)", [""] + get_first_units())
+    u1 = col1.selectbox("Unit #1 (Leader)", [""] + get_first_units(), key="siege_u1")
     u2_opts = [""] + (get_second_units(u1) if u1 else [])
-    u2 = col2.selectbox("Unit #2", u2_opts)
+    u2 = col2.selectbox("Unit #2", u2_opts, key="siege_u2")
     u3_opts = [""] + (get_third_units(u1, u2) if (u1 and u2) else [])
-    u3 = col3.selectbox("Unit #3", u3_opts)
+    u3 = col3.selectbox("Unit #3", u3_opts, key="siege_u3")
 
     # number_input 폭 줄이기 CSS
     st.markdown(
@@ -362,23 +362,47 @@ def render_siege_tab():
 
     left, right = st.columns([0.35, 0.65], vertical_alignment="bottom")
     with left:
-        limit = st.number_input("최대 추천 공덱 수", min_value=5, max_value=200, value=10, step=5)
+        limit = st.number_input("최대 추천 공덱 수", min_value=5, max_value=200, value=10, step=5, key="siege_limit")
     with right:
-        search = st.button("Search", type="primary")
+        search_clicked = st.button("Search", type="primary", key="siege_search_btn")
 
-    if search:
+    # --- session_state 초기화(없으면 생성) ---
+    if "siege_last_def_key" not in st.session_state:
+        st.session_state["siege_last_def_key"] = None
+    if "siege_last_df" not in st.session_state:
+        st.session_state["siege_last_df"] = None
+    if "siege_last_limit" not in st.session_state:
+        st.session_state["siege_last_limit"] = None
+
+    # --- Search 클릭 시: 결과를 session_state에 저장 ---
+    if search_clicked:
         require_access_or_stop("Siege Search")
-
-        # Search를 누를 때마다 이전 상세선택이 남는 것 방지(추가 안전장치)
-        st.session_state["selected_idx"] = None
 
         if not (u1 and u2 and u3):
             st.warning("유닛 3개를 모두 선택하세요.")
             st.stop()
 
         def_key = make_def_key(u1, u2, u3)
-        df = get_matchups(def_key, int(limit))
 
-        render_matchups_master_detail(df, limit=int(limit), def_key=def_key)
-    else:
-        st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
+        # 검색 결과 저장 (중요!)
+        st.session_state["siege_last_def_key"] = def_key
+        st.session_state["siege_last_limit"] = int(limit)
+        st.session_state["siege_last_df"] = get_matchups(def_key, int(limit))
+
+        # 새 검색이면 상세 선택은 초기화
+        st.session_state["selected_idx"] = None
+        st.session_state["selected_def_key"] = def_key  # render_matchups 쪽 리셋 로직과 정합성 유지
+
+    # --- 렌더링 로직: Search 안 눌렀어도 "저장된 결과"가 있으면 계속 보여주기 ---
+    current_def_key = make_def_key(u1, u2, u3) if (u1 and u2 and u3) else None
+    last_def_key = st.session_state.get("siege_last_def_key")
+    last_df = st.session_state.get("siege_last_df")
+    last_limit = st.session_state.get("siege_last_limit")
+
+    # 현재 선택(드롭다운)이 마지막 검색과 같고, 저장된 df가 있으면 계속 렌더
+    if current_def_key and last_def_key == current_def_key and isinstance(last_df, pd.DataFrame):
+        render_matchups_master_detail(last_df, limit=int(last_limit or limit), def_key=current_def_key)
+        return
+
+    # 그 외는 안내
+    st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
