@@ -8,7 +8,8 @@ from visualize import render_optimizer_result
 from services.wb_service import run_optimizer_for_unit
 from domain.unit_repo import apply_build_to_working_data
 from config import K_PER_SLOT
-from ui.auth import require_access_or_stop
+
+from ui.auth import require_access_or_stop  # ✅ Run 클릭 시 Access gate
 
 
 def _strip_header(text: str) -> str:
@@ -30,27 +31,29 @@ def render_wb_tab(state, monster_names):
     st.subheader("World Boss Analysis")
 
     # ==================================================
-    # ▶ Top controls
-    #   - Run : left column
-    #   - Reset / Recompute : right column (start aligned)
+    # Top controls
+    # - Run (primary/red 느낌) + Reset + Recompute를 한 줄에 가깝게 배치
     # ==================================================
-    top_left, top_right = st.columns([1.2, 1.8])
+    ctl1, ctl2, ctl3 = st.columns([1.0, 1.0, 1.6])
 
-    with top_left:
-        run_clicked = st.button("▶ Run")
+    with ctl1:
+        # ✅ 1) Artifact Run analysis처럼 (색/텍스트)
+        run_clicked = st.button("Run analysis", type="primary")
 
-    with top_right:
-        reset_clicked, recompute_clicked = st.columns([1, 1])
-        with reset_clicked:
-            reset = st.button("Reset working state")
-        with recompute_clicked:
-            recompute = st.button("Recompute ranking")
+    with ctl2:
+        reset = st.button("Reset working state")
+
+    with ctl3:
+        # ✅ 4) recompute를 reset 근처(같은 라인)로 이동
+        recompute = st.button("Recompute ranking")
 
     # --------------------------------------------------
     # Button actions
     # --------------------------------------------------
     if run_clicked:
+        # ✅ Run 시점 Access Key 검증
         require_access_or_stop("World Boss Run")
+
         state.wb_run = True
         state.wb_ranking = rank_all_units(state.working_data, top_n=60)
         state.selected_unit_id = None
@@ -71,33 +74,60 @@ def render_wb_tab(state, monster_names):
         state.opt_ctx = None
 
     if not state.wb_run:
-        st.info("Run 버튼을 눌러 분석을 시작하세요.")
+        st.info("Run analysis 버튼을 눌러 분석을 시작하세요.")
         return
 
     # ==================================================
-    # Main layout (폭 조정)
+    # Main layout
     # ==================================================
     left, right = st.columns([1.2, 1.8], gap="large")
 
     # ==================================================
-    # LEFT: Ranking (폭 축소)
+    # LEFT: Ranking table
+    # 요청:
+    #  3) Monster 열 폭 줄이고, 왼쪽에 Rank 열 추가
     # ==================================================
     with left:
-        header = st.columns([1.3, 0.9, 0.8])
-        header[0].markdown("**Monster**")
-        header[1].markdown("**TOTAL SCORE**")
-        header[2].markdown("**Action**")
+        # Header
+        header = st.columns([0.35, 1.15, 0.9, 0.8])
+        header[0].markdown("**Rank**")
+        header[1].markdown("**Monster**")
+        header[2].markdown("**TOTAL SCORE**")
+        header[3].markdown("**Action**")
 
-        for r in state.wb_ranking:
+        for idx, r in enumerate(state.wb_ranking, start=1):
             unit_id = int(r["unit_id"])
             mid = int(r["unit_master_id"])
             name = monster_names.get(mid, f"Unknown ({mid})")
 
-            row = st.columns([1.3, 0.9, 0.8])
-            row[0].markdown(f"`{name}`")
-            row[1].markdown(f"`{r['total_score']:.1f}`")
+            # Row columns: Rank | Monster | Score | Action
+            row = st.columns([0.35, 1.15, 0.9, 0.8], vertical_alignment="center")
 
-            if row[2].button("Optimize", key=f"opt_{unit_id}"):
+            row[0].markdown(f"`{idx}`")
+            row[1].markdown(f"`{name}`")
+            row[2].markdown(f"`{r['total_score']:.1f}`")
+
+            # ✅ 2) Optimize 버튼 크기 조정: 기본 버튼은 커보이므로
+            #     label을 짧게 + CSS로 padding/height 축소
+            #     (Streamlit 버튼은 기본적으로 크게 잡힘)
+            btn_key = f"opt_{unit_id}"
+
+            row[3].markdown(
+                """
+                <style>
+                div[data-testid="stButton"] > button[kind="secondary"] {
+                    padding: 0.25rem 0.6rem;
+                    min-height: 2.0rem;
+                    line-height: 1.1rem;
+                    font-size: 0.9rem;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if row[3].button("Optimize", key=btn_key):
+                # (원하면 여기에도 Access gate 걸 수 있음. 지금은 요구사항대로 Run에서만.)
                 ctx = run_optimizer_for_unit(state.working_data, unit_id)
                 if ctx:
                     ctx["before_text"] = _strip_header(ctx["before_text"])
@@ -127,7 +157,7 @@ def render_wb_tab(state, monster_names):
                 st.text(_strip_header(txt))
 
     # ==================================================
-    # RIGHT: Optimizer Panel (폭 확장)
+    # RIGHT: Optimizer Panel
     # ==================================================
     with right:
         if state.selected_unit_id is None or state.opt_ctx is None:
