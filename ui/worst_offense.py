@@ -1,5 +1,6 @@
 # ui/worst_offense.py
 import streamlit as st
+from app import require_access_or_stop
 from data.siege_data import build_worst_offense_list, get_offense_stats_by_defense
 
 
@@ -13,7 +14,9 @@ def render_worst_offense_tab():
         submitted = st.form_submit_button("Search")
 
     # ✅ Search 눌렀을 때만 DB 조회해서 session에 저장
-    if submitted:
+    if submitted:        
+        require_access_or_stop("Worst Offense Search")
+        
         base = build_worst_offense_list(cutoff=int(cutoff))
         if base is None or base.empty:
             st.session_state["wo_df"] = None
