@@ -12,7 +12,7 @@ from artifact_analysis import (
     artifact_attribute_summary,
     artifact_archetype_summary,
 )
-from ui.artifact_render import render_colored_topn_table
+from ui.artifact_render import render_google_style
 
 
 # ============================================================
