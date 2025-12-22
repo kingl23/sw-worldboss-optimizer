@@ -5,6 +5,7 @@ import streamlit as st
 
 from ui.wb_tab import render_wb_tab
 from siege_logs import render_siege_tab
+from ui.auth import require_access_or_stop
 
 from artifact_analysis import (
     collect_all_artifacts,
@@ -103,6 +104,7 @@ with tab_artifact:
     run = st.button("Run analysis", type="primary", key="artifact_run_btn")
 
     if run:
+        require_access_or_stop("Artifact analysis")
         if uploaded is None:
             st.error("JSON 파일을 업로드해 주세요.")
             st.stop()
