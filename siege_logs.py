@@ -214,7 +214,7 @@ def render_siege_tab():
     u3 = col3.selectbox("Unit #3", u3_opts)
 
     # limit + search 같은 행
-    left, right = st.columns([1, 1.5], vertical_alignment="bottom")
+    left, right = st.columns([0.5, 1.5], vertical_alignment="bottom")
     with left:
         limit = st.number_input("최대 추천 공덱 수", min_value=5, max_value=200, value=10, step=5)
     with right:
