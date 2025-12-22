@@ -35,10 +35,14 @@ def render_worst_offense_tab():
         return
 
     df = (
-        df.sort_values(["win_rate", "total"], ascending=[True, True])
+        df.sort_values(
+            ["win_rate", "total"],
+            ascending=[False, False]
+        )
         .head(int(top_n))
         .copy()
     )
+
 
     df["승률"] = (df["win_rate"] * 100).round(2).astype(str) + "%"
     df["요약"] = df["win"].astype(str) + "W-" + df["lose"].astype(str) + "L"
