@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import streamlit.components.v1 as components
 from supabase import create_client
 
 
@@ -186,7 +187,8 @@ def _render_offense_cards(df: pd.DataFrame, limit: int):
             """
         )
     blocks.append("</div>")
-    st.markdown("".join(blocks), unsafe_allow_html=True)
+    # st.markdown("".join(blocks), unsafe_allow_html=True)
+    components.html("".join(blocks), height=520, scrolling=True)
 
     # 펼치기(상세) – 지금은 placeholder, 나중에 여기만 채우면 됨
     st.divider()
@@ -212,7 +214,7 @@ def render_siege_tab():
     u3 = col3.selectbox("Unit #3", u3_opts)
 
     # limit + search 같은 행
-    left, right = st.columns([6, 1.5], vertical_alignment="bottom")
+    left, right = st.columns([1, 1.5], vertical_alignment="bottom")
     with left:
         limit = st.number_input("최대 추천 공덱 수", min_value=5, max_value=200, value=10, step=5)
     with right:
