@@ -44,22 +44,24 @@ def render_worst_offense_tab():
     )
 
 
-    df["승률"] = (df["win_rate"] * 100).round(2).astype(str) + "%"
-    df["요약"] = df["win"].astype(str) + "W-" + df["lose"].astype(str) + "L"
-
+    wins = df["lose"]
+    losses = df["win"]
+    
+    df["Win Rate"] = (wins / df["total"] * 100).round(2).astype(str) + "%"
+    df["Summary"] = wins.astype(int).astype(str) + "W-" + losses.astype(int).astype(str) + "L"
+    
     output = df.rename(
         columns={
-            "d1": "방덱1",
-            "d2": "방덱2",
-            "d3": "방덱3",
-            "win": "승",
-            "lose": "패",
-            "total": "경기수",
+            "d1": "Unit #1",
+            "d2": "Unit #2",
+            "d3": "Unit #3",
+            "total": "Total",
         }
     )
-
+    
     st.dataframe(
-        output[["방덱1", "방덱2", "방덱3", "요약", "승률", "경기수"]],
+        output[["Unit #1", "Unit #2", "Unit #3", "Summary", "Win Rate", "Total"]],
         use_container_width=True,
         hide_index=True,
     )
+
