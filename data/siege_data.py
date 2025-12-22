@@ -4,6 +4,12 @@ import streamlit as st
 from supabase import create_client
 
 
+def _or_val(v: str) -> str:
+    s = (v or "").strip()
+    s = s.replace('"', r'\"')
+    return f'"{s}"'
+
+
 def sb():
     return create_client(
         st.secrets["SUPABASE_URL"],
@@ -85,7 +91,7 @@ def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 5
 
     # 방덱 매칭 (deck2_1 고정, deck2_2/3만 swap)
     or_clauses = [
-        f"and(deck2_1.eq.{_q(a)},deck2_2.eq.{_q(b)},deck2_3.eq.{_q(c)})"
+        f"and(deck2_1.eq.{_or_val(a)},deck2_2.eq.{_or_val(b)},deck2_3.eq.{_or_val(c)})"
         for a, b, c in def_perms
     ]
     q = q.or_(",".join(or_clauses))
