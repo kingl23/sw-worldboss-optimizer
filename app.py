@@ -38,7 +38,7 @@ st.set_page_config(page_title="Summoners War Rune Analyzer", layout="wide")
 st.title("Summoners War Rune Analyzer")
 
 # ------------------------------------------------------------
-# Sidebar: Access Key Input (항상 표시)
+# Sidebar: Access Key Input
 # ------------------------------------------------------------
 
 st.sidebar.header("Access Control")
@@ -50,11 +50,11 @@ st.sidebar.text_input(
 )
 
 # ------------------------------------------------------------
-# Tabs (항상 보이게)
+# Tabs
 # ------------------------------------------------------------
 
 tab_wb, tab_artifact, tab_siege = st.tabs(
-    ["World Boss (Rank / Optimizer)", "Artifact Analysis", "Siege"]
+    ["World Boss", "Artifact Analysis", "Siege Battle"]
 )
 
 # ------------------------------------------------------------
@@ -62,7 +62,7 @@ tab_wb, tab_artifact, tab_siege = st.tabs(
 # ------------------------------------------------------------
 
 with tab_wb:
-    st.subheader("World Boss (Rank / Optimizer)")
+    st.subheader("World Boss")
 
     uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"], key="wb_json")
 
@@ -78,13 +78,12 @@ with tab_wb:
             st.session_state.original_data = data
             st.session_state.working_data = copy.deepcopy(data)
 
-            # World Boss state (기존대로)
+            # World Boss state
             st.session_state.wb_run = False
             st.session_state.wb_ranking = None
             st.session_state.selected_unit_id = None
             st.session_state.opt_ctx = None
 
-        # ✅ 기존 탭 UI/버튼을 원래대로 렌더링
         render_wb_tab(st.session_state, load_monster_names())
 
 
@@ -112,7 +111,7 @@ with tab_artifact:
         raw = uploaded.getvalue()
         data = json.loads(raw.decode("utf-8"))
 
-        # 1) 아티팩트 수집
+        # 1) collect
         all_artifacts = collect_all_artifacts(data)
         if not all_artifacts:
             st.warning("아티팩트 데이터를 찾지 못했습니다.")
@@ -120,12 +119,12 @@ with tab_artifact:
 
         st.success(f"Collected {len(all_artifacts)} artifacts")
 
-        # 2) Attribute 기반 요약
+        # 2) Attribute
         st.markdown("### Attribute-based Summary")
         df_attr = artifact_attribute_summary(all_artifacts)
         st.dataframe(df_attr, use_container_width=True)
 
-        # 3) Archetype 기반 요약
+        # 3) Archetype
         st.markdown("### Archetype-based Summary")
         df_arch = artifact_archetype_summary(all_artifacts)
         st.dataframe(df_arch, use_container_width=True)
@@ -139,6 +138,4 @@ with tab_artifact:
 # ------------------------------------------------------------
 
 with tab_siege:
-    # Siege 탭은 업로드 없이 항상 접근 가능.
-    # Search/Run 버튼 클릭 시점의 Access Key 검증은 siege_logs.py 내부에서 처리 권장.
     render_siege_tab()
