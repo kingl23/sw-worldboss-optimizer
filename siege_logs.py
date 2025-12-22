@@ -197,21 +197,11 @@ def _badge_style(win_rate: float) -> str:
 
 
 def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
+
     d = _normalize_matchups(df, limit)
     if d.empty:
         st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
         return
-
-    # selected_idx state init
-    if "selected_idx" not in st.session_state:
-        st.session_state["selected_idx"] = None
-    if "selected_def_key" not in st.session_state:
-        st.session_state["selected_def_key"] = None
-
-    # def_key가 바뀌면 기존 선택을 리셋(이전 결과의 인덱스가 남아있는 문제 방지)
-    if st.session_state.get("selected_def_key") != def_key:
-        st.session_state["selected_def_key"] = def_key
-        st.session_state["selected_idx"] = None
 
     st.markdown(
         textwrap.dedent(
@@ -222,7 +212,7 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                 border-radius: 12px;
                 padding: 12px 14px;
                 background: rgba(255,255,255,0.02);
-                margin-bottom: 8px;
+                margin-bottom: 10px;
               }
               .card-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
               .card-row {
@@ -234,109 +224,83 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                 padding: 4px 10px; border-radius: 999px; font-size: 12px;
                 font-weight: 700; display: inline-block; white-space: nowrap;
               }
-              div.stButton > button { padding: 0.35rem 0.6rem; border-radius: 10px; }
+              /* expander 안쪽 여백을 살짝 줄임(선택) */
+              div[data-testid="stExpander"] > details {
+                border-radius: 12px;
+              }
             </style>
             """
         ).strip(),
         unsafe_allow_html=True,
     )
 
-    left, right = st.columns([0.48, 0.52], gap="large")
+    st.subheader("추천 공덱")
+    st.caption("각 항목의 ‘상세보기’를 열면 바로 아래에 Lose 로그가 펼쳐집니다.")
 
-    # -------------------------
-    # 좌: 카드 1열 리스트 + 상세보기 버튼
-    # -------------------------
-    with left:
-        st.subheader("추천 공덱")
-        st.caption("상세보기를 누르면 오른쪽에 Lose 로그가 표시됩니다.")
+    # (선택) 여러 개 expander를 동시에 열기 싫으면 single-open 방식도 가능하지만
+    # Streamlit 기본 expander는 다중 오픈이 자연스럽습니다.
 
-        for idx, row in enumerate(d.to_dict(orient="records"), start=0):
-            offense = row.get("offense", "")
-            win = int(row.get("win", 0) or 0)
-            lose = int(row.get("lose", 0) or 0)
-            total = int(row.get("total", win + lose) or (win + lose))
-            win_rate = float(row.get("win_rate", 0) or 0)
-
-            pill_style = _badge_style(win_rate)
-            summary = f"{win}W-{lose}L"
-            wr_text = f"{win_rate:.0f}%"
-
-            st.markdown(
-                textwrap.dedent(
-                    f"""
-                    <div class="card">
-                      <div class="card-title">#{idx+1} {offense}</div>
-                      <div class="card-row">
-                        <span class="meta">{summary} · {total} games</span>
-                        <span class="pill" style="{pill_style}">{wr_text}</span>
-                      </div>
-                    </div>
-                    """
-                ).strip(),
-                unsafe_allow_html=True,
-            )
-
-            btn_cols = st.columns([0.72, 0.28])
-            with btn_cols[1]:
-                if st.button("상세보기", key=f"detail_btn_{idx}", use_container_width=True):
-                    st.session_state["selected_idx"] = idx
-
-    # -------------------------
-    # 우: 상세 (선택 전 = 빈칸 / 선택 후 = Lose 로그)
-    # -------------------------
-    with right:
-        sel = st.session_state.get("selected_idx", None)
-        if sel is None:
-            st.empty()
-            return
-
-        sel = int(sel)
-        sel = max(0, min(sel, len(d) - 1))
-        row = d.iloc[sel].to_dict()
-
+    for idx, row in enumerate(d.to_dict(orient="records"), start=0):
         offense = row.get("offense", "")
         win = int(row.get("win", 0) or 0)
         lose = int(row.get("lose", 0) or 0)
         total = int(row.get("total", win + lose) or (win + lose))
         win_rate = float(row.get("win_rate", 0) or 0)
 
-        o1, o2, o3 = row.get("o1", ""), row.get("o2", ""), row.get("o3", "")
+        pill_style = _badge_style(win_rate)
+        summary = f"{win}W-{lose}L"
+        wr_text = f"{win_rate:.0f}%"
 
-        st.subheader("상세")
-        st.markdown(f"### #{sel+1} {offense}")
-        st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)")
-        st.write(f"- 승률: **{win_rate:.1f}%**")
-        st.divider()
-
-        st.markdown("#### Lose 로그 (Siege Logs)")
-        logs = get_siege_loss_logs(o1, o2, o3, limit=200)
-
-        if logs.empty:
-            st.info("해당 조합의 Lose 로그가 없습니다.")
-            return
-
-        logs = logs.copy()
-        logs["공격덱"] = logs.apply(lambda r: _fmt_team(r, "deck1_1", "deck1_2", "deck1_3"), axis=1)
-        logs["방어덱"] = logs.apply(lambda r: _fmt_team(r, "deck2_1", "deck2_2", "deck2_3"), axis=1)
-
-        logs = logs.rename(
-            columns={
-                "ts": "시간",
-                "wizard": "공격자",
-                "opp_wizard": "방어자",
-                "opp_guild": "상대길드",
-                "base": "거점",
-            }
+        # 카드(요약)
+        st.markdown(
+            textwrap.dedent(
+                f"""
+                <div class="card">
+                  <div class="card-title">#{idx+1} {offense}</div>
+                  <div class="card-row">
+                    <span class="meta">{summary} · {total} games</span>
+                    <span class="pill" style="{pill_style}">{wr_text}</span>
+                  </div>
+                </div>
+                """
+            ).strip(),
+            unsafe_allow_html=True,
         )
 
-        # 요구사항: 공격자 공격덱(3) / 방어자 방어덱(3) / 상대길드 나열
-        cols = [c for c in ["시간", "상대길드", "공격자", "공격덱", "방어자", "방어덱", "거점"] if c in logs.columns]
+        # 인라인 상세(펼침)
+        # key를 고유하게 유지해야 rerun에도 펼침 상태가 안정적입니다.
+        with st.expander("상세보기", expanded=False):
+            st.markdown(f"### #{idx+1} {offense}")
+            st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)")
+            st.write(f"- 승률: **{win_rate:.1f}%**")
+            st.divider()
 
-        st.dataframe(
-            logs[cols],
-            use_container_width=True,
-            hide_index=True,
-        )
+            st.markdown("#### Lose 로그 (Siege Logs)")
+
+            o1, o2, o3 = row.get("o1", ""), row.get("o2", ""), row.get("o3", "")
+            logs = get_siege_loss_logs(o1, o2, o3, limit=200)
+
+            if logs.empty:
+                st.info("해당 조합의 Lose 로그가 없습니다.")
+                continue
+
+            logs = logs.copy()
+            logs["공격덱"] = logs.apply(lambda r: _fmt_team(r, "deck1_1", "deck1_2", "deck1_3"), axis=1)
+            logs["방어덱"] = logs.apply(lambda r: _fmt_team(r, "deck2_1", "deck2_2", "deck2_3"), axis=1)
+
+            logs = logs.rename(
+                columns={
+                    "ts": "시간",
+                    "wizard": "공격자",
+                    "opp_wizard": "방어자",
+                    "opp_guild": "상대길드",
+                    "base": "거점",
+                }
+            )
+
+            cols = [c for c in ["시간", "상대길드", "공격자", "공격덱", "방어자", "방어덱", "거점"] if c in logs.columns]
+            st.dataframe(logs[cols], use_container_width=True, hide_index=True)
+
 
 def render_siege_tab():
     st.subheader("Siege")
