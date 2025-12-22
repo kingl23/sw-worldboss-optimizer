@@ -103,10 +103,9 @@ def _badge_style(win_rate: float) -> str:
     return "background:#ff0000;color:#fff;"
 
 
-def _render_offense_cards_with_details(df: pd.DataFrame, limit: int, def_key: str):
+def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
     if df is None or df.empty:
-        st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
-        return
+        return pd.DataFrame()
 
     d = df.copy()
 
@@ -126,24 +125,27 @@ def _render_offense_cards_with_details(df: pd.DataFrame, limit: int, def_key: st
             axis=1,
         )
 
-    d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit)).reset_index(drop=True)
+    d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit))
+    d = d.reset_index(drop=True)
+    return d
 
-    # -------------------------
-    # CSS
-    # -------------------------
+
+def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
+    d = _normalize_matchups(df, limit)
+    if d.empty:
+        st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
+        return
+
+    # 선택 상태 초기화
+    if "selected_idx" not in st.session_state:
+        st.session_state["selected_idx"] = 0
+
+    # CSS: 좌측 카드 1열 리스트 + 버튼 스타일
     st.markdown(
         textwrap.dedent(
             """
             <style>
-              .card-grid {
-                display: grid;
-                grid-template-columns: repeat(2, minmax(320px, 1fr));
-                gap: 12px;
-                margin-top: 10px;
-              }
-              @media (max-width: 900px) {
-                .card-grid { grid-template-columns: 1fr; }
-              }
+              .card-list { display: flex; flex-direction: column; gap: 10px; }
               .card {
                 border: 1px solid rgba(49, 51, 63, 0.2);
                 border-radius: 12px;
@@ -162,6 +164,7 @@ def _render_offense_cards_with_details(df: pd.DataFrame, limit: int, def_key: st
                 gap: 10px;
                 margin-top: 6px;
               }
+              .meta { font-size: 12px; opacity: 0.85; }
               .pill {
                 padding: 4px 10px;
                 border-radius: 999px;
@@ -170,9 +173,10 @@ def _render_offense_cards_with_details(df: pd.DataFrame, limit: int, def_key: st
                 display: inline-block;
                 white-space: nowrap;
               }
-              .meta {
-                font-size: 12px;
-                opacity: 0.85;
+              /* Streamlit button spacing tighten */
+              div.stButton > button {
+                padding: 0.35rem 0.6rem;
+                border-radius: 10px;
               }
             </style>
             """
@@ -180,60 +184,46 @@ def _render_offense_cards_with_details(df: pd.DataFrame, limit: int, def_key: st
         unsafe_allow_html=True,
     )
 
-    # -------------------------
-    # 카드 그리드(요약)
-    # -------------------------
-    blocks = ['<div class="card-grid">']
-    for i, row in enumerate(d.to_dict(orient="records"), start=1):
-        offense = row.get("offense", "")
-        win = int(row.get("win", 0) or 0)
-        lose = int(row.get("lose", 0) or 0)
-        total = int(row.get("total", win + lose) or (win + lose))
-        win_rate = float(row.get("win_rate", 0) or 0)
-
-        pill_style = _badge_style(win_rate)
-        summary = f"{win}W-{lose}L"
-        wr_text = f"{win_rate:.0f}%"
-
-        blocks.append(
-            textwrap.dedent(
-                f"""
-                <div class="card">
-                  <div class="card-title">{i}. {offense}</div>
-                  <div class="card-row">
-                    <span class="meta">{summary} · {total} games</span>
-                    <span class="pill" style="{pill_style}">{wr_text}</span>
-                  </div>
-                </div>
-                """
-            ).strip()
-        )
-    blocks.append("</div>")
-    st.markdown("".join(blocks), unsafe_allow_html=True)
-
-    # -------------------------
-    # 마스터-디테일(좌: 리스트, 우: 상세)
-    # -------------------------
-    st.divider()
-    st.subheader("상세 보기")
-
-    # 초기 선택값
-    if "selected_idx" not in st.session_state:
-        st.session_state["selected_idx"] = 0
-
-    left, right = st.columns([0.35, 0.65], gap="large")
+    # 전체 레이아웃: 좌(마스터) / 우(디테일)
+    left, right = st.columns([0.48, 0.52], gap="large")
 
     with left:
-        st.caption("추천 공덱 목록")
-        # 버튼 리스트(원하면 radio로 변경 가능)
-        for idx, row in enumerate(d.to_dict(orient="records")):
-            offense = row.get("offense", "")
-            win_rate = float(row.get("win_rate", 0) or 0)
-            total = int(row.get("total", 0) or 0)
+        st.subheader("추천 공덱")
+        st.caption("카드의 '상세보기'를 누르면 오른쪽에 상세가 표시됩니다.")
 
-            label = f"#{idx+1} {offense}  ·  {win_rate:.0f}%  ·  {total}G"
-            if st.button(label, use_container_width=True, key=f"pick_{idx}"):
-                st.session_state["selected_idx"] = idx
+        # 카드 1열 리스트: 각 카드 아래에 '상세보기' 버튼을 둬서 클릭 이벤트를 안정적으로 처리
+        for idx, row in enumerate(d.to_dict(orient="records"), start=0):
+            offense = row.get("offense", "")
+            win = int(row.get("win", 0) or 0)
+            lose = int(row.get("lose", 0) or 0)
+            total = int(row.get("total", win + lose) or (win + lose))
+            win_rate = float(row.get("win_rate", 0) or 0)
+
+            pill_style = _badge_style(win_rate)
+            summary = f"{win}W-{lose}L"
+            wr_text = f"{win_rate:.0f}%"
+
+            # 카드 본문 (HTML)
+            st.markdown(
+                textwrap.dedent(
+                    f"""
+                    <div class="card">
+                      <div class="card-title">#{idx+1} {offense}</div>
+                      <div class="card-row">
+                        <span class="meta">{summary} · {total} games</span>
+                        <span class="pill" style="{pill_style}">{wr_text}</span>
+                      </div>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+
+            # 카드 액션: 상세보기 버튼
+            cols = st.columns([0.7, 0.3])
+            with cols[1]:
+                if st.button("상세보기", key=f"detail_btn_{idx}", use_container_width=True):
+                    st.session_state["selected_idx"] = idx
 
     with right:
         idx = int(st.session_state.get("selected_idx", 0))
@@ -246,16 +236,23 @@ def _render_offense_cards_with_details(df: pd.DataFrame, limit: int, def_key: st
         total = int(row.get("total", win + lose) or (win + lose))
         win_rate = float(row.get("win_rate", 0) or 0)
 
+        st.subheader("상세")
         st.markdown(f"### #{idx+1} {offense}")
-        st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)  \n- 승률: **{win_rate:.1f}%**")
+        st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)")
+        st.write(f"- 승률: **{win_rate:.1f}%**")
 
         o1, o2, o3 = row.get("o1", ""), row.get("o2", ""), row.get("o3", "")
 
-        details_df = get_matchup_details(def_key, o1, o2, o3, limit=30)
-        if details_df.empty:
-            st.info("상세 전투 로그가 없습니다.")
-        else:
-            st.dataframe(details_df, use_container_width=True, hide_index=True)
+        # 예시: 원천 로그 테이블이 있으면 아래를 활성화
+        # details_df = get_matchup_details(def_key, o1, o2, o3, limit=30)
+        # if details_df.empty:
+        #     st.info("상세 전투 로그가 없습니다.")
+        # else:
+        #     st.dataframe(details_df, use_container_width=True, hide_index=True)
+
+        st.info("상세 데이터(전투 로그/룬/스피드 튜닝 등)를 연결하면 이 영역에 표시됩니다.")
+        st.write({"def_key": def_key, "offense_units": [o1, o2, o3]})
+
 
 
 def render_siege_tab():
@@ -295,7 +292,8 @@ def render_siege_tab():
         def_key = make_def_key(u1, u2, u3)
         df = get_matchups(def_key, int(limit))
 
-        _render_offense_cards_with_details(df, limit=int(limit), def_key=def_key)
+        render_matchups_master_detail(df, limit=int(limit), def_key=def_key)
+
 
     else:
         st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
