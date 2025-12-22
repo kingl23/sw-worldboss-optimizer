@@ -6,6 +6,11 @@ import streamlit as st
 from ui.wb_tab import render_wb_tab
 from siege_logs import render_siege_tab
 
+from artifact_analysis import (
+    collect_all_artifacts,
+    artifact_attribute_summary,
+    artifact_archetype_summary,
+)
 
 # ============================================================
 # Utils
@@ -89,7 +94,12 @@ with tab_wb:
 with tab_artifact:
     st.subheader("Artifact Analysis")
 
-    uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"], key="artifact_json")
+    uploaded = st.file_uploader(
+        "Upload JSON file exported from SW",
+        type=["json"],
+        key="artifact_json",
+    )
+
     run = st.button("Run analysis", type="primary", key="artifact_run_btn")
 
     if run:
@@ -99,9 +109,30 @@ with tab_artifact:
             st.error("JSON 파일을 업로드해 주세요.")
             st.stop()
 
-        st.info("Artifact Analysis – WIP")
+        raw = uploaded.getvalue()
+        data = json.loads(raw.decode("utf-8"))
+
+        # 1) 아티팩트 수집
+        all_artifacts = collect_all_artifacts(data)
+        if not all_artifacts:
+            st.warning("아티팩트 데이터를 찾지 못했습니다.")
+            st.stop()
+
+        st.success(f"Collected {len(all_artifacts)} artifacts")
+
+        # 2) Attribute 기반 요약
+        st.markdown("### Attribute-based Summary")
+        df_attr = artifact_attribute_summary(all_artifacts)
+        st.dataframe(df_attr, use_container_width=True)
+
+        # 3) Archetype 기반 요약
+        st.markdown("### Archetype-based Summary")
+        df_arch = artifact_archetype_summary(all_artifacts)
+        st.dataframe(df_arch, use_container_width=True)
+
     else:
-        st.info("JSON 업로드 후 'Run analysis'를 누르면 분석이 실행됩니다. (WIP)")
+        st.info("JSON 업로드 후 'Run analysis'를 누르면 분석이 실행됩니다.")
+
 
 # ------------------------------------------------------------
 # Siege Tab
