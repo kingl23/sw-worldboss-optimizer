@@ -191,7 +191,7 @@ with tab_siege:
 # ------------------------------------------------------------
 
 with tab4:
-    render_worst_defense_tab()
+    render_worst_offense_tab()
 
 
 
