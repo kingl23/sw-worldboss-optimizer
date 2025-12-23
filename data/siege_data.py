@@ -41,7 +41,6 @@ def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
 
         rows.extend(batch)
 
-        # 마지막 페이지면 종료
         if len(batch) < page_size:
             break
 
@@ -99,17 +98,15 @@ def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 5
     if not (def1 and def2 and def3):
         return pd.DataFrame()
 
-    # 방덱: 첫 슬롯 고정 + 2/3 스왑만 허용
     def_perms = [(def1, def2, def3), (def1, def3, def2)]
 
     q = (
         sb()
         .table("siege_logs")
         .select("result, deck1_1,deck1_2,deck1_3, deck2_1,deck2_2,deck2_3")
-        .in_("result", ["Win", "Lose"])  # 공격자 기준
+        .in_("result", ["Win", "Lose"])
     )
 
-    # 방덱 매칭 (deck2_1 고정, deck2_2/3만 swap)
     or_clauses = [
         f"and(deck2_1.eq.{_or_val(a)},deck2_2.eq.{_or_val(b)},deck2_3.eq.{_or_val(c)})"
         for a, b, c in def_perms
@@ -121,7 +118,6 @@ def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 5
     if df.empty:
         return df
 
-    # 공덱 키 생성: 첫 슬롯 고정 + 2/3 정렬(고정)
     def off_key_row(r) -> str:
         return make_key_fixed(r.get("deck1_1", ""), r.get("deck1_2", ""), r.get("deck1_3", ""))
 
@@ -130,7 +126,6 @@ def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 5
     if df.empty:
         return pd.DataFrame()
 
-    # 공격자 기준 집계: Win=공격자 승, Lose=공격자 패
     agg = (
         df.groupby("off_key")
         .agg(
@@ -142,83 +137,11 @@ def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 5
     agg["total"] = agg["wins"] + agg["losses"]
     agg["win_rate"] = agg.apply(lambda r: (r["wins"] / r["total"] * 100) if r["total"] else 0.0, axis=1)
 
-    # 공덱 유닛 분해
     agg[["Unit #1", "Unit #2", "Unit #3"]] = agg["off_key"].str.split("|", expand=True)
 
-    # GAS와 동일한 정렬: total desc → win_rate desc
     agg = agg.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit)).reset_index(drop=True)
     agg["Win Rate"] = agg["win_rate"].map(lambda x: f"{x:.1f}%")
     agg["Summary"] = agg["wins"].astype(int).astype(str) + "W-" + agg["losses"].astype(int).astype(str) + "L"
 
     return agg[["Unit #1", "Unit #2", "Unit #3", "wins", "losses", "Win Rate", "Summary", "total"]]
 
-
-def debug_lookup_defense(def_key=None, d1=None, d2=None, d3=None):
-    client = sb()
-
-    out = {}
-
-    q1 = client.table("defense_list").select("def_key,a,b,c,updated_at")
-    if def_key:
-        q1 = q1.eq("def_key", def_key)
-    elif d1:
-        q1 = q1.eq("a", d1).eq("b", d2).eq("c", d3)
-    r1 = q1.execute()
-    out["defense_list"] = r1.data or []
-
-    q2 = client.table("defense_matchups").select("def_key,off_key,o1,o2,o3,win,lose,total,win_rate,updated_at")
-    if def_key:
-        q2 = q2.eq("def_key", def_key)
-    elif d1:
-        if out["defense_list"]:
-            q2 = q2.eq("def_key", out["defense_list"][0]["def_key"])
-        else:
-            out["defense_matchups"] = []
-            return out
-
-    r2 = q2.order("total", desc=True).limit(50).execute()
-    out["defense_matchups"] = r2.data or []
-
-    return out
-
-
-@st.cache_data(ttl=30)
-def count_siege_logs_for_def(def1: str, def2: str, def3: str):
-    client = sb()
-
-    # deck2_1 고정 + 2/3 swap 허용
-    a = (def1 or "").strip()
-    b = (def2 or "").strip()
-    c = (def3 or "").strip()
-
-    or_clauses = ",".join([
-        f"and(deck2_1.eq.{_or_val(a)},deck2_2.eq.{_or_val(b)},deck2_3.eq.{_or_val(c)})",
-        f"and(deck2_1.eq.{_or_val(a)},deck2_2.eq.{_or_val(c)},deck2_3.eq.{_or_val(b)})",
-    ])
-
-    # ✅ result 필터를 DB에서 걸지 말고(엄격 매칭 문제 회피),
-    #    일단 매칭 rows를 가져와서 파이썬에서 확인
-    res = (
-        client.table("siege_logs")
-        .select("result, deck2_1, deck2_2, deck2_3")
-        .or_(or_clauses)
-        .execute()
-    )   
-
-    df = pd.DataFrame(res.data or [])
-    if df.empty:
-        return {"matched_rows": 0, "result_values": [], "sample": []}
-
-    # result 값 “그대로” 확인 (공백/특수문자 포함)
-    result_vals = sorted(df["result"].astype(str).unique().tolist())
-
-    # Win/Lose만 카운트(strip 포함)
-    r = df["result"].astype(str).str.replace("\u00a0", " ").str.strip()
-    winlose = r.isin(["Win", "Lose"]).sum()
-
-    return {
-        "matched_rows": int(len(df)),
-        "winlose_rows": int(winlose),
-        "result_values": result_vals,
-        "sample": df.head(10).to_dict("records"),
-    }
