@@ -141,7 +141,8 @@ def debug_lookup_defense(def_key=None, d1=None, d2=None, d3=None):
       - defense_list rows (matched)
       - defense_matchups rows (matched, limited)
     """
-    sb = sb_client()  # 프로젝트에서 쓰는 supabase client 가져오는 함수/객체로 교체
+    client = sb()
+
 
     out = {}
 
