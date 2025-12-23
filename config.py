@@ -7,7 +7,7 @@ TARGET_MASTER_IDS = []
 K_PER_SLOT = 5
 
 # Skill-up coefficient
-SKILLUP_COEF = 53.93
+SKILLUP_COEF = 49.4
 
 # Rune / stat names
 SET_NAME = {
