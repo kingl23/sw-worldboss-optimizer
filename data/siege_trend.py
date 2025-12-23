@@ -81,16 +81,15 @@ def build_cumulative_trend_df(siege_df: pd.DataFrame) -> pd.DataFrame:
         other="Others",
     )
 
-    # ---- area용 share 계산
-    area = (
+    # ---- area용 share 계산 (근본 해결: reset_index 충돌/불안정 제거)
+    tmp = (
         last_rows
-        .groupby(["bucket", "offense"])["off_cum_count"]
+        .groupby(["bucket", "offense"], as_index=False)["off_cum_count"]
         .sum()
-        .groupby(level=0)
-        .apply(lambda s: s / s.sum() * 100.0)
-        .rename("share")
-        .reset_index()
     )
+    
+    tmp["share"] = tmp["off_cum_count"] / tmp.groupby("bucket")["off_cum_count"].transform("sum") * 100.0
+    area = tmp[["bucket", "offense", "share"]]
 
 
     # ---- line용 dataframe
