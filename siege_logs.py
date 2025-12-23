@@ -261,9 +261,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
     st.subheader("추천 공덱")
     st.caption("각 항목의 ‘상세보기’를 열면 바로 아래에 Lose 로그가 펼쳐집니다.")
 
-    # (선택) 여러 개 expander를 동시에 열기 싫으면 single-open 방식도 가능하지만
-    # Streamlit 기본 expander는 다중 오픈이 자연스럽습니다.
-
     for idx, row in enumerate(d.to_dict(orient="records"), start=0):
         offense = row.get("offense", "")
         win = int(row.get("win", 0) or 0)
@@ -275,7 +272,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
         summary = f"{win}W-{lose}L"
         wr_text = f"{win_rate:.0f}%"
 
-        # 카드(요약)
         st.markdown(
             textwrap.dedent(
                 f"""
@@ -291,8 +287,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             unsafe_allow_html=True,
         )
 
-        # 인라인 상세(펼침)
-        # key를 고유하게 유지해야 rerun에도 펼침 상태가 안정적입니다.
         with st.expander("상세보기", expanded=False):
             st.markdown(f"### #{idx+1} {offense}")
             st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)")
@@ -312,7 +306,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             
             logs["방어덱"] = logs.apply(lambda r: _fmt_team(r, "deck2_1", "deck2_2", "deck2_3"), axis=1)
             
-            # 컬럼명 정리
             logs = logs.rename(
                 columns={
                     "wizard": "공격자",
@@ -343,7 +336,6 @@ def render_siege_tab():
     u3_opts = [""] + (get_third_units(u1, u2) if (u1 and u2) else [])
     u3 = col3.selectbox("Unit #3", u3_opts, key="siege_u3")
 
-    # number_input 폭 줄이기 CSS
     st.markdown(
         """
         <style>
@@ -359,52 +351,54 @@ def render_siege_tab():
     with right:
         search_clicked = st.button("Search", type="primary", key="siege_search_btn")
 
-    # --- session_state 초기화(없으면 생성) ---
     if "siege_last_def_key" not in st.session_state:
         st.session_state["siege_last_def_key"] = None
     if "siege_last_df" not in st.session_state:
         st.session_state["siege_last_df"] = None
     if "siege_last_limit" not in st.session_state:
         st.session_state["siege_last_limit"] = None
+    if "siege_trend" not in st.session_state:
+        st.session_state["siege_trend"] = None
 
-    # --- Search 클릭 시: 결과를 session_state에 저장 ---
     if search_clicked:
         if not require_access_or_stop("siege_battle"):
             return
         if not (u1 and u2 and u3):
             st.warning("유닛 3개를 모두 선택하세요.")
             st.stop()
-
+    
         def_key = make_def_key(u1, u2, u3)
-
-        # 검색 결과 저장 (중요!)
+    
         st.session_state["siege_last_def_key"] = def_key
         st.session_state["siege_last_limit"] = int(limit)
         st.session_state["siege_last_df"] = get_matchups(def_key, int(limit))
-
-        # 새 검색이면 상세 선택은 초기화
+    
+        logs_df = get_siege_logs_for_defense(def_key=def_key, limit=2000)
+        st.session_state["siege_trend"] = build_cumulative_trend_df(logs_df)
+    
         st.session_state["selected_idx"] = None
-        st.session_state["selected_def_key"] = def_key  # render_matchups 쪽 리셋 로직과 정합성 유지
+        st.session_state["selected_def_key"] = def_key
 
-    # --- 렌더링 로직: Search 안 눌렀어도 "저장된 결과"가 있으면 계속 보여주기 ---
+
+
     current_def_key = make_def_key(u1, u2, u3) if (u1 and u2 and u3) else None
     last_def_key = st.session_state.get("siege_last_def_key")
     last_df = st.session_state.get("siege_last_df")
     last_limit = st.session_state.get("siege_last_limit")
 
-    # ✅ 검색 결과가 있고, 현재 선택이 그 검색과 동일할 때만 렌더
     if current_def_key and last_def_key == current_def_key and isinstance(last_df, pd.DataFrame):
         render_matchups_master_detail(last_df, limit=int(last_limit or limit), def_key=current_def_key)
-
-        # ✅ Trend도 "같은 def_key" 기준으로 바로 아래에 렌더 (return 전에!)
+    
         st.divider()
         st.subheader("Trend Analysis (Cumulative)")
-
-        logs_df = get_siege_logs_for_defense(def_key=current_def_key, limit=5000)
-        trend_df = build_cumulative_trend_df(logs_df)
-        render_cumulative_trend_chart(trend_df)
-
+    
+        trend = st.session_state.get("siege_trend")
+        if trend:
+            render_cumulative_trend_chart(trend)
+        else:
+            st.info("Search를 눌러 추세를 생성하세요.")
+    
         return
 
-    # 그 외는 안내
+
     st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
