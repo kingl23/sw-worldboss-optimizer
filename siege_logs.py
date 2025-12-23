@@ -348,7 +348,7 @@ def render_siege_tab():
 
     # --- Search 클릭 시: 결과를 session_state에 저장 ---
     if search_clicked:
-        require_access_or_stop("Siege Search")
+        require_access_or_stop("siege_battle")
 
         if not (u1 and u2 and u3):
             st.warning("유닛 3개를 모두 선택하세요.")
