@@ -211,10 +211,50 @@ def set_effect(set_id, ch):
 
 def artifact_sub_score_only(art):
     score = 0.0
+
     for row in art.get("sec_effects", []):
-        if len(row) >= 2:
-            score += (row[1] / 6.0) * 25.0
-    return 0 # score
+        if not row or len(row) < 2:
+            continue
+
+        effect_type = int(row[0])
+        value = float(row[1])
+
+        # --- artifactSubMax(type) 인라인 구현 ---
+        if effect_type in {200,201,202,203,207,208,211,212,213,216,217}:
+            max_val = 0.0
+
+        elif effect_type in {204,205,226,300,301,302,303,304}:
+            max_val = 5.0
+
+        elif effect_type in {209,210,214,219,220,224,225}:
+            max_val = 4.0
+
+        elif effect_type in {
+            222,305,306,307,308,309,
+            400,401,402,403,404,405,406,407,408,409,410,411
+        }:
+            max_val = 6.0
+
+        elif effect_type in {215,223}:
+            max_val = 12.0
+
+        elif effect_type == 218:
+            max_val = 0.3
+
+        elif effect_type == 221:
+            max_val = 40.0
+
+        else:
+            max_val = 6.0
+
+        if max_val <= 0:
+            continue
+
+        # MATLAB: (value / maxVal) * 25
+        score += (value / max_val) * 25.0
+
+    return score
+
 
 
 def artifact_score_total(art):
