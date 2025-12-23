@@ -53,7 +53,8 @@ def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
         return agg
 
     agg["win_rate"] = agg["win"] / agg["total"]
-    agg[["d1", "d2", "d3"]] = agg["def_key"].str.split("|", expand=True)
+    agg[["d1", "d2", "d3"]] = agg["def_key"].str.split(r"\|", expand=True)
+    # 또는: .str.split("|", expand=True, regex=False)
 
     return agg
 
