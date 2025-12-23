@@ -185,6 +185,8 @@ def count_siege_logs_for_def(def1: str, def2: str, def3: str):
         .or_(or_clauses)
         .execute()
     )
+    st.write("build_worst_offense_list fetched rows:", len(res.data or []))
+    st.write("sample first:", (res.data or [None])[0])
 
     df = pd.DataFrame(res.data or [])
     if df.empty:
