@@ -1,59 +1,93 @@
 # ui/siege_trend_chart.py
+import pandas as pd
 import streamlit as st
 import altair as alt
-import pandas as pd
 
 
-def render_cumulative_trend_chart(trend: dict):
-    if not isinstance(trend, dict):
-        st.error("Trend payload is not a dict.")
+def render_cumulative_trend_chart(df: pd.DataFrame):
+    if df is None or df.empty:
+        st.info("Trend 데이터가 없습니다.")
         return
 
-    line_df = trend.get("line")
-    area_df = trend.get("area")
-    bucket_size = trend.get("bucket_size")
-    total_games = trend.get("total_games")
+    n = len(df)
 
-    if not isinstance(line_df, pd.DataFrame) or line_df.empty:
-        st.info("Trend line 데이터가 없습니다.")
+    # 표본 수 가드 (요청하신 5/10/20)
+    if n < 5:
+        st.info("표본 수가 부족하여 추세 분석을 표시하지 않습니다.")
+        return
+    elif n < 10:
+        st.warning("표본 수가 적어 해석에 주의가 필요합니다.")
+    elif n < 20:
+        st.caption("표본 수가 충분하지 않아 참고용으로만 해석하세요.")
+
+    # 메타 표시(원하면 제거)
+    if "total_games" in df.columns and "bucket_size" in df.columns:
+        try:
+            tg = int(df["total_games"].iloc[-1])
+            bs = int(df["bucket_size"].iloc[-1])
+            st.caption(f"total_games={tg}, bucket_size={bs}")
+        except Exception:
+            pass
+
+    # area용 long-form 변환
+    area_cols = [c for c in df.columns if c.startswith("share_")]
+    if not area_cols:
+        st.info("공덱 비중 데이터(share_*)가 없습니다.")
         return
 
-    # area가 비어도 line은 그릴 수 있게 처리
-    if not isinstance(area_df, pd.DataFrame):
-        area_df = pd.DataFrame(columns=["bucket", "offense", "share"])
+    area_df = df.melt(
+        id_vars=["bucket_idx"],
+        value_vars=area_cols,
+        var_name="offense",
+        value_name="cum_cnt",
+    )
+    area_df["offense"] = area_df["offense"].str.replace("share_", "", regex=False)
 
-    st.caption(f"total_games={total_games}, bucket_size={bucket_size}")
-
-    # ---- Area (Top 5 + Others 포함해도 되고, 제외해도 됨)
+    # --- Stacked Area: 누적 사용량을 stack normalize로 100% 분할 ---
     area = (
         alt.Chart(area_df)
-        .mark_area(opacity=0.35)
+        .mark_area(opacity=0.45)
         .encode(
-            x=alt.X("bucket:Q", title="Matches (bucketed)"),
-            y=alt.Y("share:Q", title="Offense Share (%)"),
+            x=alt.X("bucket_idx:Q", title="Battle Order (bucketed)"),
+            y=alt.Y(
+                "cum_cnt:Q",
+                stack="normalize",
+                title="Offense Usage Share (%)",
+                axis=alt.Axis(format="%"),
+            ),
             color=alt.Color("offense:N", legend=alt.Legend(title="Offense")),
-            tooltip=["bucket:Q", "offense:N", alt.Tooltip("share:Q", format=".1f")],
-        )
-        .properties(height=260)
-    )
-
-    # (선택) Others를 빼고 싶으면 아래 한 줄을 켜세요.
-    # area = area.transform_filter(alt.datum.offense != "Others")
-
-    # ---- Line
-    line = (
-        alt.Chart(line_df)
-        .mark_line(interpolate="monotone", strokeWidth=2)
-        .encode(
-            x=alt.X("bucket:Q", title="Matches (bucketed)"),
-            y=alt.Y("cum_win_rate:Q", title="Cumulative Win Rate (%)"),
             tooltip=[
-                "bucket:Q",
-                alt.Tooltip("cum_win_rate:Q", format=".1f"),
+                alt.Tooltip("bucket_idx:Q", title="Bucket"),
+                alt.Tooltip("offense:N", title="Offense"),
             ],
         )
-        .properties(height=260)
+        .properties(height=360)
     )
 
-    chart = alt.layer(area, line).resolve_scale(y="independent")
+    # --- Line: 누적 승률 ---
+    line = (
+        alt.Chart(df)
+        .mark_line(color="black", strokeWidth=3)
+        .encode(
+            x=alt.X("bucket_idx:Q"),
+            y=alt.Y(
+                "cum_win_rate:Q",
+                title="Cumulative Win Rate (%)",
+                scale=alt.Scale(domain=[0, 100]),
+            ),
+            tooltip=[
+                alt.Tooltip("bucket_idx:Q", title="Bucket"),
+                alt.Tooltip("cum_win_rate:Q", title="Win Rate", format=".1f"),
+            ],
+        )
+        .properties(height=360)
+    )
+
+    chart = (
+        alt.layer(area, line)
+        .resolve_scale(y="independent")
+        .properties(title="Cumulative Defense Win Rate & Offense Usage Trend")
+    )
+
+    # Streamlit deprecation 대응: use_container_width -> width
     st.altair_chart(chart, width="stretch")
