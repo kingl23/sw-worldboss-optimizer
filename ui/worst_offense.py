@@ -16,7 +16,8 @@ def render_worst_offense_tab():
 
     if submitted:    
         build_worst_offense_list.clear()
-        require_access_or_stop("worst_offense")
+        if not require_access_or_stop("worst_offense"):
+            return
         
         base = build_worst_offense_list(cutoff=int(cutoff))
         if base is None or base.empty:
