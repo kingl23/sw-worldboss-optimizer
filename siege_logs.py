@@ -2,6 +2,7 @@ import textwrap
 import streamlit as st
 import pandas as pd
 from supabase import create_client
+from ui.auth import require_access_or_stop
 
 
 # -------------------------
@@ -9,14 +10,6 @@ from supabase import create_client
 # -------------------------
 def sb():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
-
-
-def require_access_or_stop(context: str):
-    allowed = set(st.secrets.get("ACCESS_KEYS", []))
-    key = st.session_state.get("access_key_input", "")
-    if key not in allowed:
-        st.warning(f"Access Key required for {context}.")
-        st.stop()
 
 
 def make_def_key(a: str, b: str, c: str) -> str:
@@ -348,8 +341,8 @@ def render_siege_tab():
 
     # --- Search 클릭 시: 결과를 session_state에 저장 ---
     if search_clicked:
-        require_access_or_stop("siege_battle")
-
+        if not require_access_or_stop("siege_battle"):
+            return
         if not (u1 and u2 and u3):
             st.warning("유닛 3개를 모두 선택하세요.")
             st.stop()
