@@ -111,7 +111,8 @@ with tab_artifact:
     run_art = st.button("Run analysis", type="primary", key="artifact_run")
 
     if run_art:
-        require_access_or_stop("artifact")
+        if not require_access_or_stop("artifact"):
+            return
 
         if uploaded_art is None:
             st.error("JSON 파일을 업로드해 주세요.")
