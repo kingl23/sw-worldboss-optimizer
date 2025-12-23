@@ -57,7 +57,8 @@ def render_wb_tab(state, monster_names):
     # Button actions
     # --------------------------------------------------
     if run_clicked:
-        require_access_or_stop("world_boss")
+        if not require_access_or_stop("world_boss"):
+            return
 
         state.wb_run = True
         state.wb_ranking = rank_all_units(state.working_data, top_n=60)
