@@ -14,7 +14,7 @@ The app is deployed on **Streamlit Cloud** and requires **no local setup** for u
 
 👉 **Access the app here:**
 
-[https://sw-worldboss-optimizer-9y5rftyfwi36gvkn2bnhi4.streamlit.app/
+https://sw-worldboss-optimizer-9y5rftyfwi36gvkn2bnhi4.streamlit.app/
 
 Anyone with this link can use the tool directly.
 
