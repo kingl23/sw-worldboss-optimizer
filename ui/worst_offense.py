@@ -2,6 +2,7 @@
 import streamlit as st
 from ui.auth import require_access_or_stop
 from data.siege_data import build_worst_offense_list, get_offense_stats_by_defense
+from data.siege_data import count_siege_logs_for_def
 
 import re
 
@@ -75,6 +76,7 @@ def render_worst_offense_tab():
                 elif u1 and "def_key" in tmp.columns:
                     key = _make_def_key_fixed(u1, u2, u3)
                     st.write("normalized def_key:", key)
+                    st.json(count_siege_logs_for_def(u1, u2, u3))
                     base_hit = tmp[tmp["def_key"] == key]
 
 
