@@ -3,6 +3,10 @@ import streamlit as st
 from ui.auth import require_access_or_stop
 from data.siege_data import build_worst_offense_list, get_offense_stats_by_defense
 
+import re
+import pandas as pd
+
+
 def _norm(s: str) -> str:
     if s is None:
         return ""
