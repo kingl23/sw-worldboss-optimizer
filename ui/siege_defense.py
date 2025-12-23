@@ -33,7 +33,8 @@ def render_siege_defense_tab():
         run_all = st.button("Run (전체 통계)", type="primary", key="def_all_run")
 
     if run_all:
-        require_access_or_stop("siege_defense")
+        if not require_access_or_stop("siege_defense"):
+            return
         df = get_defense_deck_stats(limit=int(top_n_all))
         st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -69,6 +70,7 @@ def render_siege_defense_tab():
         run_vs = st.button("Run (길드별)", type="primary", key="def_vs_run")
 
     if run_vs:
-        require_access_or_stop("siege_defense")
+        if not require_access_or_stop("siege_defense"):
+            return
         df2 = get_defense_decks_vs_guild(opp_guild=opp_guild, limit=int(top_n_vs))
         st.dataframe(df2, use_container_width=True, hide_index=True)
