@@ -10,7 +10,7 @@ def make_key_fixed_first(a: str, b: str, c: str) -> str:
     return "|".join([a] + rest)
 
 
-def build_cumulative_trend_df(siege_df: pd.DataFrame, def_key: str) -> pd.DataFrame:
+def build_cumulative_trend_df(siege_df: pd.DataFrame) -> pd.DataFrame:
     """
     siege_df: siege_logs DataFrame (already filtered to this def_key)
     """
