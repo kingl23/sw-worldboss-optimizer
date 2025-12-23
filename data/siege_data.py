@@ -26,6 +26,8 @@ def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
         .in_("result", ["Win", "Lose"])
         .execute()
     )
+    st.write("build_worst_offense_list fetched rows:", len(res.data or []))
+
 
     df = pd.DataFrame(res.data or [])
     if df.empty:
@@ -184,9 +186,7 @@ def count_siege_logs_for_def(def1: str, def2: str, def3: str):
         .select("result, deck2_1, deck2_2, deck2_3")
         .or_(or_clauses)
         .execute()
-    )
-    st.write("build_worst_offense_list fetched rows:", len(res.data or []))
-    st.write("sample first:", (res.data or [None])[0])
+    )   
 
     df = pd.DataFrame(res.data or [])
     if df.empty:
