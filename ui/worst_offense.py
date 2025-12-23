@@ -98,7 +98,8 @@ def render_worst_offense_tab():
 
     
     # ✅ Search 눌렀을 때만 DB 조회해서 session에 저장
-    if submitted:        
+    if submitted:    
+        build_worst_offense_list.clear()
         require_access_or_stop("Worst Offense Search")
         
         base = build_worst_offense_list(cutoff=int(cutoff))
