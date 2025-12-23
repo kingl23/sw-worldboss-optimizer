@@ -74,6 +74,7 @@ def render_worst_offense_tab():
                     base_hit = tmp[tmp["def_key"] == key]
                 elif u1 and "def_key" in tmp.columns:
                     key = _make_def_key_fixed(u1, u2, u3)
+                    st.write("normalized def_key:", key)
                     base_hit = tmp[tmp["def_key"] == key]
 
 
