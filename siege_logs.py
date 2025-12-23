@@ -393,10 +393,11 @@ def render_siege_tab():
         st.subheader("Trend Analysis (Cumulative)")
     
         trend = st.session_state.get("siege_trend")
-        if trend:
+        if isinstance(trend, pd.DataFrame) and not trend.empty:
             render_cumulative_trend_chart(trend)
         else:
             st.info("Search를 눌러 추세를 생성하세요.")
+
     
         return
 
