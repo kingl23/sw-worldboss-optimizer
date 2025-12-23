@@ -19,17 +19,35 @@ def sb():
 
 @st.cache_data(ttl=300)
 def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
-    res = (
-        sb()
-        .table("siege_logs")
-        .select("result, deck2_1, deck2_2, deck2_3")
-        .in_("result", ["Win", "Lose"])
-        .execute()
-    )
-    st.write("build_worst_offense_list fetched rows:", len(res.data or []))
+    client = sb()
 
+    rows = []
+    page_size = 1000
+    start = 0
 
-    df = pd.DataFrame(res.data or [])
+    while True:
+        res = (
+            client
+            .table("siege_logs")
+            .select("result, deck2_1, deck2_2, deck2_3")
+            .in_("result", ["Win", "Lose"])
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+
+        batch = res.data or []
+        if not batch:
+            break
+
+        rows.extend(batch)
+
+        # 마지막 페이지면 종료
+        if len(batch) < page_size:
+            break
+
+        start += page_size
+
+    df = pd.DataFrame(rows)
     if df.empty:
         return df
 
@@ -55,11 +73,10 @@ def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
         return agg
 
     agg["win_rate"] = agg["win"] / agg["total"]
+
     agg[["d1", "d2", "d3"]] = agg["def_key"].str.split(r"\|", expand=True)
-    # 또는: .str.split("|", expand=True, regex=False)
 
     return agg
-
 
 
 def make_key_fixed(a: str, b: str, c: str) -> str:
