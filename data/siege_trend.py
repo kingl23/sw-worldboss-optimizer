@@ -58,13 +58,12 @@ def build_cumulative_trend_df(siege_df: pd.DataFrame) -> pd.DataFrame:
     )
     df = df.join(off_cum)
 
+
+    
     # ---- bucket 결정 (핵심)
     N = len(df)
     bucket_size = max(1, math.ceil(N / MAX_POINTS))
     df["bucket"] = df.index // bucket_size
-
-    # ---- bucket 대표값 = 마지막 값
-    last_rows = df.groupby("bucket").tail(1).reset_index(drop=True)
 
     # ---- Top N offense 선정 (전체 기준)
     top_off = (
@@ -76,23 +75,34 @@ def build_cumulative_trend_df(siege_df: pd.DataFrame) -> pd.DataFrame:
         .tolist()
     )
 
-    last_rows["offense"] = last_rows["off_key"].where(
-        last_rows["off_key"].isin(top_off),
-        other="Others",
+    df["offense"] = df["off_key"].where(df["off_key"].isin(top_off), other="Others")
+
+    # -----------------------
+    # ✅ AREA: 누적 점유율(정상 스택용)
+    # 1) bucket별 offense 발생 건수
+    per_bucket = (
+        df.groupby(["bucket", "offense"], as_index=False)
+          .size()
+          .rename(columns={"size": "cnt"})
     )
 
-    # ---- area용 share 계산 (근본 해결: reset_index 충돌/불안정 제거)
-    tmp = (
-        last_rows
-        .groupby(["bucket", "offense"], as_index=False)["off_cum_count"]
-        .sum()
+    # 2) offense별 bucket 누적합
+    per_bucket["cum_cnt"] = per_bucket.groupby("offense")["cnt"].cumsum()
+
+    # 3) bucket별 전체 누적합 (모든 offense 합)
+    total_cum = (
+        per_bucket.groupby("bucket", as_index=False)["cum_cnt"]
+                  .sum()
+                  .rename(columns={"cum_cnt": "cum_total"})
     )
-    
-    tmp["share"] = tmp["off_cum_count"] / tmp.groupby("bucket")["off_cum_count"].transform("sum") * 100.0
-    area = tmp[["bucket", "offense", "share"]]
 
+    area = per_bucket.merge(total_cum, on="bucket", how="left")
+    area["share"] = area["cum_cnt"] / area["cum_total"] * 100.0
+    area = area[["bucket", "offense", "share"]]
 
-    # ---- line용 dataframe
+    # -----------------------
+    # ✅ LINE: bucket 대표값(마지막 행)만 사용 (이건 OK)
+    last_rows = df.groupby("bucket").tail(1).reset_index(drop=True)
     line = last_rows[["bucket", "cum_win_rate"]].copy()
     line["series"] = "Win Rate"
 
