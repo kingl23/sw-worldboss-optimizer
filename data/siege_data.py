@@ -132,3 +132,40 @@ def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 5
 
     return agg[["Unit #1", "Unit #2", "Unit #3", "wins", "losses", "Win Rate", "Summary", "total"]]
 
+
+
+def debug_lookup_defense(def_key=None, d1=None, d2=None, d3=None):
+    """
+    returns dict:
+      - defense_list rows (matched)
+      - defense_matchups rows (matched, limited)
+    """
+    sb = sb_client()  # 프로젝트에서 쓰는 supabase client 가져오는 함수/객체로 교체
+
+    out = {}
+
+    # defense_list 조회
+    q1 = sb.table("defense_list").select("def_key,a,b,c,updated_at")
+    if def_key:
+        q1 = q1.eq("def_key", def_key)
+    elif d1:
+        q1 = q1.eq("a", d1).eq("b", d2).eq("c", d3)
+    r1 = q1.execute()
+    out["defense_list"] = r1.data
+
+    # defense_matchups 조회
+    q2 = sb.table("defense_matchups").select("def_key,off_key,o1,o2,o3,win,lose,total,win_rate,updated_at")
+    if def_key:
+        q2 = q2.eq("def_key", def_key)
+    elif d1:
+        # def_key를 모르므로 defense_list 결과가 있으면 그 키로 조회
+        if out["defense_list"]:
+            q2 = q2.eq("def_key", out["defense_list"][0]["def_key"])
+        else:
+            out["defense_matchups"] = []
+            return out
+
+    r2 = q2.order("total", desc=True).limit(50).execute()
+    out["defense_matchups"] = r2.data
+
+    return out
