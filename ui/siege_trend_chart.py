@@ -1,5 +1,6 @@
-import altair as alt
+import pandas as pd
 import streamlit as st
+import altair as alt
 
 
 def render_cumulative_trend_chart(df: pd.DataFrame):
