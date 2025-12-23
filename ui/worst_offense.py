@@ -3,6 +3,14 @@ import streamlit as st
 from ui.auth import require_access_or_stop
 from data.siege_data import build_worst_offense_list, get_offense_stats_by_defense
 
+def _norm(s: str) -> str:
+    if s is None:
+        return ""
+    s = str(s)
+    s = s.replace("\u200b", "")          # zero-width space
+    s = re.sub(r"\s+", " ", s).strip()   # normalize whitespace
+    return s
+
 
 def render_worst_offense_tab():
     st.subheader("Worst Offense List")
