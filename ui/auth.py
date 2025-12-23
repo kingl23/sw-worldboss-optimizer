@@ -1,12 +1,20 @@
+# ui/auth.py
 import streamlit as st
 
-def require_access_or_stop(context: str = "this action"):
-    allowed = set(st.secrets.get("ACCESS_KEYS", []))
-    if not allowed:
-        st.error("ACCESS_KEYS is not configured in Streamlit Secrets.")
-        st.stop()
+def has_access(feature: str) -> bool:
+    feature = (feature or "").strip()
+    key = (st.session_state.get("access_key_input") or "").strip()
+    if not key:
+        return False
 
-    key = st.session_state.get("access_key_input", "")
-    if key not in allowed:
-        st.warning(f"Access Key required for {context}.")
+    policy = st.secrets.get("ACCESS_POLICY", {})  # dict
+    allowed = policy.get(key, [])
+    if not isinstance(allowed, list):
+        return False
+
+    return ("all" in allowed) or (feature in allowed)
+
+def require_access_or_stop(feature: str):
+    if not has_access(feature):
+        st.warning(f"Access Key required for: {feature}")
         st.stop()
