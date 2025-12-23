@@ -111,25 +111,23 @@ with tab_artifact:
     run_art = st.button("Run analysis", type="primary", key="artifact_run")
 
     if run_art:
-        if not require_access_or_stop("artifact"):
-            return
-
-        if uploaded_art is None:
-            st.error("JSON 파일을 업로드해 주세요.")
-            st.stop()
-
-        raw = uploaded_art.getvalue()
-        data = json.loads(raw.decode("utf-8"))
-
-        all_arts = collect_all_artifacts(data)
-
-        df_attr = artifact_attribute_matrix(all_arts, top_n=3)
-        render_matrix(df_attr, label_cols=["Attribute", "Main"], title="Attribute Matrix")
-
-        st.divider()
-
-        df_arch = artifact_archetype_matrix(all_arts, top_n=3)
-        render_matrix(df_arch, label_cols=["Archetype", "Main"], title="Archetype Matrix")
+        if require_access_or_stop("artifact"):
+            if uploaded_art is None:
+                st.error("JSON 파일을 업로드해 주세요.")
+                st.stop()
+    
+            raw = uploaded_art.getvalue()
+            data = json.loads(raw.decode("utf-8"))
+    
+            all_arts = collect_all_artifacts(data)
+    
+            df_attr = artifact_attribute_matrix(all_arts, top_n=3)
+            render_matrix(df_attr, label_cols=["Attribute", "Main"], title="Attribute Matrix")
+    
+            st.divider()
+    
+            df_arch = artifact_archetype_matrix(all_arts, top_n=3)
+            render_matrix(df_arch, label_cols=["Archetype", "Main"], title="Archetype Matrix")
 
 
 # ------------------------------------------------------------
