@@ -4,6 +4,9 @@ import pandas as pd
 from supabase import create_client
 from ui.auth import require_access_or_stop
 
+from data.siege_trend import build_cumulative_trend_df
+from ui.siege_trend_chart import render_cumulative_trend_chart
+
 
 # -------------------------
 # Supabase helpers
@@ -16,6 +19,31 @@ def make_def_key(a: str, b: str, c: str) -> str:
     # a는 leader(고정), b/c는 순서 무관
     rest = sorted([x for x in [b, c] if x])
     return "|".join([a] + rest)
+
+@st.cache_data(ttl=120)
+def get_siege_logs_for_defense(def_key: str, limit: int = 5000) -> pd.DataFrame:
+    parts = [p for p in (def_key or "").split("|") if p]
+    if len(parts) < 3:
+        return pd.DataFrame()
+    d1, d2, d3 = parts[0], parts[1], parts[2]
+
+    q = (
+        sb()
+        .table("siege_logs")
+        .select("match_id, ts, result, deck1_1,deck1_2,deck1_3, deck2_1,deck2_2,deck2_3")
+        .in_("result", ["Win", "Lose"])
+    )
+
+    # 방덱은 2/3 자리 순서 무관
+    def_perms = [(d1, d2, d3), (d1, d3, d2)]
+    or_clauses = [
+        f"and(deck2_1.eq.{_q(a)},deck2_2.eq.{_q(b)},deck2_3.eq.{_q(c)})"
+        for a, b, c in def_perms
+    ]
+
+    res = q.or_(",".join(or_clauses)).order("match_id", desc=False).limit(int(limit)).execute()
+    return pd.DataFrame(res.data or [])
+
 
 
 # -------------------------
@@ -364,9 +392,18 @@ def render_siege_tab():
     last_df = st.session_state.get("siege_last_df")
     last_limit = st.session_state.get("siege_last_limit")
 
-    # 현재 선택(드롭다운)이 마지막 검색과 같고, 저장된 df가 있으면 계속 렌더
+    # ✅ 검색 결과가 있고, 현재 선택이 그 검색과 동일할 때만 렌더
     if current_def_key and last_def_key == current_def_key and isinstance(last_df, pd.DataFrame):
         render_matchups_master_detail(last_df, limit=int(last_limit or limit), def_key=current_def_key)
+
+        # ✅ Trend도 "같은 def_key" 기준으로 바로 아래에 렌더 (return 전에!)
+        st.divider()
+        st.subheader("Trend Analysis (Cumulative)")
+
+        logs_df = get_siege_logs_for_defense(def_key=current_def_key, limit=5000)
+        trend_df = build_cumulative_trend_df(logs_df)
+        render_cumulative_trend_chart(trend_df)
+
         return
 
     # 그 외는 안내
