@@ -183,6 +183,24 @@ def set_effect(set_id, ch):
     elif set_id == 18:
         need = 2
         fixedB = 125
+    elif set_id == 19:     # Fight
+        need = 2
+        statB["ATK"] = ch["ATK"] * 0.175
+    elif set_id == 20:     # Determination
+        need = 2
+        statB["DEF"] = ch["DEF"] * 0.15
+    elif set_id == 21:     # Enhance
+        need = 2
+        statB["HP"] = ch["HP"] * 0.15
+    elif set_id == 22:     # Accuracy
+        need = 2
+        fixedB = 160
+    elif set_id == 23:     # Tolerance
+        need = 2
+        fixedB = 160
+    elif set_id == 24:     # Seal
+        need = 2
+        fixedB = 160
 
     need = int(need)
     return need, statB, fixedB
