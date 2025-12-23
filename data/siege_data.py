@@ -161,3 +161,45 @@ def debug_lookup_defense(def_key=None, d1=None, d2=None, d3=None):
     out["defense_matchups"] = r2.data or []
 
     return out
+
+
+@st.cache_data(ttl=30)
+def count_siege_logs_for_def(def1: str, def2: str, def3: str):
+    client = sb()
+
+    # deck2_1 고정 + 2/3 swap 허용
+    a = (def1 or "").strip()
+    b = (def2 or "").strip()
+    c = (def3 or "").strip()
+
+    or_clauses = ",".join([
+        f"and(deck2_1.eq.{_or_val(a)},deck2_2.eq.{_or_val(b)},deck2_3.eq.{_or_val(c)})",
+        f"and(deck2_1.eq.{_or_val(a)},deck2_2.eq.{_or_val(c)},deck2_3.eq.{_or_val(b)})",
+    ])
+
+    # ✅ result 필터를 DB에서 걸지 말고(엄격 매칭 문제 회피),
+    #    일단 매칭 rows를 가져와서 파이썬에서 확인
+    res = (
+        client.table("siege_logs")
+        .select("result, deck2_1, deck2_2, deck2_3")
+        .or_(or_clauses)
+        .execute()
+    )
+
+    df = pd.DataFrame(res.data or [])
+    if df.empty:
+        return {"matched_rows": 0, "result_values": [], "sample": []}
+
+    # result 값 “그대로” 확인 (공백/특수문자 포함)
+    result_vals = sorted(df["result"].astype(str).unique().tolist())
+
+    # Win/Lose만 카운트(strip 포함)
+    r = df["result"].astype(str).str.replace("\u00a0", " ").str.strip()
+    winlose = r.isin(["Win", "Lose"]).sum()
+
+    return {
+        "matched_rows": int(len(df)),
+        "winlose_rows": int(winlose),
+        "result_values": result_vals,
+        "sample": df.head(10).to_dict("records"),
+    }
