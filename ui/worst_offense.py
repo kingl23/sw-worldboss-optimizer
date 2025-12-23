@@ -13,6 +13,16 @@ def _norm(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()   # normalize whitespace
     return s
 
+def _make_def_key_fixed(u1: str, u2: str, u3: str) -> str:
+    a = _norm(u1)
+    b = _norm(u2)
+    c = _norm(u3)
+    if not (a and b and c):
+        return ""
+    rest = sorted([b, c])
+    return "|".join([a] + rest)
+
+
 
 def render_worst_offense_tab():
     st.subheader("Worst Offense List")
@@ -62,8 +72,10 @@ def render_worst_offense_tab():
                 if dbg_def_key.strip() and "def_key" in tmp.columns:
                     key = _norm(dbg_def_key)
                     base_hit = tmp[tmp["def_key"] == key]
-                elif u1 and "d1" in tmp.columns:
-                    base_hit = tmp[(tmp["d1"] == _norm(u1)) & (tmp["d2"] == _norm(u2)) & (tmp["d3"] == _norm(u3))]
+                elif u1 and "def_key" in tmp.columns:
+                    key = _make_def_key_fixed(u1, u2, u3)
+                    base_hit = tmp[tmp["def_key"] == key]
+
 
             st.markdown("### 1) build_worst_offense_list() 결과(base)에서 존재?")
             if base_hit is None or base_hit.empty:
