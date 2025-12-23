@@ -7,6 +7,7 @@ from ui.auth import require_access_or_stop
 
 from ui.wb_tab import render_wb_tab
 from siege_logs import render_siege_tab
+from ui.siege_defense import render_siege_defense_tab
 
 from ui.worst_offense import render_worst_offense_tab
 
@@ -55,12 +56,14 @@ st.sidebar.text_input(
 # Tabs
 # ------------------------------------------------------------
 
-tab_wb, tab_artifact, tab_siege, tab_worst = st.tabs([
+tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst = st.tabs([
     "World Boss",
     "Artifact Analysis",
     "Siege Battle",
+    "Siege Defense",
     "Worst Offense"
 ])
+
 
 # ------------------------------------------------------------
 # World Boss Tab
@@ -137,6 +140,13 @@ with tab_siege:
     render_siege_tab()
 
 
+
+# ------------------------------------------------------------
+# Siege Best Defense Tab
+# ------------------------------------------------------------
+
+with tab_siege_def:
+    render_siege_defense_tab()
 
 
 # ------------------------------------------------------------
