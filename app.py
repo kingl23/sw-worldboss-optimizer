@@ -10,6 +10,7 @@ from siege_logs import render_siege_tab
 from ui.siege_defense import render_siege_defense_tab
 
 from ui.worst_offense import render_worst_offense_tab
+from ui.personal_data import render_personal_data_tab
 
 from artifact_analysis import collect_all_artifacts, artifact_attribute_matrix, artifact_archetype_matrix
 from ui.artifact_render import render_matrix
@@ -56,9 +57,10 @@ st.sidebar.text_input(
 # Tabs
 # ------------------------------------------------------------
 
-tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst = st.tabs([
+tab_wb, tab_artifact, tab_personal, tab_siege, tab_siege_def, tab_worst = st.tabs([
     "World Boss",
     "Artifact Analysis",
+    "Personal Data",
     "Siege Battle",
     "Siege Defense",
     "Worst Offense"
@@ -129,6 +131,13 @@ with tab_artifact:
             df_arch = artifact_archetype_matrix(all_arts, top_n=3)
             render_matrix(df_arch, label_cols=["Archetype", "Main"], title="Archetype Matrix")
 
+# ------------------------------------------------------------
+# Personal Data Tab
+# ------------------------------------------------------------
+
+with tab_personal:
+    render_personal_data_tab()
+
 
 # ------------------------------------------------------------
 # Siege Tab
@@ -153,7 +162,6 @@ with tab_siege_def:
 
 with tab_worst:
     render_worst_offense_tab()
-
 
 
 
