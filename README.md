@@ -4,8 +4,7 @@
 A web-based analyzer for Summoners War that optimizes World Boss rune builds and ranks units based on current strength.
 The app focuses on practical, in-game decision support rather than theorycrafting.
 
-👉 **Web App:**  
-Web App: [Open](https://sw-worldboss-optimizer-8revvqtpkhldxhho8zwhnf.streamlit.app/)
+👉 **Web App:**  [Open](https://sw-worldboss-optimizer-8revvqtpkhldxhho8zwhnf.streamlit.app/)
 
 ---
 
