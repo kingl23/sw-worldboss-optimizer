@@ -1,11 +1,12 @@
 import copy
 import streamlit as st
 
-from ranking import rank_all_units
-from optimizer import optimize_unit_best_runes
-from core_scores import score_unit_total
 from visualize import render_optimizer_result
-from services.wb_service import run_optimizer_for_unit
+from services.wb_service import (
+    build_optimizer_context,
+    build_wb_ranking,
+    run_manual_optimizer,
+)
 from domain.unit_repo import apply_build_to_working_data
 from config import K_PER_SLOT
 
@@ -61,7 +62,7 @@ def render_wb_tab(state, monster_names):
             return
 
         state.wb_run = True
-        state.wb_ranking = rank_all_units(state.working_data, top_n=60)
+        state.wb_ranking = build_wb_ranking(state.working_data, top_n=60)
         state.selected_unit_id = None
         state.opt_ctx = None
 
@@ -75,7 +76,7 @@ def render_wb_tab(state, monster_names):
         return
 
     if recompute and state.wb_run:
-        state.wb_ranking = rank_all_units(state.working_data, top_n=60)
+        state.wb_ranking = build_wb_ranking(state.working_data, top_n=60)
         state.selected_unit_id = None
         state.opt_ctx = None
 
@@ -131,12 +132,44 @@ def render_wb_tab(state, monster_names):
             row[2].markdown(f"`{r['total_score']:.1f}`")
 
             if row[3].button("Optimize", key=f"opt_{unit_id}"):
-                ctx = run_optimizer_for_unit(state.working_data, unit_id)
+                ctx = build_optimizer_context(state.working_data, unit_id)
                 if ctx:
-                    ctx["before_text"] = _strip_header(ctx["before_text"])
-                    ctx["after_text"] = _strip_header(ctx["after_text"])
+                    before = ctx.get("before")
+                    before_score = before["total_score"] if before else None
+                    before_state = ctx.get("before_state", {})
+                    before_text = render_optimizer_result(
+                        before_state.get("unit"),
+                        before_state.get("char"),
+                        before_state.get("runes"),
+                        before_state.get("picked"),
+                        before_state.get("base"),
+                        final_score=before,
+                    )
+
+                    after_state = ctx.get("after_state", {})
+                    after = ctx.get("after")
+                    if after_state.get("unit") is None:
+                        after_text = "Optimizer: no result."
+                        after_score = None
+                    else:
+                        after_score = after["total_score"] if after else None
+                        after_text = render_optimizer_result(
+                            after_state.get("unit"),
+                            after_state.get("char"),
+                            after_state.get("runes"),
+                            after_state.get("picked"),
+                            after_state.get("base"),
+                            final_score=after,
+                        )
+
                     state.selected_unit_id = unit_id
-                    state.opt_ctx = ctx
+                    state.opt_ctx = {
+                        "before_text": _strip_header(before_text),
+                        "after_text": _strip_header(after_text),
+                        "before_score": before_score,
+                        "after_score": after_score,
+                        "rec_runes": ctx.get("rec_runes"),
+                    }
 
         # Manual Optimizer 유지
         st.divider()
@@ -150,10 +183,17 @@ def render_wb_tab(state, monster_names):
                 tid = tid.strip()
                 if not tid:
                     continue
-                u, ch, runes, picked, base = optimize_unit_best_runes(
-                    state.working_data, int(tid), K_PER_SLOT
+                result = run_manual_optimizer(state.working_data, int(tid), K_PER_SLOT)
+                if result is None:
+                    continue
+                u, ch, runes, picked, base = (
+                    result.get("unit"),
+                    result.get("char"),
+                    result.get("runes"),
+                    result.get("picked"),
+                    result.get("base"),
                 )
-                final = score_unit_total(u)
+                final = result.get("final_score")
                 txt = render_optimizer_result(
                     u, ch, runes, picked, base, final_score=final
                 )

@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 
 from ui.auth import require_access_or_stop
-from data.defense_data import (
+from services.defense_service import (
     get_defense_deck_stats,
     get_defense_decks_vs_guild,
     get_opp_guild_options,
