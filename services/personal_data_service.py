@@ -1,0 +1,324 @@
+from __future__ import annotations
+
+from typing import Dict, List, Tuple
+
+import pandas as pd
+import streamlit as st
+
+from services.supabase_client import get_supabase_client
+
+
+FOUR_STAR_BASES = {39, 35, 29, 26, 22, 16, 13, 9, 3}
+
+
+def _clean_name(value: str) -> str:
+    return (value or "").strip()
+
+
+def _make_deck_key(a: str, b: str, c: str) -> str:
+    a = _clean_name(a)
+    b = _clean_name(b)
+    c = _clean_name(c)
+    if not a:
+        return ""
+    rest = sorted([x for x in [b, c] if x])
+    if len(rest) != 2:
+        return ""
+    return "|".join([a] + rest)
+
+
+def _pct(win: int, total: int) -> str:
+    if total <= 0:
+        return "0.0%"
+    return f"{(win / total) * 100.0:.1f}%"
+
+
+def _parse_base(value) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+@st.cache_data(ttl=300)
+def get_record_summary(wizard_name: str) -> pd.DataFrame:
+    wizard_name = _clean_name(wizard_name)
+    if not wizard_name:
+        return pd.DataFrame()
+
+    totals = {
+        "all": {"win": 0, "lose": 0},
+        "four": {"win": 0, "lose": 0},
+        "five": {"win": 0, "lose": 0},
+    }
+
+    client = get_supabase_client()
+    page_size = 1000
+    start = 0
+
+    while True:
+        res = (
+            client
+            .table("siege_logs")
+            .select("result, base")
+            .eq("wizard", wizard_name)
+            .in_("result", ["Win", "Lose"])
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+        batch = res.data or []
+        if not batch:
+            break
+
+        for row in batch:
+            result = _clean_name(row.get("result"))
+            if result not in {"Win", "Lose"}:
+                continue
+            is_win = result == "Win"
+
+            totals["all"]["win" if is_win else "lose"] += 1
+
+            base_val = _parse_base(row.get("base"))
+            key = "four" if (base_val in FOUR_STAR_BASES) else "five"
+            totals[key]["win" if is_win else "lose"] += 1
+
+        if len(batch) < page_size:
+            break
+        start += page_size
+
+    rows = []
+    for label, key in [("전체", "all"), ("4성", "four"), ("5성", "five")]:
+        win = totals[key]["win"]
+        lose = totals[key]["lose"]
+        total = win + lose
+        rows.append(
+            {
+                "구분": label,
+                "총전투": int(total),
+                "승": int(win),
+                "패": int(lose),
+                "승률(%)": _pct(win, total),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+@st.cache_data(ttl=300)
+def get_top_offense_decks(wizard_name: str, limit: int) -> pd.DataFrame:
+    wizard_name = _clean_name(wizard_name)
+    if not wizard_name:
+        return pd.DataFrame()
+
+    client = get_supabase_client()
+    page_size = 1000
+    start = 0
+
+    deck_counts: Dict[str, Tuple[int, int]] = {}
+
+    while True:
+        res = (
+            client
+            .table("siege_logs")
+            .select("result, deck1_1, deck1_2, deck1_3")
+            .eq("wizard", wizard_name)
+            .in_("result", ["Win", "Lose"])
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+        batch = res.data or []
+        if not batch:
+            break
+
+        for row in batch:
+            key = _make_deck_key(row.get("deck1_1"), row.get("deck1_2"), row.get("deck1_3"))
+            if not key:
+                continue
+            is_win = _clean_name(row.get("result")) == "Win"
+            win, lose = deck_counts.get(key, (0, 0))
+            if is_win:
+                win += 1
+            else:
+                lose += 1
+            deck_counts[key] = (win, lose)
+
+        if len(batch) < page_size:
+            break
+        start += page_size
+
+    rows: List[Dict[str, object]] = []
+    for key, (win, lose) in deck_counts.items():
+        total = win + lose
+        d1, d2, d3 = key.split("|")
+        rows.append(
+            {
+                "key": key,
+                "몬1": d1,
+                "몬2": d2,
+                "몬3": d3,
+                "승": int(win),
+                "패": int(lose),
+                "총전투": int(total),
+                "승률%": _pct(win, total),
+                "_win_rate_num": (win / total) if total else 0.0,
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df = df.sort_values(
+        by=["총전투", "_win_rate_num", "key"],
+        ascending=[False, False, True],
+    )
+    df = df.drop(columns=["_win_rate_num"]).head(int(limit)).reset_index(drop=True)
+    return df
+
+
+@st.cache_data(ttl=300)
+def get_top_defense_decks(wizard_name: str, limit: int) -> pd.DataFrame:
+    wizard_name = _clean_name(wizard_name)
+    if not wizard_name:
+        return pd.DataFrame()
+
+    client = get_supabase_client()
+    page_size = 1000
+    start = 0
+
+    deck_counts: Dict[str, Tuple[int, int]] = {}
+
+    while True:
+        res = (
+            client
+            .table("defense_logs")
+            .select("result, deck1_1, deck1_2, deck1_3, wizard")
+            .eq("wizard", wizard_name)
+            .in_("result", ["Win", "Lose"])
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+        batch = res.data or []
+        if not batch:
+            break
+
+        for row in batch:
+            key = _make_deck_key(row.get("deck1_1"), row.get("deck1_2"), row.get("deck1_3"))
+            if not key:
+                continue
+            is_win = _clean_name(row.get("result")) == "Win"
+            win, lose = deck_counts.get(key, (0, 0))
+            if is_win:
+                win += 1
+            else:
+                lose += 1
+            deck_counts[key] = (win, lose)
+
+        if len(batch) < page_size:
+            break
+        start += page_size
+
+    rows: List[Dict[str, object]] = []
+    for key, (win, lose) in deck_counts.items():
+        total = win + lose
+        d1, d2, d3 = key.split("|")
+        rows.append(
+            {
+                "key": key,
+                "몬1": d1,
+                "몬2": d2,
+                "몬3": d3,
+                "승": int(win),
+                "패": int(lose),
+                "총전투": int(total),
+                "승률%": _pct(win, total),
+                "_win_rate_num": (win / total) if total else 0.0,
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df = df.sort_values(
+        by=["총전투", "_win_rate_num", "key"],
+        ascending=[False, False, True],
+    )
+    df = df.drop(columns=["_win_rate_num"]).head(int(limit)).reset_index(drop=True)
+    return df
+
+
+@st.cache_data(ttl=300)
+def get_offense_deck_details(wizard_name: str, offense_key: str, limit: int) -> pd.DataFrame:
+    wizard_name = _clean_name(wizard_name)
+    offense_key = _clean_name(offense_key)
+    if not (wizard_name and offense_key):
+        return pd.DataFrame()
+
+    key_parts = offense_key.split("|")
+    leader = key_parts[0] if key_parts else ""
+
+    client = get_supabase_client()
+    page_size = 1000
+    start = 0
+
+    rows: List[Dict[str, object]] = []
+
+    while True:
+        res = (
+            client
+            .table("siege_logs")
+            .select(
+                "ts, result, wizard, opp_wizard, opp_guild, "
+                "deck1_1, deck1_2, deck1_3, deck2_1, deck2_2, deck2_3"
+            )
+            .eq("wizard", wizard_name)
+            .eq("deck1_1", leader)
+            .in_("result", ["Win", "Lose"])
+            .range(start, start + page_size - 1)
+            .execute()
+        )
+        batch = res.data or []
+        if not batch:
+            break
+
+        for row in batch:
+            key = _make_deck_key(row.get("deck1_1"), row.get("deck1_2"), row.get("deck1_3"))
+            if key != offense_key:
+                continue
+            rows.append(row)
+
+        if len(batch) < page_size:
+            break
+        start += page_size
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    if "ts" in df.columns:
+        df = df.sort_values("ts", ascending=False)
+
+    def _get_col(row, name: str) -> str:
+        return _clean_name(row.get(name))
+
+    mapped_rows = []
+    for _, row in df.iterrows():
+        mapped_rows.append(
+            {
+                "공격덱1": _get_col(row, "deck1_1"),
+                "공격덱2": _get_col(row, "deck1_2"),
+                "공격덱3": _get_col(row, "deck1_3"),
+                "방어덱1": _get_col(row, "deck2_1"),
+                "방어덱2": _get_col(row, "deck2_2"),
+                "방어덱3": _get_col(row, "deck2_3"),
+                "방어길드": _get_col(row, "opp_guild"),
+                "방어자": _get_col(row, "opp_wizard"),
+                "결과": _get_col(row, "result"),
+            }
+        )
+
+    detail_df = pd.DataFrame(mapped_rows)
+    return detail_df.head(int(limit)).reset_index(drop=True)

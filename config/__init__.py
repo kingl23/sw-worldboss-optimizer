@@ -1,4 +1,4 @@
-# config.py
+# config/__init__.py
 
 # Optimizer targets
 TARGET_MASTER_IDS = []
