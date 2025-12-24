@@ -3,6 +3,7 @@ from __future__ import annotations
 import streamlit as st
 
 from config.settings import WIZARD_NAMES
+from ui.auth import require_access_or_stop
 from services.personal_data_service import (
     get_offense_deck_details,
     get_record_summary,
@@ -34,6 +35,7 @@ def _select_offense_key(df, table_key: str) -> str | None:
             return df.iloc[rows[0]]["key"]
         return None
     except TypeError:
+        # fallback: selection_mode 미지원 환경
         st.dataframe(df_display, use_container_width=True, hide_index=True)
         labels = [_deck_label(row) for _, row in df.iterrows()]
         label_map = {label: key for label, key in zip(labels, df["key"].tolist())}
@@ -51,17 +53,48 @@ def _select_offense_key(df, table_key: str) -> str | None:
 def render_personal_data_tab():
     st.subheader("Personal Data")
 
+    # --- state keys ---
+    run_key = "personal_data_run"
+    wizard_key = "personal_wizard_select"
+    last_wizard_key = "personal_last_wizard"
+
+    # wizard 선택
     wizard_name = st.selectbox(
         "Wizard",
         options=[""] + WIZARD_NAMES,
         index=0,
-        key="personal_wizard_select",
+        key=wizard_key,
     )
+
+    # wizard 변경 시 이전 run 상태 리셋
+    if st.session_state.get(last_wizard_key) != wizard_name:
+        st.session_state[last_wizard_key] = wizard_name
+        st.session_state[run_key] = False
+        # 선택된 덱도 초기화(선택 테이블 state가 남는 것 방지)
+        st.session_state.pop("personal_offense_table", None)
+        st.session_state.pop("personal_offense_table_fallback", None)
 
     if not wizard_name:
         st.info("Wizard를 선택해 주세요.")
         return
 
+    # 검색 버튼
+    cols = st.columns([1, 3])
+    with cols[0]:
+        clicked = st.button("Search", type="primary", use_container_width=True, key="personal_search_btn")
+
+    if clicked:
+        # 버튼 클릭 시에만 access gate
+        if not require_access_or_stop("personal_data"):
+            return
+        st.session_state[run_key] = True
+
+    # 버튼 누르기 전에는 결과 숨김
+    if not st.session_state.get(run_key, False):
+        st.info("Search를 눌러 데이터를 조회하세요.")
+        return
+
+    # --- 이하 결과 렌더 ---
     st.markdown("### 전적 요약")
     summary_df = get_record_summary(wizard_name)
     if summary_df.empty:
