@@ -1,4 +1,4 @@
-# Summoners War – World Boss Rune Analyzer
+# Summoners War Analyzer
 
 ## Overview
 A web-based analyzer for Summoners War that optimizes World Boss rune builds and ranks units based on current strength.
