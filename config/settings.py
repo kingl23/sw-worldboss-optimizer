@@ -1,15 +1,6 @@
-# config.py
-
-# Optimizer targets
 TARGET_MASTER_IDS = []
-
-# Optimizer pruning
 K_PER_SLOT = 5
-
-# Skill-up coefficient
 SKILLUP_COEF = 49.4
-
-# Rune / stat names
 SET_NAME = {
     1: "Energy",
     2: "Guard",
@@ -48,5 +39,5 @@ EFF_NAME = {
     9: "CR",
     10: "CD",
     11: "RES",
-    12: "ACC"
+    12: "ACC",
 }

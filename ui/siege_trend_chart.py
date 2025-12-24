@@ -1,17 +1,16 @@
-# ui/siege_trend_chart.py
 import pandas as pd
 import streamlit as st
 import altair as alt
 
 
-def render_cumulative_trend_chart(df: pd.DataFrame):
+def show_cumulative_trend_chart(df: pd.DataFrame):
+    """Render the cumulative siege trend chart when data is available."""
     if df is None or df.empty:
         st.info("Trend 데이터가 없습니다.")
         return
 
     n = len(df)
 
-    # 표본 수 가드 (요청하신 5/10/20)
     if n < 5:
         st.info("표본 수가 부족하여 추세 분석을 표시하지 않습니다.")
         return
@@ -20,7 +19,6 @@ def render_cumulative_trend_chart(df: pd.DataFrame):
     elif n < 20:
         st.caption("표본 수가 충분하지 않아 참고용으로만 해석하세요.")
 
-    # 메타 표시(원하면 제거)
     if "total_games" in df.columns and "bucket_size" in df.columns:
         try:
             tg = int(df["total_games"].iloc[-1])
@@ -29,7 +27,6 @@ def render_cumulative_trend_chart(df: pd.DataFrame):
         except Exception:
             pass
 
-    # area용 long-form 변환
     area_cols = [c for c in df.columns if c.startswith("share_")]
     if not area_cols:
         st.info("공덱 비중 데이터(share_*)가 없습니다.")
@@ -43,7 +40,6 @@ def render_cumulative_trend_chart(df: pd.DataFrame):
     )
     area_df["offense"] = area_df["offense"].str.replace("share_", "", regex=False)
 
-    # --- Stacked Area: 누적 사용량을 stack normalize로 100% 분할 ---
     area = (
         alt.Chart(area_df)
         .mark_area(opacity=0.45)
@@ -64,7 +60,6 @@ def render_cumulative_trend_chart(df: pd.DataFrame):
         .properties(height=360)
     )
 
-    # --- Line: 누적 승률 ---
     line = (
         alt.Chart(df)
         .mark_line(color="black", strokeWidth=3)
@@ -89,5 +84,7 @@ def render_cumulative_trend_chart(df: pd.DataFrame):
         .properties(title="Cumulative Defense Win Rate & Offense Usage Trend")
     )
 
-    # Streamlit deprecation 대응: use_container_width -> width
     st.altair_chart(chart, width="stretch")
+
+
+render_cumulative_trend_chart = show_cumulative_trend_chart

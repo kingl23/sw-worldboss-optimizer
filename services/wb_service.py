@@ -1,12 +1,13 @@
 import copy
-from core_scores import score_unit_total, rune_stat_score, unit_base_char
-from optimizer import optimize_unit_best_runes_by_unit_id
-from visualize import render_optimizer_result
-from config import K_PER_SLOT
-from domain.unit_repo import get_unit_by_unit_id
+from domain.scores import score_unit_total, rune_stat_score, unit_base_char
+from services.optimizer import optimize_unit_best_runes_by_unit_id
+from ui.text_render import format_optimizer_result
+from config.settings import K_PER_SLOT
+from domain.unit_repo import find_unit_by_id
 
 
-def render_current_build(u):
+def snapshot_current_runes(u):
+    """Return a normalized view of a unit's current rune build."""
     ch = unit_base_char(u)
     runes = sorted(
         (u.get("runes", []) or []),
@@ -21,19 +22,18 @@ def render_current_build(u):
 
 
 def run_optimizer_for_unit(working_data, unit_id):
-    u = get_unit_by_unit_id(working_data, unit_id)
+    """Run the optimizer and return before/after payloads for a unit."""
+    u = find_unit_by_id(working_data, unit_id)
     if u is None:
         return None
 
-    # BEFORE
-    ch0, runes0, picked0, base0 = render_current_build(u)
+    ch0, runes0, picked0, base0 = snapshot_current_runes(u)
     before = score_unit_total(u)
     before_score = before["total_score"] if before else None
-    before_text = render_optimizer_result(
+    before_text = format_optimizer_result(
         u, ch0, runes0, picked0, base0, final_score=before
     )
 
-    # AFTER
     u1, ch1, runes1, picked1, base1 = optimize_unit_best_runes_by_unit_id(
         working_data, unit_id, K_PER_SLOT
     )
@@ -52,7 +52,7 @@ def run_optimizer_for_unit(working_data, unit_id):
     u_tmp["runes"] = rec_runes
     after = score_unit_total(u_tmp)
     after_score = after["total_score"] if after else None
-    after_text = render_optimizer_result(
+    after_text = format_optimizer_result(
         u1, ch1, runes1, picked1, base1, final_score=after
     )
 
@@ -63,3 +63,6 @@ def run_optimizer_for_unit(working_data, unit_id):
         "after_score": after_score,
         "rec_runes": rec_runes,
     }
+
+
+render_current_build = snapshot_current_runes

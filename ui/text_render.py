@@ -1,19 +1,19 @@
-# visualize.py
 from collections import defaultdict
 
-from config import SET_NAME, EFF_NAME
-from core_scores import (rune_stat_score, init_stat, add_stat,
-                         stat_struct_score, ceil, set_effect)
+from config.settings import SET_NAME, EFF_NAME
+from domain.scores import (
+    rune_stat_score,
+    init_stat,
+    add_stat,
+    stat_struct_score,
+    ceil,
+    set_effect,
+)
 
-# ============================================================
-# Internal builders (string only, no printing)
-# ============================================================
 
-
-def _build_optimizer_lines(u, ch, runes, picked, base_score, final_score=None):
+def _compose_optimizer_lines(u, ch, runes, picked, base_score, final_score=None):
     lines = []
 
-    # Set effects
     set_ids = [int(runes[i].get("set_id", 0)) for i in picked]
     cnt = defaultdict(int)
     for sid in set_ids:
@@ -38,7 +38,6 @@ def _build_optimizer_lines(u, ch, runes, picked, base_score, final_score=None):
     picked_sorted = sorted(picked,
                            key=lambda i: int(runes[i].get("slot_no", 0)))
 
-    # Per-slot details
     for idx in picked_sorted:
         r = runes[idx]
         _, st = rune_stat_score(r, ch)
@@ -65,7 +64,6 @@ def _build_optimizer_lines(u, ch, runes, picked, base_score, final_score=None):
             grind = int(row[3]) if len(row) > 3 else 0
             lines.append(f"  Sub  : {EFF_NAME.get(typ, typ)} {base + grind}")
 
-    # Final stat summary
     total_add_stat = add_stat(rune_stat_sum, stat_bonus)
 
     lines.append("")
@@ -75,9 +73,6 @@ def _build_optimizer_lines(u, ch, runes, picked, base_score, final_score=None):
         lines.append(f"{k:3}: {ceil(ch[k])} + {ceil(total_add_stat[k])} "
                      f"= {ceil(ch[k] + total_add_stat[k])}")
 
-    # lines.append(f"Stat-set bonus score : {stat_bonus_score:.1f}")
-    # lines.append(f"Fixed set score      : {fixed_score:.1f}")
-    # lines.append(f"TOTAL SCORE          : {total_score:.1f}")
     lines.append(f"Stat-set bonus score : {final_score['stat_bonus_score']:.1f}")
     lines.append(f"Fixed set score      : {final_score['fixed_score']:.1f}")
     lines.append(f"TOTAL SCORE          : {final_score['total_score']:.1f}")
@@ -85,7 +80,7 @@ def _build_optimizer_lines(u, ch, runes, picked, base_score, final_score=None):
     return lines
 
 
-def _build_ranking_lines(results, top_n=60):
+def _compose_ranking_lines(results, top_n=60):
     lines = []
     n = min(top_n, len(results))
 
@@ -118,31 +113,29 @@ def _build_ranking_lines(results, top_n=60):
     return lines
 
 
-# ============================================================
-# Public APIs
-# ============================================================
-
-# --- Optimizer ---
-
-
 def print_unit_optimizer_result(u, ch, runes, picked, base_score, final_score=None):
-    lines = _build_optimizer_lines(u, ch, runes, picked, base_score, final_score=final_score)
+    """Print the optimizer summary to stdout."""
+    lines = _compose_optimizer_lines(u, ch, runes, picked, base_score, final_score=final_score)
     print("\n".join(lines))
 
 
-def render_optimizer_result(u, ch, runes, picked, base_score, final_score=None):
-    lines = _build_optimizer_lines(u, ch, runes, picked, base_score, final_score=final_score)
+def format_optimizer_result(u, ch, runes, picked, base_score, final_score=None):
+    """Return the optimizer summary as a string."""
+    lines = _compose_optimizer_lines(u, ch, runes, picked, base_score, final_score=final_score)
     return "\n".join(lines)
-
-
-# --- Ranking ---
 
 
 def print_top_units(results, top_n=60):
-    lines = _build_ranking_lines(results, top_n)
+    """Print the ranking summary to stdout."""
+    lines = _compose_ranking_lines(results, top_n)
     print("\n".join(lines))
 
 
-def render_ranking_result(results, top_n=60):
-    lines = _build_ranking_lines(results, top_n)
+def format_ranking_result(results, top_n=60):
+    """Return the ranking summary as a string."""
+    lines = _compose_ranking_lines(results, top_n)
     return "\n".join(lines)
+
+
+render_optimizer_result = format_optimizer_result
+render_ranking_result = format_ranking_result

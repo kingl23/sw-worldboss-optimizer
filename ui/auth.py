@@ -1,7 +1,8 @@
-# ui/auth.py
 import streamlit as st
 
+
 def require_access_or_stop(feature: str) -> bool:
+    """Validate the access key against the Streamlit secret policy."""
 
     policy = st.secrets.get("ACCESS_POLICY", {})
     key = (st.session_state.get("access_key_input") or "").strip()

@@ -1,4 +1,3 @@
-# artifact_analysis.py
 from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple, Iterable
@@ -6,7 +5,7 @@ import pandas as pd
 
 TOP_N = 3
 
-ATTR_ORDER = [2, 1, 3, 4, 5]  # Fire, Water, Wind, Light, Dark
+ATTR_ORDER = [2, 1, 3, 4, 5]
 ATTR_NAMES = ["Fire", "Water", "Wind", "Light", "Dark"]
 
 MAIN_DEFS_ATTR = [
@@ -26,11 +25,8 @@ SUB_NAMES = ["SPD_INC", "S1_REC", "S2_REC", "S3_REC", "S1_ACC", "S2_ACC", "S3_AC
 EFF_ID_TO_NAME = dict(zip(SUB_EFFECTS, SUB_NAMES))
 
 
-# ----------------------------
-# Collect
-# ----------------------------
 def collect_all_artifacts(data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Collect artifacts from both account-level and each unit."""
+    """Collect artifacts from account storage and each unit."""
     all_artifacts: List[Dict[str, Any]] = []
 
     root_arts = data.get("artifacts", [])
@@ -51,9 +47,6 @@ def collect_all_artifacts(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     return all_artifacts
 
 
-# ----------------------------
-# Helpers
-# ----------------------------
 def _safe_int(x: Any, default: int = 0) -> int:
     try:
         return int(x)
@@ -92,19 +85,8 @@ def _top_n_desc(values: List[float], n: int) -> List[int]:
     return [int(round(x)) for x in top]
 
 
-# ============================================================
-# Attribute matrix (Top1/2/3 split columns)
-# ============================================================
 def artifact_attribute_matrix(all_artifacts: List[Dict[str, Any]], top_n: int = TOP_N) -> pd.DataFrame:
-    """
-    Output rows:
-      Attribute (blank for grouped rows) | Main | ...
-    Output columns (MultiIndex):
-      (Fire, 1) (Fire, 2) (Fire, 3) (Water, 1) ... (Dark, 3)
-
-    Each cell is an int (top value).
-    """
-    # filter attribute-type arts
+    """Build the attribute matrix with grouped top-N columns."""
     attr_arts = [a for a in all_artifacts if isinstance(a, dict) and "attribute" in a]
 
     rows = []
@@ -142,30 +124,19 @@ def artifact_attribute_matrix(all_artifacts: List[Dict[str, Any]], top_n: int = 
                 }
             )
 
-    # build MultiIndex columns for values
     value_cols = pd.MultiIndex.from_product([ATTR_NAMES, list(range(1, top_n + 1))])
     df = pd.DataFrame(rows)
 
-    # ensure all value columns exist
     for col in value_cols:
         if col not in df.columns:
             df[col] = 0
 
-    # order columns
     out = df[["Attribute", "Main"] + list(value_cols)]
     return out.reset_index(drop=True)
 
 
-# ============================================================
-# Archetype matrix (Top1/2/3 split columns)
-# ============================================================
 def artifact_archetype_matrix(all_artifacts: List[Dict[str, Any]], top_n: int = TOP_N) -> pd.DataFrame:
-    """
-    Output rows:
-      Archetype (blank for grouped rows) | Main | ...
-    Output columns (MultiIndex):
-      (SPD_INC, 1) (SPD_INC, 2) (SPD_INC, 3) ... (S3_ACC, 3)
-    """
+    """Build the archetype matrix with grouped top-N columns."""
     arch_arts = [a for a in all_artifacts if isinstance(a, dict) and "unit_style" in a]
 
     rows = []

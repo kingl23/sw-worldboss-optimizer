@@ -35,26 +35,19 @@ def _cell_style_dd(v: int) -> str:
     return "background-color:#00cc44;color:#ffffff;"
 
 
-def render_matrix(
+def show_matrix(
     df: pd.DataFrame,
     label_cols: list[str],
     title: str | None = None,
 ):
-    """
-    Single HTML table:
-      - 2-row header (group colspan)
-      - label cols included
-      - square numeric cells
-      - rowspan merge for Attribute/Archetype group labels (3 rows each)
-      - NO thick borders
-    """
+    """Render a compact HTML matrix table for artifact summaries."""
     if title:
         st.markdown(f"### {title}")
 
     labels = df[label_cols].copy()
     values = df.drop(columns=label_cols)
 
-    # Coerce tuple columns -> MultiIndex (needed when df has string + tuple mixed)
+    # MultiIndex keeps group headers aligned when labels and tuples mix.
     if not isinstance(values.columns, pd.MultiIndex):
         if all(isinstance(c, tuple) and len(c) == 2 for c in values.columns):
             values.columns = pd.MultiIndex.from_tuples(values.columns)
@@ -65,17 +58,14 @@ def render_matrix(
     if values.columns.nlevels != 2:
         raise ValueError("Value columns must be a 2-level MultiIndex like (Group, k).")
 
-    # Preserve group order
     groups = []
     for g in values.columns.get_level_values(0):
         if g not in groups:
             groups.append(g)
 
-    # Rowspan merge: assume grouped label repeats every 3 rows (HP/DEF/ATK)
     merge_every = 3
-    group_key_col = label_cols[0]  # "Attribute" or "Archetype"
+    group_key_col = label_cols[0]
 
-    # CSS (NO thick separators)
     css = """
     <style>
       .mx-wrap { overflow-x: auto; }
@@ -87,7 +77,6 @@ def render_matrix(
         font-size: 13px;
       }
 
-      /* base cell */
       table.mx th, table.mx td {
         border: 1px solid #000;
         text-align: center;
@@ -101,7 +90,6 @@ def render_matrix(
         padding: 6px 8px;
       }
 
-      /* label columns width tighten */
       table.mx th.lbl1, table.mx td.lbl1 {
         width: 90px; min-width: 90px; max-width: 90px;
         padding: 6px 8px;
@@ -111,7 +99,6 @@ def render_matrix(
         padding: 6px 8px;
       }
 
-      /* numeric cells: square-ish */
       table.mx td.num {
         width: 40px; min-width: 40px; max-width: 40px;
         height: 40px; min-height: 40px; max-height: 40px;
@@ -121,7 +108,6 @@ def render_matrix(
     </style>
     """
 
-    # ---------- header ----------
     h1 = "<tr>"
     for i, col in enumerate(label_cols):
         cls = "lbl1" if i == 0 else "lbl2"
@@ -141,7 +127,6 @@ def render_matrix(
 
     thead = f"<thead>{h1}{h2}</thead>"
 
-    # ---------- body with rowspan ----------
     tbody_rows = []
     n = len(df)
 
@@ -150,7 +135,6 @@ def render_matrix(
 
         row_block_start = (r % merge_every == 0)
 
-        # label col 0: merged every 3 rows
         if row_block_start:
             label_val = labels.iloc[r][group_key_col]
             if (label_val is None) or (str(label_val).strip() == ""):
@@ -163,12 +147,10 @@ def render_matrix(
 
             tr += f'<td class="lbl1" rowspan="{merge_every}">{html.escape(label_val)}</td>'
 
-        # label col 1: always present (Main)
         main_val = labels.iloc[r][label_cols[1]]
         main_val = "" if pd.isna(main_val) else str(main_val)
         tr += f'<td class="lbl2">{html.escape(main_val)}</td>'
 
-        # numeric cells
         row_vals = values.iloc[r]
         main_val_for_style = str(labels.iloc[r][label_cols[1]] or "")
 
@@ -187,3 +169,6 @@ def render_matrix(
     tbody = "<tbody>" + "".join(tbody_rows) + "</tbody>"
     table = f'{css}<div class="mx-wrap"><table class="mx">{thead}{tbody}</table></div>'
     st.markdown(table, unsafe_allow_html=True)
+
+
+render_matrix = show_matrix

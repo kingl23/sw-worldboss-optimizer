@@ -1,11 +1,11 @@
-# ranking.py
-from core_scores import score_unit_total
+from domain.scores import score_unit_total
 
 
 def rank_all_units(data, top_n=60):
+    """Rank units by total score and return the top entries."""
     results = []
     for u in data.get("unit_list", []):
-        if u.get("attribute") != 1:   # Water only
+        if u.get("attribute") != 1:
             continue
     
         r = score_unit_total(u)

@@ -1,21 +1,18 @@
-# ui/siege_defense.py
 import streamlit as st
 import pandas as pd
 
 from ui.auth import require_access_or_stop
 from data.defense_data import (
-    get_defense_deck_stats,
-    get_defense_decks_vs_guild,
-    get_opp_guild_options,
+    list_defense_deck_stats,
+    defense_decks_vs_guild,
+    list_opp_guilds,
 )
 
 
-def render_siege_defense_tab():
+def show_siege_defense_tab():
+    """Render the siege defense analytics tab."""
     st.subheader("Siege Defense")
 
-    # -------------------------
-    # Section 1: All Defense Deck Stats (mode=1 always)
-    # -------------------------
     st.markdown("### 전체 방덱 통계 (길드그룹 포함)")
     st.caption("Top N=0이면 전체 출력됩니다. (기본 50)")
 
@@ -35,19 +32,15 @@ def render_siege_defense_tab():
     if run_all:
         if not require_access_or_stop("siege_defense"):
             return
-        df = get_defense_deck_stats(limit=int(top_n_all))
+        df = list_defense_deck_stats(limit=int(top_n_all))
         st.dataframe(df, use_container_width=True, hide_index=True)
 
     st.divider()
 
-    # -------------------------
-    # Section 2: Defense Decks vs Opponent Guild
-    # -------------------------
     st.markdown("### 길드별(상대) 방덱 통계")
     st.caption("Top N 기본 50")
 
-    # 옵션 로드(캐시)
-    guilds = get_opp_guild_options()
+    guilds = list_opp_guilds()
 
     c3, c4, c5 = st.columns([0.5, 0.25, 0.25], vertical_alignment="bottom")
     with c3:
@@ -72,5 +65,8 @@ def render_siege_defense_tab():
     if run_vs:
         if not require_access_or_stop("siege_defense"):
             return
-        df2 = get_defense_decks_vs_guild(opp_guild=opp_guild, limit=int(top_n_vs))
+        df2 = defense_decks_vs_guild(opp_guild=opp_guild, limit=int(top_n_vs))
         st.dataframe(df2, use_container_width=True, hide_index=True)
+
+
+render_siege_defense_tab = show_siege_defense_tab

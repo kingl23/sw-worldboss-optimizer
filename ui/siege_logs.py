@@ -4,24 +4,24 @@ import pandas as pd
 from supabase import create_client
 from ui.auth import require_access_or_stop
 
-from data.siege_trend import build_cumulative_trend_df
-from ui.siege_trend_chart import render_cumulative_trend_chart
+from data.siege_trend import cumulative_trend_df
+from ui.siege_trend_chart import show_cumulative_trend_chart
 
 
-# -------------------------
-# Supabase helpers
-# -------------------------
 def sb():
+    """Create a Supabase client from Streamlit secrets."""
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
 
 
 def make_def_key(a: str, b: str, c: str) -> str:
-    # a는 leader(고정), b/c는 순서 무관
+    """Build a defense key with the leader fixed and the rest sorted."""
     rest = sorted([x for x in [b, c] if x])
     return "|".join([a] + rest)
 
+
 @st.cache_data(ttl=120)
-def get_siege_logs_for_defense(def_key: str, limit: int = 5000) -> pd.DataFrame:
+def list_siege_logs_for_defense(def_key: str, limit: int = 5000) -> pd.DataFrame:
+    """Return siege logs filtered by a defense key."""
     parts = [p for p in (def_key or "").split("|") if p]
     if len(parts) < 3:
         return pd.DataFrame()
@@ -34,7 +34,6 @@ def get_siege_logs_for_defense(def_key: str, limit: int = 5000) -> pd.DataFrame:
         .in_("result", ["Win", "Lose"])
     )
 
-    # 방덱은 2/3 자리 순서 무관
     def_perms = [(d1, d2, d3), (d1, d3, d2)]
     or_clauses = [
         f"and(deck2_1.eq.{_q(a)},deck2_2.eq.{_q(b)},deck2_3.eq.{_q(c)})"
@@ -46,17 +45,16 @@ def get_siege_logs_for_defense(def_key: str, limit: int = 5000) -> pd.DataFrame:
 
 
 
-# -------------------------
-# Cached option loaders
-# -------------------------
 @st.cache_data(ttl=3600)
-def get_first_units():
+def list_first_units():
+    """List available leader units for siege defense selection."""
     res = sb().table("defense_list").select("a").execute()
     return sorted({r["a"] for r in (res.data or []) if r.get("a")})
 
 
 @st.cache_data(ttl=3600)
-def get_second_units(a: str):
+def list_second_units(a: str):
+    """List candidate second units for a chosen leader."""
     res = sb().table("defense_list").select("b,c").eq("a", a).execute()
     s = set()
     for r in (res.data or []):
@@ -69,7 +67,8 @@ def get_second_units(a: str):
 
 
 @st.cache_data(ttl=3600)
-def get_third_units(a: str, b: str):
+def list_third_units(a: str, b: str):
+    """List candidate third units for a chosen leader/second pair."""
     res = sb().table("defense_list").select("b,c").eq("a", a).execute()
     s = set()
     for r in (res.data or []):
@@ -82,11 +81,9 @@ def get_third_units(a: str, b: str):
     return sorted(s)
 
 
-# -------------------------
-# Matchups
-# -------------------------
 @st.cache_data(ttl=120)
-def get_matchups(def_key: str, limit: int = 200):
+def list_matchups(def_key: str, limit: int = 200):
+    """Return matchup summaries for a defense key."""
     res = (
         sb()
         .table("defense_matchups")
@@ -106,12 +103,10 @@ def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
 
     d = df.copy()
 
-    # 필요한 컬럼 보장
     for col in ["o1", "o2", "o3", "win", "lose", "total", "win_rate"]:
         if col not in d.columns:
             d[col] = "" if col in ["o1", "o2", "o3"] else 0
 
-    # 숫자 컬럼 안정화
     d["win"] = pd.to_numeric(d["win"], errors="coerce").fillna(0).astype(int)
     d["lose"] = pd.to_numeric(d["lose"], errors="coerce").fillna(0).astype(int)
     d["total"] = pd.to_numeric(d["total"], errors="coerce").fillna(d["win"] + d["lose"]).astype(int)
@@ -128,8 +123,6 @@ def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
 
     d["offense"] = d.apply(to_offense, axis=1)
 
-    # win_rate가 0으로만 들어오거나 total 기반 재계산이 필요한 경우를 대비
-    # (이미 테이블에 win_rate가 있더라도, total==0 이거나 None이면 보정)
     def _calc_wr(r):
         t = int(r.get("total", 0) or 0)
         w = int(r.get("win", 0) or 0)
@@ -148,18 +141,13 @@ def _sorted3(a: str, b: str, c: str):
 
 
 def _q(v: str) -> str:
-    """
-    postgrest or_ 문자열에서 안전하게 쓰기 위한 값 quoting.
-    """
+    """Quote values safely for PostgREST or_ filters."""
     v = (v or "").replace('"', '\\"')
     return f'"{v}"'
 
-
-# -------------------------
-# Siege loss logs (B안: match_id 필터 제거)
-# -------------------------
 @st.cache_data(ttl=120)
-def get_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 200) -> pd.DataFrame:
+def list_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 200) -> pd.DataFrame:
+    """Return loss logs for a defense key and offense lineup."""
     parts = [p for p in (def_key or "").split("|") if p]
     if len(parts) < 3:
         return pd.DataFrame()
@@ -196,9 +184,6 @@ def get_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 20
     return pd.DataFrame(res.data or [])
 
 
-# -------------------------
-# UI helpers (Cards)
-# -------------------------
 def _fmt_team(r, a, b, c) -> str:
     parts = [r.get(a, ""), r.get(b, ""), r.get(c, "")]
     parts = [p for p in parts if p]
@@ -220,8 +205,8 @@ def _badge_style(win_rate: float) -> str:
     return "background:#ff0000;color:#fff;"
 
 
-def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
-
+def show_matchups_detail(df: pd.DataFrame, limit: int, def_key: str):
+    """Render matchup cards and loss logs for a selected defense."""
     d = _normalize_matchups(df, limit)
     if d.empty:
         st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
@@ -248,7 +233,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                 padding: 4px 10px; border-radius: 999px; font-size: 12px;
                 font-weight: 700; display: inline-block; white-space: nowrap;
               }
-              /* expander 안쪽 여백을 살짝 줄임(선택) */
               div[data-testid="stExpander"] > details {
                 border-radius: 12px;
               }
@@ -296,7 +280,7 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             st.markdown("#### Lose 로그 (Siege Logs)")
 
             o1, o2, o3 = row.get("o1", ""), row.get("o2", ""), row.get("o3", "")
-            logs = get_siege_loss_logs(def_key, o1, o2, o3, limit=200)
+            logs = list_siege_loss_logs(def_key, o1, o2, o3, limit=200)
             
             if logs.empty:
                 st.info("해당 공덱/방덱 조합의 Lose 로그가 없습니다.")
@@ -321,19 +305,16 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                 use_container_width=True,
                 hide_index=True,
             )
-
-
-
-def render_siege_tab():
+def show_siege_tab():
+    """Render the siege analysis tab."""
     st.subheader("Siege")
 
-    # --- UI: select boxes ---
     col1, col2, col3 = st.columns(3)
 
-    u1 = col1.selectbox("Unit #1 (Leader)", [""] + get_first_units(), key="siege_u1")
-    u2_opts = [""] + (get_second_units(u1) if u1 else [])
+    u1 = col1.selectbox("Unit #1 (Leader)", [""] + list_first_units(), key="siege_u1")
+    u2_opts = [""] + (list_second_units(u1) if u1 else [])
     u2 = col2.selectbox("Unit #2", u2_opts, key="siege_u2")
-    u3_opts = [""] + (get_third_units(u1, u2) if (u1 and u2) else [])
+    u3_opts = [""] + (list_third_units(u1, u2) if (u1 and u2) else [])
     u3 = col3.selectbox("Unit #3", u3_opts, key="siege_u3")
 
     st.markdown(
@@ -371,10 +352,10 @@ def render_siege_tab():
     
         st.session_state["siege_last_def_key"] = def_key
         st.session_state["siege_last_limit"] = int(limit)
-        st.session_state["siege_last_df"] = get_matchups(def_key, int(limit))
+        st.session_state["siege_last_df"] = list_matchups(def_key, int(limit))
     
-        logs_df = get_siege_logs_for_defense(def_key=def_key, limit=2000)
-        st.session_state["siege_trend"] = build_cumulative_trend_df(logs_df)
+        logs_df = list_siege_logs_for_defense(def_key=def_key, limit=2000)
+        st.session_state["siege_trend"] = cumulative_trend_df(logs_df)
     
         st.session_state["selected_idx"] = None
         st.session_state["selected_def_key"] = def_key
@@ -387,14 +368,14 @@ def render_siege_tab():
     last_limit = st.session_state.get("siege_last_limit")
 
     if current_def_key and last_def_key == current_def_key and isinstance(last_df, pd.DataFrame):
-        render_matchups_master_detail(last_df, limit=int(last_limit or limit), def_key=current_def_key)
+        show_matchups_detail(last_df, limit=int(last_limit or limit), def_key=current_def_key)
     
         st.divider()
         st.subheader("Trend Analysis (Cumulative)")
     
         trend = st.session_state.get("siege_trend")
         if isinstance(trend, pd.DataFrame) and not trend.empty:
-            render_cumulative_trend_chart(trend)
+            show_cumulative_trend_chart(trend)
         else:
             st.info("Search를 눌러 추세를 생성하세요.")
 
@@ -403,3 +384,13 @@ def render_siege_tab():
 
 
     st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
+
+
+render_matchups_master_detail = show_matchups_detail
+render_siege_tab = show_siege_tab
+get_siege_logs_for_defense = list_siege_logs_for_defense
+get_first_units = list_first_units
+get_second_units = list_second_units
+get_third_units = list_third_units
+get_matchups = list_matchups
+get_siege_loss_logs = list_siege_loss_logs

@@ -1,16 +1,15 @@
-# core_scores.py
 import math
 from collections import defaultdict
-from config import SKILLUP_COEF
-
-# ---------- Basic utils ----------
+from config.settings import SKILLUP_COEF
 
 
 def ceil(x):
+    """Return the ceiling as an integer."""
     return int(math.ceil(x))
 
 
 def init_stat():
+    """Return a zeroed stat dict for rune calculations."""
     return {
         "HP": 0.0,
         "ATK": 0.0,
@@ -24,19 +23,19 @@ def init_stat():
 
 
 def add_stat(a, b):
+    """Add two stat dictionaries and return the sum."""
     return {k: a[k] + b[k] for k in a}
 
 
 def stat_struct_score(st):
+    """Score a stat dict using the World Boss weights."""
     return (st["HP"] * 0.08 + st["ATK"] * 1.2 + st["DEF"] * 1.2 +
             st["SPD"] * 7.99 + st["CR"] * 8.67 + st["CD"] * 6.32 +
             st["RES"] * 7.85 + st["ACC"] * 7.85)
 
 
-# ---------- Unit base ----------
-
-
 def unit_base_char(u):
+    """Extract base stats from a unit payload."""
     return {
         "HP": float(u.get("con", 0)) * 15.0,
         "ATK": float(u.get("atk", 0)),
@@ -49,10 +48,8 @@ def unit_base_char(u):
     }
 
 
-# ---------- Rune scoring ----------
-
-
 def eff_score(typ, val, ch):
+    """Score a rune effect and return (score, added_stats)."""
     add = init_stat()
     coef = 0.0
     real = 0.0
@@ -106,6 +103,7 @@ def eff_score(typ, val, ch):
 
 
 def rune_stat_score(r, ch):
+    """Compute a rune's score and stat contributions."""
     score = 0.0
     st = init_stat()
 
@@ -127,10 +125,8 @@ def rune_stat_score(r, ch):
     return score, st
 
 
-# ---------- Set effects ----------
-
-
 def set_effect(set_id, ch):
+    """Return (needed_count, bonus_stats, fixed_score) for a rune set."""
     statB = init_stat()
     fixedB = 0.0
     need = 0
@@ -183,22 +179,22 @@ def set_effect(set_id, ch):
     elif set_id == 18:
         need = 2
         fixedB = 125
-    elif set_id == 19:     # Fight
+    elif set_id == 19:
         need = 2
         statB["ATK"] = ch["ATK"] * 0.175
-    elif set_id == 20:     # Determination
+    elif set_id == 20:
         need = 2
         statB["DEF"] = ch["DEF"] * 0.15
-    elif set_id == 21:     # Enhance
+    elif set_id == 21:
         need = 2
         statB["HP"] = ch["HP"] * 0.15
-    elif set_id == 22:     # Accuracy
+    elif set_id == 22:
         need = 2
         fixedB = 160
-    elif set_id == 23:     # Tolerance
+    elif set_id == 23:
         need = 2
         fixedB = 160
-    elif set_id == 24:     # Seal
+    elif set_id == 24:
         need = 2
         fixedB = 160
 
@@ -206,10 +202,8 @@ def set_effect(set_id, ch):
     return need, statB, fixedB
 
 
-# ---------- Artifact ----------
-
-
 def artifact_sub_score_only(art):
+    """Score artifact sub-effects without the primary effect bonus."""
     score = 0.0
 
     for row in art.get("sec_effects", []):
@@ -219,7 +213,6 @@ def artifact_sub_score_only(art):
         effect_type = int(row[0])
         value = float(row[1])
 
-        # --- artifactSubMax(type) 인라인 구현 ---
         if effect_type in {200,201,202,203,207,208,211,212,213,216,217}:
             max_val = 0.0
 
@@ -250,7 +243,6 @@ def artifact_sub_score_only(art):
         if max_val <= 0:
             continue
 
-        # MATLAB: (value / maxVal) * 25
         score += (value / max_val) * 25.0
 
     return score
@@ -258,6 +250,7 @@ def artifact_sub_score_only(art):
 
 
 def artifact_score_total(art):
+    """Score an artifact including the primary effect bonus."""
     score = 0.0
     if art.get("pri_effect"):
         score += 120.0
@@ -265,10 +258,8 @@ def artifact_score_total(art):
     return score
 
 
-# ---------- Skill-up ----------
-
-
 def skillup_score(u):
+    """Score skill-ups based on accumulated skill levels."""
     total = 0
     for row in u.get("skills", []):
         if isinstance(row, list) and len(row) >= 2:
@@ -276,10 +267,8 @@ def skillup_score(u):
     return total * SKILLUP_COEF
 
 
-# ---------- Current unit total ----------
-
-
 def score_unit_total(u):
+    """Return the full scoring breakdown for a unit with equipped runes."""
     runes = u.get("runes", [])
     if not isinstance(runes, list) or not runes:
         return None
@@ -310,7 +299,6 @@ def score_unit_total(u):
             for _ in range(times):
                 stat_bonus = add_stat(stat_bonus, statB)
                 fixed_score += fixedB
-
 
     base_stat_score = stat_struct_score(ch)
     stat_bonus_score = stat_struct_score(stat_bonus)

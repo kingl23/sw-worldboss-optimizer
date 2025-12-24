@@ -1,4 +1,3 @@
-# data/defense_data.py
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
@@ -7,20 +6,14 @@ import pandas as pd
 from supabase import create_client
 
 
-# -------------------------
-# Supabase
-# -------------------------
 def sb():
+    """Create a Supabase client from Streamlit secrets."""
     return create_client(
         st.secrets["SUPABASE_URL"],
         st.secrets["SUPABASE_ANON_KEY"],
     )
 
 
-# -------------------------
-# Constants (Guild Groups)
-# -------------------------
-# Apps Script 하드코딩 목록 이관(1차 MVP: 코드 상수)
 GUILD_GROUPS = {
     "in4": {
         "오후", "Barcode", "으르렁", "시차",
@@ -38,14 +31,8 @@ GUILD_GROUPS = {
 }
 
 
-# -------------------------
-# Key / Utils
-# -------------------------
 def make_def_key(a: str, b: str, c: str) -> str:
-    """
-    a는 leader(고정), b/c는 순서 무관
-    A B C == A C B, A B C != B A C
-    """
+    """Build a defense key with a fixed leader and sorted followers."""
     a = (a or "").strip()
     b = (b or "").strip()
     c = (c or "").strip()
@@ -53,7 +40,6 @@ def make_def_key(a: str, b: str, c: str) -> str:
     if not a:
         return ""
 
-    # 2,3은 반드시 있어야 "정상 덱"으로 집계(데이터 품질 방어)
     rest = sorted([x for x in [b, c] if x])
     if len(rest) != 2:
         return ""
@@ -76,14 +62,9 @@ def _pct(win: int, total: int) -> str:
     return f"{(win / total) * 100.0:.1f}%"
 
 
-# -------------------------
-# Public APIs
-# -------------------------
 @st.cache_data(ttl=300)
-def get_opp_guild_options() -> List[str]:
-    """
-    defense_logs에서 opp_guild 유니크 목록(전량 스캔).
-    """
+def list_opp_guilds() -> List[str]:
+    """List opponent guild names from defense_logs."""
     client = sb()
     page_size = 1000
     start = 0
@@ -115,17 +96,8 @@ def get_opp_guild_options() -> List[str]:
 
 
 @st.cache_data(ttl=300)
-def get_defense_deck_stats(limit: int = 50) -> pd.DataFrame:
-    """
-    (항상 mode=1 포맷)
-    반환 컬럼:
-      d1,d2,d3, win,lose, win_rate,
-      in32_win,in32_lose,in32_win_rate,
-      in12_win,in12_lose,in12_win_rate,
-      in4_win,in4_lose,in4_win_rate
-    정렬:
-      base win_rate desc, base total desc, def_key asc
-    """
+def list_defense_deck_stats(limit: int = 50) -> pd.DataFrame:
+    """Return aggregated defense deck stats with guild-group splits."""
     if limit is None or int(limit) < 0:
         limit = 50
     limit = int(limit)
@@ -134,7 +106,6 @@ def get_defense_deck_stats(limit: int = 50) -> pd.DataFrame:
     page_size = 1000
     start = 0
 
-    # base_map: def_key -> [d1,d2,d3, win, lose]
     base_map: Dict[str, List] = {}
     g32: Dict[str, Tuple[int, int]] = {}
     g12: Dict[str, Tuple[int, int]] = {}
@@ -173,16 +144,13 @@ def get_defense_deck_stats(limit: int = 50) -> pd.DataFrame:
             if not def_key:
                 continue
 
-            # base
             if def_key not in base_map:
-                # 표시는 원본 순서대로(leader / deck1_2 / deck1_3)
-                base_map[def_key] = [d1, d2, d3, 0, 0]  # win, lose
+                base_map[def_key] = [d1, d2, d3, 0, 0]
             if is_win:
                 base_map[def_key][3] += 1
             else:
                 base_map[def_key][4] += 1
 
-            # group stats
             og = (r.get("opp_guild") or "").strip()
             if og:
                 if og in GUILD_GROUPS["in32"]:
@@ -261,11 +229,8 @@ def get_defense_deck_stats(limit: int = 50) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300)
-def get_defense_decks_vs_guild(opp_guild: str, limit: int = 50) -> pd.DataFrame:
-    """
-    특정 opp_guild 상대로 한 방덱 통계.
-    반환 컬럼: d1,d2,d3, win,lose, win_rate
-    """
+def defense_decks_vs_guild(opp_guild: str, limit: int = 50) -> pd.DataFrame:
+    """Return defense deck stats filtered by opponent guild."""
     opp_guild = (opp_guild or "").strip()
     if not opp_guild:
         return pd.DataFrame([{"error": "상대 길드명을 선택/입력하세요."}])
@@ -307,7 +272,7 @@ def get_defense_decks_vs_guild(opp_guild: str, limit: int = 50) -> pd.DataFrame:
                 continue
 
             if def_key not in base_map:
-                base_map[def_key] = [d1, d2, d3, 0, 0]  # win, lose
+                base_map[def_key] = [d1, d2, d3, 0, 0]
             if is_win:
                 base_map[def_key][3] += 1
             else:
@@ -346,3 +311,8 @@ def get_defense_decks_vs_guild(opp_guild: str, limit: int = 50) -> pd.DataFrame:
 
     out = df[["d1", "d2", "d3", "win", "lose", "win_rate"]].reset_index(drop=True)
     return out
+
+
+get_opp_guild_options = list_opp_guilds
+get_defense_deck_stats = list_defense_deck_stats
+get_defense_decks_vs_guild = defense_decks_vs_guild

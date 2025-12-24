@@ -1,4 +1,5 @@
-def get_unit_by_unit_id(data, unit_id: int):
+def find_unit_by_id(data, unit_id: int):
+    """Return a unit dict by unit_id or None if missing."""
     for u in data.get("unit_list", []):
         if int(u.get("unit_id", -1)) == int(unit_id):
             return u
@@ -6,6 +7,7 @@ def get_unit_by_unit_id(data, unit_id: int):
 
 
 def infer_occupied_types(data):
+    """Infer equipped and storage occupied_type values from data."""
     equipped_type = None
     for u in data.get("unit_list", []):
         for r in (u.get("runes", []) or []):
@@ -24,8 +26,9 @@ def infer_occupied_types(data):
     return equipped_type or 1, storage_type or 2
 
 
-def apply_build_to_working_data(working_data, unit_id: int, new_runes):
-    u = get_unit_by_unit_id(working_data, unit_id)
+def apply_runes_to_working_data(working_data, unit_id: int, new_runes):
+    """Apply a rune set to a unit and update storage in working data."""
+    u = find_unit_by_id(working_data, unit_id)
     if u is None:
         return False, "Target unit not found."
 
@@ -63,3 +66,7 @@ def apply_build_to_working_data(working_data, unit_id: int, new_runes):
     working_data["runes"] = storage
 
     return True, "Applied."
+
+
+get_unit_by_unit_id = find_unit_by_id
+apply_build_to_working_data = apply_runes_to_working_data

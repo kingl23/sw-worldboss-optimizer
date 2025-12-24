@@ -1,18 +1,18 @@
 import copy
 import streamlit as st
 
-from ranking import rank_all_units
-from optimizer import optimize_unit_best_runes
-from core_scores import score_unit_total
-from visualize import render_optimizer_result
+from services.ranking import rank_all_units
+from services.optimizer import optimize_unit_best_runes
+from domain.scores import score_unit_total
+from ui.text_render import format_optimizer_result
 from services.wb_service import run_optimizer_for_unit
-from domain.unit_repo import apply_build_to_working_data
-from config import K_PER_SLOT
+from domain.unit_repo import apply_runes_to_working_data
+from config.settings import K_PER_SLOT
 
-from ui.auth import require_access_or_stop  # Run 클릭 시 Access gate
+from ui.auth import require_access_or_stop
 
 
-def _strip_header(text: str) -> str:
+def _trim_slot_header(text: str) -> str:
     if not text:
         return text
 
@@ -27,12 +27,10 @@ def _strip_header(text: str) -> str:
     return "\n".join(out)
 
 
-def render_wb_tab(state, monster_names):
+def show_wb_tab(state, monster_names):
+    """Render the World Boss analysis tab with ranking and optimizer controls."""
     st.subheader("World Boss Analysis")
 
-    # ==================================================
-    # Top controls
-    # ==================================================
     top_left, top_right = st.columns([1.3, 1.7])
     
     with top_left:
@@ -53,9 +51,6 @@ def render_wb_tab(state, monster_names):
             st.empty()
 
 
-    # --------------------------------------------------
-    # Button actions
-    # --------------------------------------------------
     if run_clicked:
         if not require_access_or_stop("world_boss"):
             return
@@ -83,14 +78,8 @@ def render_wb_tab(state, monster_names):
         st.info("Run analysis 버튼을 눌러 분석을 시작하세요.")
         return
 
-    # ==================================================
-    # Main layout
-    # ==================================================
     left, right = st.columns([1.2, 1.8], gap="large")
 
-    # ==================================================
-    # LEFT: Ranking
-    # ==================================================
     with left:
         col_spec = [0.5, 1.0, 0.9, 0.8]
 
@@ -133,12 +122,11 @@ def render_wb_tab(state, monster_names):
             if row[3].button("Optimize", key=f"opt_{unit_id}"):
                 ctx = run_optimizer_for_unit(state.working_data, unit_id)
                 if ctx:
-                    ctx["before_text"] = _strip_header(ctx["before_text"])
-                    ctx["after_text"] = _strip_header(ctx["after_text"])
+                    ctx["before_text"] = _trim_slot_header(ctx["before_text"])
+                    ctx["after_text"] = _trim_slot_header(ctx["after_text"])
                     state.selected_unit_id = unit_id
                     state.opt_ctx = ctx
 
-        # Manual Optimizer 유지
         st.divider()
         st.subheader("Manual Optimizer")
 
@@ -154,14 +142,11 @@ def render_wb_tab(state, monster_names):
                     state.working_data, int(tid), K_PER_SLOT
                 )
                 final = score_unit_total(u)
-                txt = render_optimizer_result(
+                txt = format_optimizer_result(
                     u, ch, runes, picked, base, final_score=final
                 )
-                st.text(_strip_header(txt))
+                st.text(_trim_slot_header(txt))
 
-    # ==================================================
-    # RIGHT: Optimizer Panel
-    # ==================================================
     with right:
         if state.selected_unit_id is None or state.opt_ctx is None:
             st.info("왼쪽에서 Optimize를 누르세요.")
@@ -180,7 +165,7 @@ def render_wb_tab(state, monster_names):
         st.divider()
 
         if st.button("✅ Apply this build"):
-            ok, msg = apply_build_to_working_data(
+            ok, msg = apply_runes_to_working_data(
                 state.working_data,
                 state.selected_unit_id,
                 state.opt_ctx["rec_runes"],
@@ -188,3 +173,6 @@ def render_wb_tab(state, monster_names):
             st.success(msg)
             state.selected_unit_id = None
             state.opt_ctx = None
+
+
+render_wb_tab = show_wb_tab

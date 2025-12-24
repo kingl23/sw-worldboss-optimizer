@@ -1,4 +1,3 @@
-# data/siege_data.py
 import pandas as pd
 import streamlit as st
 from supabase import create_client
@@ -11,6 +10,7 @@ def _or_val(v: str) -> str:
 
 
 def sb():
+    """Create a Supabase client from Streamlit secrets."""
     return create_client(
         st.secrets["SUPABASE_URL"],
         st.secrets["SUPABASE_ANON_KEY"]
@@ -18,7 +18,8 @@ def sb():
 
 
 @st.cache_data(ttl=300)
-def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
+def list_worst_offense(cutoff: int = 4) -> pd.DataFrame:
+    """Return aggregated worst offense stats."""
     client = sb()
 
     rows = []
@@ -79,6 +80,7 @@ def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
 
 
 def make_key_fixed(a: str, b: str, c: str) -> str:
+    """Build a stable key with a fixed leader and sorted followers."""
     a = (a or "").strip()
     b = (b or "").strip()
     c = (c or "").strip()
@@ -91,7 +93,8 @@ def make_key_fixed(a: str, b: str, c: str) -> str:
 
 
 @st.cache_data(ttl=300)
-def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 50) -> pd.DataFrame:
+def offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 50) -> pd.DataFrame:
+    """Return offense stats for a given defense trio."""
     def1 = (def1 or "").strip()
     def2 = (def2 or "").strip()
     def3 = (def3 or "").strip()
@@ -145,3 +148,6 @@ def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 5
 
     return agg[["Unit #1", "Unit #2", "Unit #3", "wins", "losses", "Win Rate", "Summary", "total"]]
 
+
+build_worst_offense_list = list_worst_offense
+get_offense_stats_by_defense = offense_stats_by_defense

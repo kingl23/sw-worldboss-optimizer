@@ -1,10 +1,10 @@
-# ui/worst_offense.py
 import streamlit as st
 from ui.auth import require_access_or_stop
-from data.siege_data import build_worst_offense_list, get_offense_stats_by_defense
+from data.siege_data import list_worst_offense, offense_stats_by_defense
 
 
-def render_worst_offense_tab():
+def show_worst_offense_tab():
+    """Render the worst offense list and drill-down details."""
     st.subheader("Worst Offense List")
 
     with st.form("worst_off_form"):
@@ -15,11 +15,11 @@ def render_worst_offense_tab():
 
 
     if submitted:    
-        build_worst_offense_list.clear()
+        list_worst_offense.clear()
         if not require_access_or_stop("worst_offense"):
             return
         
-        base = build_worst_offense_list(cutoff=int(cutoff))
+        base = list_worst_offense(cutoff=int(cutoff))
         if base is None or base.empty:
             st.session_state["wo_df"] = None
         else:
@@ -35,8 +35,8 @@ def render_worst_offense_tab():
             df["Unit #3"] = df["d3"]
             df["Total"]   = df["total"]
 
-            wins   = df["lose"].fillna(0).astype(int)   # attacker wins
-            losses = df["win"].fillna(0).astype(int)    # attacker losses
+            wins = df["lose"].fillna(0).astype(int)
+            losses = df["win"].fillna(0).astype(int)
             totalv = df["total"].fillna(0).astype(int)
 
             df["Win Rate"] = (wins / totalv.replace(0, 1) * 100).round(2).map(lambda x: f"{x:.2f}%")
@@ -71,7 +71,6 @@ def render_worst_offense_tab():
     if sel is None:
         return
 
-    # Detail
     sel = max(0, min(int(sel), len(df) - 1))
     picked = df.iloc[sel]
     def1, def2, def3 = picked["Unit #1"], picked["Unit #2"], picked["Unit #3"]
@@ -81,7 +80,7 @@ def render_worst_offense_tab():
     st.write(f"Selected Defense: **{def1} / {def2} / {def3}**")
 
     off_limit = st.number_input("Max offense rows", 5, 200, 50, 5, key="off_limit")
-    off_df = get_offense_stats_by_defense(def1, def2, def3, limit=int(off_limit))
+    off_df = offense_stats_by_defense(def1, def2, def3, limit=int(off_limit))
 
     if off_df is None or off_df.empty:
         st.info("No offense records found for this defense.")
@@ -92,3 +91,6 @@ def render_worst_offense_tab():
         use_container_width=True,
         hide_index=True,
     )
+
+
+render_worst_offense_tab = show_worst_offense_tab

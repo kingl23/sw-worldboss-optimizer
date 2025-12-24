@@ -1,48 +1,44 @@
 import copy
 import hashlib
 import json
+from pathlib import Path
+
 import streamlit as st
 
 from ui.auth import require_access_or_stop
 
-from ui.wb_tab import render_wb_tab
-from siege_logs import render_siege_tab
-from ui.siege_defense import render_siege_defense_tab
+from ui.wb_tab import show_wb_tab
+from ui.siege_logs import show_siege_tab
+from ui.siege_defense import show_siege_defense_tab
+from ui.worst_offense import show_worst_offense_tab
+from services.artifact_analysis import (
+    collect_all_artifacts,
+    artifact_attribute_matrix,
+    artifact_archetype_matrix,
+)
+from ui.artifact_render import show_matrix
 
-from ui.worst_offense import render_worst_offense_tab
 
-from artifact_analysis import collect_all_artifacts, artifact_attribute_matrix, artifact_archetype_matrix
-from ui.artifact_render import render_matrix
-
-
-# ============================================================
-# Utils
-# ============================================================
+RESOURCES_DIR = Path(__file__).resolve().parent / "resources"
 
 def hash_bytes(b: bytes) -> str:
+    """Return a stable hash for uploaded bytes to detect changes."""
     return hashlib.sha256(b).hexdigest()
 
 
 @st.cache_resource
 def load_monster_names():
-    with open("mapping.txt", "r", encoding="utf-8") as f:
+    """Load the monster name mapping from the bundled resource file."""
+    mapping_path = RESOURCES_DIR / "mapping.txt"
+    with mapping_path.open("r", encoding="utf-8") as f:
         return {
             int(k): v
             for k, v in json.load(f)["monster"]["names"].items()
             if v
         }
 
-
-# ============================================================
-# Streamlit App
-# ============================================================
-
 st.set_page_config(page_title="Summoners War Analyzer", layout="wide")
 st.title("Summoners War Analyzer")
-
-# ------------------------------------------------------------
-# Sidebar: Access Key Input
-# ------------------------------------------------------------
 
 st.sidebar.header("Access Control")
 st.sidebar.text_input(
@@ -52,10 +48,6 @@ st.sidebar.text_input(
     help="Enter a valid access key to unlock private features",
 )
 
-# ------------------------------------------------------------
-# Tabs
-# ------------------------------------------------------------
-
 tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst = st.tabs([
     "World Boss",
     "Artifact Analysis",
@@ -64,10 +56,6 @@ tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst = st.tabs([
     "Worst Offense"
 ])
 
-
-# ------------------------------------------------------------
-# World Boss Tab
-# ------------------------------------------------------------
 
 with tab_wb:
     st.subheader("World Boss")
@@ -86,18 +74,12 @@ with tab_wb:
             st.session_state.original_data = data
             st.session_state.working_data = copy.deepcopy(data)
 
-            # World Boss state
             st.session_state.wb_run = False
             st.session_state.wb_ranking = None
             st.session_state.selected_unit_id = None
             st.session_state.opt_ctx = None
 
-        render_wb_tab(st.session_state, load_monster_names())
-
-
-# ------------------------------------------------------------
-# Artifact Tab
-# ------------------------------------------------------------
+        show_wb_tab(st.session_state, load_monster_names())
 
 with tab_artifact:
     st.subheader("Artifact Analysis")
@@ -122,38 +104,18 @@ with tab_artifact:
             all_arts = collect_all_artifacts(data)
     
             df_attr = artifact_attribute_matrix(all_arts, top_n=3)
-            render_matrix(df_attr, label_cols=["Attribute", "Main"], title="Attribute Matrix")
+            show_matrix(df_attr, label_cols=["Attribute", "Main"], title="Attribute Matrix")
     
             st.divider()
     
             df_arch = artifact_archetype_matrix(all_arts, top_n=3)
-            render_matrix(df_arch, label_cols=["Archetype", "Main"], title="Archetype Matrix")
-
-
-# ------------------------------------------------------------
-# Siege Tab
-# ------------------------------------------------------------
+            show_matrix(df_arch, label_cols=["Archetype", "Main"], title="Archetype Matrix")
 
 with tab_siege:
-    render_siege_tab()
-
-
-
-# ------------------------------------------------------------
-# Siege Best Defense Tab
-# ------------------------------------------------------------
+    show_siege_tab()
 
 with tab_siege_def:
-    render_siege_defense_tab()
-
-
-# ------------------------------------------------------------
-# Siege Worst Offense Tab
-# ------------------------------------------------------------
+    show_siege_defense_tab()
 
 with tab_worst:
-    render_worst_offense_tab()
-
-
-
-
+    show_worst_offense_tab()
