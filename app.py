@@ -74,7 +74,11 @@ tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst, tab_personal = st.tab
 with tab_wb:
     st.subheader("World Boss")
 
-    uploaded = st.file_uploader("Upload JSON file exported from SW", type=["json"], key="wb_json")
+    uploaded = st.file_uploader(
+        "Upload JSON file exported from SW",
+        type=["json"],
+        key="wb_json"
+    )
 
     if uploaded is None:
         st.info("Please upload a JSON file to start.")
@@ -110,26 +114,24 @@ with tab_artifact:
         key="artifact_json",
     )
 
-    run_art = st.button("Run analysis", type="primary", key="artifact_run")
-
-    if run_art:
-        if require_access_or_stop("artifact"):
-            if uploaded_art is None:
-                st.error("JSON 파일을 업로드해 주세요.")
-                st.stop()
     
+    if uploaded is None:
+        st.info("Please upload a JSON file to start.")
+        
+    else:    
+        run_art = st.button("Run analysis", type="primary", key="artifact_run")    
+        if run_art:
             raw = uploaded_art.getvalue()
             data = json.loads(raw.decode("utf-8"))
     
-            all_arts = collect_all_artifacts(data)
-    
+            all_arts = collect_all_artifacts(data)   
             df_attr = artifact_attribute_matrix(all_arts, top_n=3)
-            render_matrix(df_attr, label_cols=["Attribute", "Main"], title="Attribute Matrix")
-    
-            st.divider()
-    
             df_arch = artifact_archetype_matrix(all_arts, top_n=3)
-            render_matrix(df_arch, label_cols=["Archetype", "Main"], title="Archetype Matrix")
+
+            if require_access_or_stop("artifact"):       
+                render_matrix(df_attr, label_cols=["Attribute", "Main"], title="Attribute Matrix")        
+                st.divider()
+                render_matrix(df_arch, label_cols=["Archetype", "Main"], title="Archetype Matrix")
 
 
 # ------------------------------------------------------------
@@ -138,7 +140,6 @@ with tab_artifact:
 
 with tab_siege:
     render_siege_tab()
-
 
 
 # ------------------------------------------------------------
