@@ -127,7 +127,7 @@ with tab_artifact:
             st.session_state.artifact_df_attr = None
             st.session_state.artifact_df_arch = None
 
-        run_art = st.button("Run analysis", type="primary", key="artifact_run")
+        run_art = st.button("Run analysis", type="primary", key="artifact_run_btn")
 
         if run_art:
             require_access_or_stop("artifact")
