@@ -130,16 +130,15 @@ with tab_artifact:
         run_art = st.button("Run analysis", type="primary", key="artifact_run_btn")
 
         if run_art:
-            require_access_or_stop("artifact")
-
-            data = st.session_state.artifact_original_data
-            all_arts = collect_all_artifacts(data)
-            df_attr = artifact_attribute_matrix(all_arts, top_n=3)
-            df_arch = artifact_archetype_matrix(all_arts, top_n=3)
-
-            st.session_state.artifact_run = True
-            st.session_state.artifact_df_attr = df_attr
-            st.session_state.artifact_df_arch = df_arch
+            if require_access_or_stop("artifact"):
+                data = st.session_state.artifact_original_data
+                all_arts = collect_all_artifacts(data)
+                df_attr = artifact_attribute_matrix(all_arts, top_n=3)
+                df_arch = artifact_archetype_matrix(all_arts, top_n=3)
+    
+                st.session_state.artifact_run = True
+                st.session_state.artifact_df_attr = df_attr
+                st.session_state.artifact_df_arch = df_arch
 
         if st.session_state.get("artifact_run"):
             render_matrix(
