@@ -81,7 +81,7 @@ def _get_signed_url_cached(bucket: str, path: str, ttl_seconds: int) -> str | No
 
 
 def get_siege_image_url(match_id=None, log_id=None, offense_units=None) -> str | None:
-    bucket = st.secrets.get("SIEGE_IMAGE_BUCKET")
+    bucket = st.secrets.get("SIEGE_IMAGE_BUCKET") or "guild_offense_deck"
     if not bucket:
         return None
 
