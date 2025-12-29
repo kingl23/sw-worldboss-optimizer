@@ -6,7 +6,7 @@ from data.siege_data import make_key_fixed
 
 # Default object path: siege/{match_id}/{log_id}.png
 # Offense key path (when SIEGE_IMAGE_KEY_MODE=offense_key):
-#   {SIEGE_IMAGE_KEY_PREFIX}{hangul->qwerty(make_key_fixed(deck1,deck2,deck3).replace("|","_"))}.png
+#   S20_{hangul->qwerty(make_key_fixed(deck1,deck2,deck3).replace("|","_"))}.png
 def build_object_path(match_id: str, log_id: str) -> str:
     return f"siege/{match_id}/{log_id}.png"
 
@@ -17,8 +17,8 @@ def build_offense_key_path(deck1: str, deck2: str, deck3: str) -> str | None:
         return None
 
     converted = _hangul_to_qwerty(key.replace("|", "_"))
-    prefix = str(st.secrets.get("SIEGE_IMAGE_KEY_PREFIX", "")).strip()
-    filename = f"{prefix}{converted}.png" if prefix else f"{converted}.png"
+    prefix = "S20_"
+    filename = f"{prefix}{converted}.png"
     return filename
 
 
