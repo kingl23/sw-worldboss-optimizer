@@ -1,18 +1,19 @@
 import textwrap
 import streamlit as st
 import pandas as pd
-from supabase import create_client
 from ui.auth import require_access_or_stop
 
 from data.siege_trend import build_cumulative_trend_df
 from ui.siege_trend_chart import render_cumulative_trend_chart
+from services.supabase_client import get_supabase_client
+from services.siege_image_service import get_siege_image_url
 
 
 # -------------------------
 # Supabase helpers
 # -------------------------
 def sb():
-    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
+    return get_supabase_client()
 
 
 def make_def_key(a: str, b: str, c: str) -> str:
@@ -169,14 +170,9 @@ def get_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 20
     if not (o1 and o2 and o3):
         return pd.DataFrame()
 
-    q = (
-        sb()
-        .table("siege_logs")
-        .select(
-            "ts, wizard, opp_wizard, opp_guild, result, base, "
-            "deck1_1,deck1_2,deck1_3, deck2_1,deck2_2,deck2_3"
-        )
-        .eq("result", "Lose")
+    base_select = (
+        "match_id, ts, wizard, opp_wizard, opp_guild, result, base, "
+        "deck1_1,deck1_2,deck1_3, deck2_1,deck2_2,deck2_3"
     )
 
     perms_off = [(o1, o2, o3), (o1, o3, o2)]
@@ -192,8 +188,23 @@ def get_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 20
                 ")"
             )
 
-    res = q.or_(",".join(or_clauses)).order("ts", desc=True).limit(int(limit)).execute()
-    return pd.DataFrame(res.data or [])
+    def _fetch_logs(select_fields: str) -> pd.DataFrame:
+        res = (
+            sb()
+            .table("siege_logs")
+            .select(select_fields)
+            .eq("result", "Lose")
+            .or_(",".join(or_clauses))
+            .order("ts", desc=True)
+            .limit(int(limit))
+            .execute()
+        )
+        return pd.DataFrame(res.data or [])
+
+    try:
+        return _fetch_logs(f"match_id, log_id, {base_select.split('match_id, ', 1)[1]}")
+    except Exception:
+        return _fetch_logs(base_select)
 
 
 # -------------------------
@@ -305,6 +316,10 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             logs = logs.copy()
             
             logs["방어덱"] = logs.apply(lambda r: _fmt_team(r, "deck2_1", "deck2_2", "deck2_3"), axis=1)
+            logs["log_identifier"] = logs.apply(
+                lambda r: r.get("log_id") or r.get("id") or r.get("ts"),
+                axis=1,
+            )
             
             logs = logs.rename(
                 columns={
@@ -313,14 +328,46 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                     "opp_guild": "방어길드",
                 }
             )
-            
+
             cols = [c for c in ["공격자", "방어덱", "방어길드", "방어자"] if c in logs.columns]
-            
+
             st.dataframe(
                 logs[cols],
                 use_container_width=True,
                 hide_index=True,
             )
+
+            st.markdown("#### 상세보기 (이미지 포함)")
+            for log_idx, log in logs.iterrows():
+                attacker = log.get("공격자", "")
+                defender = log.get("방어자", "")
+                defense_deck = log.get("방어덱", "")
+                guild = log.get("방어길드", "")
+                base = log.get("base", "")
+
+                with st.expander(f"상세보기 #{log_idx + 1}: {attacker} vs {defender}", expanded=False):
+                    if base:
+                        st.write(f"- 기지: **{base}**")
+                    st.write(f"- 공격자: **{attacker}**")
+                    st.write(f"- 방어자: **{defender}**")
+                    if guild:
+                        st.write(f"- 방어길드: **{guild}**")
+                    if defense_deck:
+                        st.write(f"- 방어덱: **{defense_deck}**")
+
+                    image_url = get_siege_image_url(
+                        match_id=log.get("match_id"),
+                        log_id=log.get("log_identifier"),
+                        offense_units=(
+                            log.get("deck1_1", ""),
+                            log.get("deck1_2", ""),
+                            log.get("deck1_3", ""),
+                        ),
+                    )
+                    if image_url:
+                        st.image(image_url, use_container_width=True)
+                    else:
+                        st.caption("No image available.")
 
 
 
