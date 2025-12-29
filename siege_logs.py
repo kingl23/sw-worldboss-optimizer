@@ -302,6 +302,16 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             st.markdown(f"### #{idx+1} {offense}")
             st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)")
             st.write(f"- 승률: **{win_rate:.1f}%**")
+
+            image_url = get_siege_image_url(
+                match_id=None,
+                log_id=None,
+                offense_units=(row.get("o1", ""), row.get("o2", ""), row.get("o3", "")),
+            )
+            if image_url:
+                st.image(image_url, use_container_width=True)
+            else:
+                st.caption("No image available.")
             st.divider()
 
             st.markdown("#### Lose 로그 (Siege Logs)")
@@ -337,7 +347,7 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                 hide_index=True,
             )
 
-            st.markdown("#### 상세보기 (이미지 포함)")
+            st.markdown("#### 상세보기")
             for log_idx, log in logs.iterrows():
                 attacker = log.get("공격자", "")
                 defender = log.get("방어자", "")
@@ -354,20 +364,6 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                         st.write(f"- 방어길드: **{guild}**")
                     if defense_deck:
                         st.write(f"- 방어덱: **{defense_deck}**")
-
-                    image_url = get_siege_image_url(
-                        match_id=log.get("match_id"),
-                        log_id=log.get("log_identifier"),
-                        offense_units=(
-                            log.get("deck1_1", ""),
-                            log.get("deck1_2", ""),
-                            log.get("deck1_3", ""),
-                        ),
-                    )
-                    if image_url:
-                        st.image(image_url, use_container_width=True)
-                    else:
-                        st.caption("No image available.")
 
 
 
