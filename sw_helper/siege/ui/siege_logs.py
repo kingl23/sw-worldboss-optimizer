@@ -2,10 +2,10 @@ import textwrap
 import streamlit as st
 import pandas as pd
 from supabase import create_client
-from ui.auth import require_access_or_stop
+from sw_helper.ui.auth import require_access_or_stop
 
-from data.siege_trend import build_cumulative_trend_df
-from ui.siege_trend_chart import render_cumulative_trend_chart
+from sw_helper.siege.data.siege_trend import build_cumulative_trend_df
+from sw_helper.siege.ui.siege_trend_chart import render_cumulative_trend_chart
 
 
 # -------------------------

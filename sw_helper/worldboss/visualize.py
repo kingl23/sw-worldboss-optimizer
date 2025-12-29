@@ -1,9 +1,15 @@
 # visualize.py
 from collections import defaultdict
 
-from config import SET_NAME, EFF_NAME
-from core_scores import (rune_stat_score, init_stat, add_stat,
-                         stat_struct_score, ceil, set_effect)
+from sw_helper.config import SET_NAME, EFF_NAME
+from sw_helper.worldboss.core_scores import (
+    rune_stat_score,
+    init_stat,
+    add_stat,
+    stat_struct_score,
+    ceil,
+    set_effect,
+)
 
 # ============================================================
 # Internal builders (string only, no printing)

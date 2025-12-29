@@ -1,15 +1,15 @@
 import copy
 import streamlit as st
 
-from ranking import rank_all_units
-from optimizer import optimize_unit_best_runes
-from core_scores import score_unit_total
-from visualize import render_optimizer_result
-from services.wb_service import run_optimizer_for_unit
-from domain.unit_repo import apply_build_to_working_data
-from config import K_PER_SLOT
+from sw_helper.worldboss.ranking import rank_all_units
+from sw_helper.worldboss.optimizer import optimize_unit_best_runes
+from sw_helper.worldboss.core_scores import score_unit_total
+from sw_helper.worldboss.visualize import render_optimizer_result
+from sw_helper.worldboss.services.wb_service import run_optimizer_for_unit
+from sw_helper.worldboss.domain.unit_repo import apply_build_to_working_data
+from sw_helper.config import K_PER_SLOT
 
-from ui.auth import require_access_or_stop  # Run 클릭 시 Access gate
+from sw_helper.ui.auth import require_access_or_stop  # Run 클릭 시 Access gate
 
 
 def _strip_header(text: str) -> str:

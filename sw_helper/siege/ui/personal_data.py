@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import streamlit as st
 
-from config.settings import WIZARD_NAMES
-from ui.auth import require_access_or_stop
-from services.personal_data_service import (
+from sw_helper.config.settings import WIZARD_NAMES
+from sw_helper.ui.auth import require_access_or_stop
+from sw_helper.siege.services.personal_data_service import (
     get_offense_deck_details,
     get_record_summary,
     get_top_defense_decks,

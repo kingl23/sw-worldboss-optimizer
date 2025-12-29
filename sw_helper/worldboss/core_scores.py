@@ -1,7 +1,7 @@
 # core_scores.py
 import math
 from collections import defaultdict
-from config import SKILLUP_COEF
+from sw_helper.config import SKILLUP_COEF
 
 # ---------- Basic utils ----------
 

@@ -1,7 +1,10 @@
 # ui/worst_offense.py
 import streamlit as st
-from ui.auth import require_access_or_stop
-from data.siege_data import build_worst_offense_list, get_offense_stats_by_defense
+from sw_helper.ui.auth import require_access_or_stop
+from sw_helper.siege.data.siege_data import (
+    build_worst_offense_list,
+    get_offense_stats_by_defense,
+)
 
 
 def render_worst_offense_tab():

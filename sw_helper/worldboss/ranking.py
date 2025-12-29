@@ -1,5 +1,5 @@
 # ranking.py
-from core_scores import score_unit_total
+from sw_helper.worldboss.core_scores import score_unit_total
 
 
 def rank_all_units(data, top_n=60):

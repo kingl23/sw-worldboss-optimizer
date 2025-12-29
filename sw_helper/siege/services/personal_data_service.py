@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 import pandas as pd
 import streamlit as st
 
-from services.supabase_client import get_supabase_client
+from sw_helper.siege.services.supabase_client import get_supabase_client
 
 
 FOUR_STAR_BASES = {39, 35, 29, 26, 22, 16, 13, 9, 3}
