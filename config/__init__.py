@@ -4,7 +4,7 @@
 TARGET_MASTER_IDS = []
 
 # Optimizer pruning
-K_PER_SLOT = 5
+K_PER_SLOT = 50
 
 # Skill-up coefficient
 SKILLUP_COEF = 49.4
