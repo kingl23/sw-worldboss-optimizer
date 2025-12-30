@@ -4,6 +4,7 @@ import streamlit as st
 
 from config.settings import WIZARD_NAMES
 from ui.auth import require_access_or_stop
+from ui.table_utils import apply_dataframe_style, build_deck_column, percent_to_float, to_numeric
 from services.personal_data_service import (
     get_offense_deck_details,
     get_record_summary,
@@ -19,6 +20,13 @@ def _deck_label(row) -> str:
 def _select_offense_key(df, table_key: str) -> str | None:
     df = df.reset_index(drop=True)
     df_display = df.drop(columns=["key"]).reset_index(drop=True)
+    df_display["Offense Deck"] = build_deck_column(df_display, ["Unit #1", "Unit #2", "Unit #3"])
+    df_display = df_display.drop(columns=["Unit #1", "Unit #2", "Unit #3"])
+    df_display = df_display.rename(columns={"Win Rate (%)": "Win Rate"})
+    df_display["Wins"] = to_numeric(df_display["Wins"])
+    df_display["Losses"] = to_numeric(df_display["Losses"])
+    df_display["Total Games"] = to_numeric(df_display["Total Games"])
+    df_display["Win Rate"] = percent_to_float(df_display["Win Rate"])
 
     try:
         st.dataframe(
@@ -28,6 +36,13 @@ def _select_offense_key(df, table_key: str) -> str | None:
             selection_mode="single-row",
             on_select="rerun",
             key=table_key,
+            column_config={
+                "Offense Deck": st.column_config.TextColumn("Offense Deck", width="large"),
+                "Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
+                "Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
+                "Total Games": st.column_config.NumberColumn("Total Games", format="%d", width="small"),
+                "Win Rate": st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
+            },
         )
         selection = st.session_state.get(table_key, {}).get("selection", {})
         rows = selection.get("rows", [])
@@ -36,7 +51,18 @@ def _select_offense_key(df, table_key: str) -> str | None:
         return None
     except TypeError:
         # fallback: selection_mode 미지원 환경
-        st.dataframe(df_display, use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Offense Deck": st.column_config.TextColumn("Offense Deck", width="large"),
+                "Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
+                "Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
+                "Total Games": st.column_config.NumberColumn("Total Games", format="%d", width="small"),
+                "Win Rate": st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
+            },
+        )
         labels = [_deck_label(row) for _, row in df.iterrows()]
         label_map = {label: key for label, key in zip(labels, df["key"].tolist())}
         selected_label = st.selectbox(
@@ -52,6 +78,7 @@ def _select_offense_key(df, table_key: str) -> str | None:
 
 def render_personal_data_tab():
     st.subheader("Personal Data")
+    apply_dataframe_style()
 
     # --- state keys ---
     run_key = "personal_data_run"
@@ -100,7 +127,23 @@ def render_personal_data_tab():
     if summary_df.empty:
         st.info("No record summary data available.")
     else:
-        st.dataframe(summary_df, use_container_width=True, hide_index=True)
+        summary_display = summary_df.rename(columns={"Win Rate (%)": "Win Rate"})
+        summary_display["Wins"] = to_numeric(summary_display["Wins"])
+        summary_display["Losses"] = to_numeric(summary_display["Losses"])
+        summary_display["Total Games"] = to_numeric(summary_display["Total Games"])
+        summary_display["Win Rate"] = percent_to_float(summary_display["Win Rate"])
+        st.dataframe(
+            summary_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Category": st.column_config.TextColumn("Category", width="small"),
+                "Total Games": st.column_config.NumberColumn("Total Games", format="%d", width="small"),
+                "Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
+                "Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
+                "Win Rate": st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
+            },
+        )
 
     st.divider()
 
@@ -135,10 +178,25 @@ def render_personal_data_tab():
     if def_df.empty:
         st.info("No top defense deck data available.")
     else:
+        def_display = def_df.drop(columns=["key"]).reset_index(drop=True)
+        def_display["Defense Deck"] = build_deck_column(def_display, ["Unit #1", "Unit #2", "Unit #3"])
+        def_display = def_display.drop(columns=["Unit #1", "Unit #2", "Unit #3"])
+        def_display = def_display.rename(columns={"Win Rate (%)": "Win Rate"})
+        def_display["Wins"] = to_numeric(def_display["Wins"])
+        def_display["Losses"] = to_numeric(def_display["Losses"])
+        def_display["Total Games"] = to_numeric(def_display["Total Games"])
+        def_display["Win Rate"] = percent_to_float(def_display["Win Rate"])
         st.dataframe(
-            def_df.drop(columns=["key"]).reset_index(drop=True),
+            def_display,
             use_container_width=True,
             hide_index=True,
+            column_config={
+                "Defense Deck": st.column_config.TextColumn("Defense Deck", width="large"),
+                "Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
+                "Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
+                "Total Games": st.column_config.NumberColumn("Total Games", format="%d", width="small"),
+                "Win Rate": st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
+            },
         )
 
     st.divider()
@@ -162,4 +220,35 @@ def render_personal_data_tab():
         st.info("No detail logs available for the selected deck.")
         return
 
-    st.dataframe(detail_df, use_container_width=True, hide_index=True)
+    detail_display = detail_df.copy()
+    detail_display["Offense Deck"] = build_deck_column(
+        detail_display,
+        ["Offense Deck 1", "Offense Deck 2", "Offense Deck 3"],
+    )
+    detail_display["Defense Deck"] = build_deck_column(
+        detail_display,
+        ["Defense Deck 1", "Defense Deck 2", "Defense Deck 3"],
+    )
+    detail_display = detail_display.drop(
+        columns=[
+            "Offense Deck 1",
+            "Offense Deck 2",
+            "Offense Deck 3",
+            "Defense Deck 1",
+            "Defense Deck 2",
+            "Defense Deck 3",
+        ]
+    )
+    detail_display = detail_display[["Offense Deck", "Defense Deck", "Defense Guild", "Defender", "Result"]]
+    st.dataframe(
+        detail_display,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Offense Deck": st.column_config.TextColumn("Offense Deck", width="large"),
+            "Defense Deck": st.column_config.TextColumn("Defense Deck", width="large"),
+            "Defense Guild": st.column_config.TextColumn("Defense Guild", width="medium"),
+            "Defender": st.column_config.TextColumn("Defender", width="small"),
+            "Result": st.column_config.TextColumn("Result", width="small"),
+        },
+    )

@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from ui.auth import require_access_or_stop
+from ui.table_utils import apply_dataframe_style
 
 from data.siege_trend import build_cumulative_trend_df
 from ui.siege_trend_chart import render_cumulative_trend_chart
@@ -320,12 +321,19 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                 logs[cols],
                 use_container_width=True,
                 hide_index=True,
+                column_config={
+                    "Attacker": st.column_config.TextColumn("Attacker", width="small"),
+                    "Defense Deck": st.column_config.TextColumn("Defense Deck", width="large"),
+                    "Defense Guild": st.column_config.TextColumn("Defense Guild", width="medium"),
+                    "Defender": st.column_config.TextColumn("Defender", width="small"),
+                },
             )
 
 
 
 def render_search_offense_deck_tab():
     st.subheader("Search Offense Deck")
+    apply_dataframe_style()
 
     # --- UI: select boxes ---
     col1, col2, col3 = st.columns(3)
