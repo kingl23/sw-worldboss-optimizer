@@ -1,4 +1,5 @@
 # ui/best_defense.py
+import pandas as pd
 import streamlit as st
 
 from ui.auth import require_access_or_stop
@@ -86,24 +87,43 @@ def render_best_defense_tab():
             ]
             ordered_cols = [col for col in ordered_cols if col in df_display.columns]
 
+            df_display_table = df_display[ordered_cols].copy()
+            df_display_table.columns = pd.MultiIndex.from_tuples(
+                [
+                    ("", "Defense Deck"),
+                    ("vs Total", "Win"),
+                    ("vs Total", "Lose"),
+                    ("vs Total", "Win Rate"),
+                    ("vs in 32", "Win"),
+                    ("vs in 32", "Lose"),
+                    ("vs in 32", "Win Rate"),
+                    ("vs in 12", "Win"),
+                    ("vs in 12", "Lose"),
+                    ("vs in 12", "Win Rate"),
+                    ("vs in 4", "Win"),
+                    ("vs in 4", "Lose"),
+                    ("vs in 4", "Win Rate"),
+                ]
+            )
+
             st.dataframe(
-                df_display[ordered_cols],
+                df_display_table,
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    "Defense Deck": st.column_config.TextColumn("Defense Deck", width="large"),
-                    "Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
-                    "Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
-                    "Win Rate": st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
-                    "In32 Wins": st.column_config.NumberColumn("In32 Wins", format="%d", width="small"),
-                    "In32 Losses": st.column_config.NumberColumn("In32 Losses", format="%d", width="small"),
-                    "In32 Win Rate": st.column_config.NumberColumn("In32 Win Rate", format="%.1f%%", width="small"),
-                    "In12 Wins": st.column_config.NumberColumn("In12 Wins", format="%d", width="small"),
-                    "In12 Losses": st.column_config.NumberColumn("In12 Losses", format="%d", width="small"),
-                    "In12 Win Rate": st.column_config.NumberColumn("In12 Win Rate", format="%.1f%%", width="small"),
-                    "In4 Wins": st.column_config.NumberColumn("In4 Wins", format="%d", width="small"),
-                    "In4 Losses": st.column_config.NumberColumn("In4 Losses", format="%d", width="small"),
-                    "In4 Win Rate": st.column_config.NumberColumn("In4 Win Rate", format="%.1f%%", width="small"),
+                    ("", "Defense Deck"): st.column_config.TextColumn("Defense Deck", width="medium"),
+                    ("vs Total", "Win"): st.column_config.NumberColumn("Win", format="%d", width="small"),
+                    ("vs Total", "Lose"): st.column_config.NumberColumn("Lose", format="%d", width="small"),
+                    ("vs Total", "Win Rate"): st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
+                    ("vs in 32", "Win"): st.column_config.NumberColumn("Win", format="%d", width="small"),
+                    ("vs in 32", "Lose"): st.column_config.NumberColumn("Lose", format="%d", width="small"),
+                    ("vs in 32", "Win Rate"): st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
+                    ("vs in 12", "Win"): st.column_config.NumberColumn("Win", format="%d", width="small"),
+                    ("vs in 12", "Lose"): st.column_config.NumberColumn("Lose", format="%d", width="small"),
+                    ("vs in 12", "Win Rate"): st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
+                    ("vs in 4", "Win"): st.column_config.NumberColumn("Win", format="%d", width="small"),
+                    ("vs in 4", "Lose"): st.column_config.NumberColumn("Lose", format="%d", width="small"),
+                    ("vs in 4", "Win Rate"): st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
                 },
             )
 
