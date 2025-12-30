@@ -9,8 +9,8 @@ def render_worst_offense_tab():
 
     with st.form("worst_off_form"):
         col1, col2 = st.columns(2)
-        cutoff = col1.number_input("최소 경기 수 (cutoff)", 1, 100, 4, 1, key="wo_cutoff")
-        top_n  = col2.number_input("표시 개수 (Top N)", 1, 200, 50, 5, key="wo_top_n")
+        cutoff = col1.number_input("Minimum games (cutoff)", 1, 100, 4, 1, key="wo_cutoff")
+        top_n  = col2.number_input("Display count (Top N)", 1, 200, 50, 5, key="wo_top_n")
         submitted = st.form_submit_button("Search")
 
 
@@ -33,7 +33,7 @@ def render_worst_offense_tab():
             df["Unit #1"] = df["d1"]
             df["Unit #2"] = df["d2"]
             df["Unit #3"] = df["d3"]
-            df["Total"]   = df["total"]
+            df["Total Games"] = df["total"]
 
             wins   = df["lose"].fillna(0).astype(int)   # attacker wins
             losses = df["win"].fillna(0).astype(int)    # attacker losses
@@ -48,11 +48,11 @@ def render_worst_offense_tab():
 
     df = st.session_state.get("wo_df", None)
     if df is None or df is False or (hasattr(df, "empty") and df.empty):
-        st.info("조건을 설정한 뒤 Search를 눌러주세요.")
+        st.info("Set the filters and click Search.")
         return
 
     event = st.dataframe(
-        df[["Unit #1", "Unit #2", "Unit #3", "Summary", "Win Rate", "Total"]],
+        df[["Unit #1", "Unit #2", "Unit #3", "Summary", "Win Rate", "Total Games"]],
         use_container_width=True,
         hide_index=True,
         on_select="rerun",
@@ -87,8 +87,9 @@ def render_worst_offense_tab():
         st.info("No offense records found for this defense.")
         return
 
+    off_df_display = off_df.rename(columns={"total": "Total Games", "wins": "Wins", "losses": "Losses"})
     st.dataframe(
-        off_df[["Unit #1", "Unit #2", "Unit #3", "wins", "losses", "Win Rate", "Summary", "total"]],
+        off_df_display[["Unit #1", "Unit #2", "Unit #3", "Wins", "Losses", "Win Rate", "Summary", "Total Games"]],
         use_container_width=True,
         hide_index=True,
     )

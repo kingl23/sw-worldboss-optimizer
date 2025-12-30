@@ -89,17 +89,17 @@ def get_record_summary(wizard_name: str) -> pd.DataFrame:
         start += page_size
 
     rows = []
-    for label, key in [("전체", "all"), ("4성", "four"), ("5성", "five")]:
+    for label, key in [("All", "all"), ("4★", "four"), ("5★", "five")]:
         win = totals[key]["win"]
         lose = totals[key]["lose"]
         total = win + lose
         rows.append(
             {
-                "구분": label,
-                "총전투": int(total),
-                "승": int(win),
-                "패": int(lose),
-                "승률(%)": _pct(win, total),
+                "Category": label,
+                "Total Games": int(total),
+                "Wins": int(win),
+                "Losses": int(lose),
+                "Win Rate (%)": _pct(win, total),
             }
         )
 
@@ -155,13 +155,13 @@ def get_top_offense_decks(wizard_name: str, limit: int) -> pd.DataFrame:
         rows.append(
             {
                 "key": key,
-                "몬1": d1,
-                "몬2": d2,
-                "몬3": d3,
-                "승": int(win),
-                "패": int(lose),
-                "총전투": int(total),
-                "승률%": _pct(win, total),
+                "Unit #1": d1,
+                "Unit #2": d2,
+                "Unit #3": d3,
+                "Wins": int(win),
+                "Losses": int(lose),
+                "Total Games": int(total),
+                "Win Rate (%)": _pct(win, total),
                 "_win_rate_num": (win / total) if total else 0.0,
             }
         )
@@ -171,7 +171,7 @@ def get_top_offense_decks(wizard_name: str, limit: int) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     df = df.sort_values(
-        by=["총전투", "_win_rate_num", "key"],
+        by=["Total Games", "_win_rate_num", "key"],
         ascending=[False, False, True],
     )
     df = df.drop(columns=["_win_rate_num"]).head(int(limit)).reset_index(drop=True)
@@ -227,13 +227,13 @@ def get_top_defense_decks(wizard_name: str, limit: int) -> pd.DataFrame:
         rows.append(
             {
                 "key": key,
-                "몬1": d1,
-                "몬2": d2,
-                "몬3": d3,
-                "승": int(win),
-                "패": int(lose),
-                "총전투": int(total),
-                "승률%": _pct(win, total),
+                "Unit #1": d1,
+                "Unit #2": d2,
+                "Unit #3": d3,
+                "Wins": int(win),
+                "Losses": int(lose),
+                "Total Games": int(total),
+                "Win Rate (%)": _pct(win, total),
                 "_win_rate_num": (win / total) if total else 0.0,
             }
         )
@@ -243,7 +243,7 @@ def get_top_defense_decks(wizard_name: str, limit: int) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
     df = df.sort_values(
-        by=["총전투", "_win_rate_num", "key"],
+        by=["Total Games", "_win_rate_num", "key"],
         ascending=[False, False, True],
     )
     df = df.drop(columns=["_win_rate_num"]).head(int(limit)).reset_index(drop=True)
@@ -308,15 +308,15 @@ def get_offense_deck_details(wizard_name: str, offense_key: str, limit: int) -> 
     for _, row in df.iterrows():
         mapped_rows.append(
             {
-                "공격덱1": _get_col(row, "deck1_1"),
-                "공격덱2": _get_col(row, "deck1_2"),
-                "공격덱3": _get_col(row, "deck1_3"),
-                "방어덱1": _get_col(row, "deck2_1"),
-                "방어덱2": _get_col(row, "deck2_2"),
-                "방어덱3": _get_col(row, "deck2_3"),
-                "방어길드": _get_col(row, "opp_guild"),
-                "방어자": _get_col(row, "opp_wizard"),
-                "결과": _get_col(row, "result"),
+                "Offense Deck 1": _get_col(row, "deck1_1"),
+                "Offense Deck 2": _get_col(row, "deck1_2"),
+                "Offense Deck 3": _get_col(row, "deck1_3"),
+                "Defense Deck 1": _get_col(row, "deck2_1"),
+                "Defense Deck 2": _get_col(row, "deck2_2"),
+                "Defense Deck 3": _get_col(row, "deck2_3"),
+                "Defense Guild": _get_col(row, "opp_guild"),
+                "Defender": _get_col(row, "opp_wizard"),
+                "Result": _get_col(row, "result"),
             }
         )
 

@@ -224,7 +224,7 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
 
     d = _normalize_matchups(df, limit)
     if d.empty:
-        st.info("해당 방덱에 대한 매치업 데이터가 없습니다.")
+        st.info("No matchup data found for this defense deck.")
         return
 
     st.markdown(
@@ -258,8 +258,8 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
         unsafe_allow_html=True,
     )
 
-    st.subheader("추천 공덱")
-    st.caption("각 항목의 ‘상세보기’를 열면 바로 아래에 Lose 로그가 펼쳐집니다.")
+    st.subheader("Recommended Offense Decks")
+    st.caption("Open a detail view to see loss logs directly below.")
 
     for idx, row in enumerate(d.to_dict(orient="records"), start=0):
         offense = row.get("offense", "")
@@ -278,7 +278,7 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
                 <div class="card">
                   <div class="card-title">#{idx+1} {offense}</div>
                   <div class="card-row">
-                    <span class="meta">{summary} · {total} games</span>
+                    <span class="meta">{summary} · Total {total} games</span>
                     <span class="pill" style="{pill_style}">{wr_text}</span>
                   </div>
                 </div>
@@ -287,34 +287,34 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
             unsafe_allow_html=True,
         )
 
-        with st.expander("상세보기", expanded=False):
+        with st.expander("View Details", expanded=False):
             st.markdown(f"### #{idx+1} {offense}")
-            st.write(f"- 결과: **{win}W-{lose}L** (총 {total}판)")
-            st.write(f"- 승률: **{win_rate:.1f}%**")
+            st.write(f"- Result: **{win}W-{lose}L** (Total {total} games)")
+            st.write(f"- Win Rate: **{win_rate:.1f}%**")
             st.divider()
 
-            st.markdown("#### Lose 로그 (Siege Logs)")
+            st.markdown("#### Loss Logs (Siege Logs)")
 
             o1, o2, o3 = row.get("o1", ""), row.get("o2", ""), row.get("o3", "")
             logs = get_siege_loss_logs(def_key, o1, o2, o3, limit=200)
             
             if logs.empty:
-                st.info("해당 공덱/방덱 조합의 Lose 로그가 없습니다.")
+                st.info("No loss logs found for this offense/defense matchup.")
                 continue
             
             logs = logs.copy()
             
-            logs["방어덱"] = logs.apply(lambda r: _fmt_team(r, "deck2_1", "deck2_2", "deck2_3"), axis=1)
+            logs["Defense Deck"] = logs.apply(lambda r: _fmt_team(r, "deck2_1", "deck2_2", "deck2_3"), axis=1)
             
             logs = logs.rename(
                 columns={
-                    "wizard": "공격자",
-                    "opp_wizard": "방어자",
-                    "opp_guild": "방어길드",
+                    "wizard": "Attacker",
+                    "opp_wizard": "Defender",
+                    "opp_guild": "Defense Guild",
                 }
             )
             
-            cols = [c for c in ["공격자", "방어덱", "방어길드", "방어자"] if c in logs.columns]
+            cols = [c for c in ["Attacker", "Defense Deck", "Defense Guild", "Defender"] if c in logs.columns]
             
             st.dataframe(
                 logs[cols],
@@ -324,8 +324,8 @@ def render_matchups_master_detail(df: pd.DataFrame, limit: int, def_key: str):
 
 
 
-def render_siege_tab():
-    st.subheader("Siege")
+def render_search_offense_deck_tab():
+    st.subheader("Search Offense Deck")
 
     # --- UI: select boxes ---
     col1, col2, col3 = st.columns(3)
@@ -347,7 +347,7 @@ def render_siege_tab():
 
     left, right = st.columns([0.35, 0.65], vertical_alignment="bottom")
     with left:
-        limit = st.number_input("최대 추천 공덱 수", min_value=5, max_value=200, value=10, step=5, key="siege_limit")
+        limit = st.number_input("Max recommended offense decks", min_value=5, max_value=200, value=10, step=5, key="siege_limit")
     with right:
         search_clicked = st.button("Search", type="primary", key="siege_search_btn")
 
@@ -364,7 +364,7 @@ def render_siege_tab():
         if not require_access_or_stop("siege_battle"):
             return
         if not (u1 and u2 and u3):
-            st.warning("유닛 3개를 모두 선택하세요.")
+            st.warning("Select all three units.")
             st.stop()
     
         def_key = make_def_key(u1, u2, u3)
@@ -396,10 +396,10 @@ def render_siege_tab():
         if isinstance(trend, pd.DataFrame) and not trend.empty:
             render_cumulative_trend_chart(trend)
         else:
-            st.info("Search를 눌러 추세를 생성하세요.")
+            st.info("Click Search to generate the trend analysis.")
 
     
         return
 
 
-    st.info("유닛 3개를 선택한 후 Search를 눌러주세요.")
+    st.info("Select all three units and click Search.")

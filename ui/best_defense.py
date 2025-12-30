@@ -1,4 +1,4 @@
-# ui/siege_defense.py
+# ui/best_defense.py
 import streamlit as st
 import pandas as pd
 
@@ -10,19 +10,19 @@ from data.defense_data import (
 )
 
 
-def render_siege_defense_tab():
-    st.subheader("Siege Defense")
+def render_best_defense_tab():
+    st.subheader("Best Defense")
 
     # -------------------------
     # Section 1: All Defense Deck Stats (mode=1 always)
     # -------------------------
-    st.markdown("### 전체 방덱 통계 (길드그룹 포함)")
-    st.caption("Top N=0이면 전체 출력됩니다. (기본 50)")
+    st.markdown("### Overall Defense Deck Stats (Including Guild Groups)")
+    st.caption("Top N=0 shows all results (default 50).")
 
     c1, c2 = st.columns([0.25, 0.75], vertical_alignment="bottom")
     with c1:
         top_n_all = st.number_input(
-            "Top N (전체 통계)",
+            "Top N (overall)",
             min_value=0,
             max_value=500,
             value=50,
@@ -30,7 +30,7 @@ def render_siege_defense_tab():
             key="def_all_topn",
         )
     with c2:
-        run_all = st.button("Run (전체 통계)", type="primary", key="def_all_run")
+        run_all = st.button("Run (overall)", type="primary", key="def_all_run")
 
     if run_all:
         if not require_access_or_stop("siege_defense"):
@@ -43,8 +43,8 @@ def render_siege_defense_tab():
     # -------------------------
     # Section 2: Defense Decks vs Opponent Guild
     # -------------------------
-    st.markdown("### 길드별(상대) 방덱 통계")
-    st.caption("Top N 기본 50")
+    st.markdown("### Defense Deck Stats by Opponent Guild")
+    st.caption("Top N default: 50")
 
     # 옵션 로드(캐시)
     guilds = get_opp_guild_options()
@@ -52,14 +52,14 @@ def render_siege_defense_tab():
     c3, c4, c5 = st.columns([0.5, 0.25, 0.25], vertical_alignment="bottom")
     with c3:
         opp_guild = st.selectbox(
-            "Opp Guild",
+            "Opponent Guild",
             options=[""] + guilds,
             index=0,
             key="def_vs_guild_name",
         )
     with c4:
         top_n_vs = st.number_input(
-            "Top N (길드별)",
+            "Top N (by guild)",
             min_value=1,
             max_value=500,
             value=50,
@@ -67,7 +67,7 @@ def render_siege_defense_tab():
             key="def_vs_topn",
         )
     with c5:
-        run_vs = st.button("Run (길드별)", type="primary", key="def_vs_run")
+        run_vs = st.button("Run (by guild)", type="primary", key="def_vs_run")
 
     if run_vs:
         if not require_access_or_stop("siege_defense"):

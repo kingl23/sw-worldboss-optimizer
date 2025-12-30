@@ -80,7 +80,7 @@ def render_wb_tab(state, monster_names):
         state.opt_ctx = None
 
     if not state.wb_run:
-        st.info("Run analysis 버튼을 눌러 분석을 시작하세요.")
+        st.info("Click Run analysis to start.")
         return
 
     # ==================================================
@@ -164,7 +164,7 @@ def render_wb_tab(state, monster_names):
     # ==================================================
     with right:
         if state.selected_unit_id is None or state.opt_ctx is None:
-            st.info("왼쪽에서 Optimize를 누르세요.")
+            st.info("Click Optimize on the left.")
             return
 
         colA, colB = st.columns(2)

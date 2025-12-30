@@ -6,19 +6,19 @@ import altair as alt
 
 def render_cumulative_trend_chart(df: pd.DataFrame):
     if df is None or df.empty:
-        st.info("Trend 데이터가 없습니다.")
+        st.info("No trend data available.")
         return
 
     n = len(df)
 
     # 표본 수 가드 (요청하신 5/10/20)
     if n < 5:
-        st.info("표본 수가 부족하여 추세 분석을 표시하지 않습니다.")
+        st.info("Not enough samples to display the trend analysis.")
         return
     elif n < 10:
-        st.warning("표본 수가 적어 해석에 주의가 필요합니다.")
+        st.warning("Sample size is small; interpret with caution.")
     elif n < 20:
-        st.caption("표본 수가 충분하지 않아 참고용으로만 해석하세요.")
+        st.caption("Sample size is limited; use for reference only.")
 
     # 메타 표시(원하면 제거)
     if "total_games" in df.columns and "bucket_size" in df.columns:
@@ -32,7 +32,7 @@ def render_cumulative_trend_chart(df: pd.DataFrame):
     # area용 long-form 변환
     area_cols = [c for c in df.columns if c.startswith("share_")]
     if not area_cols:
-        st.info("공덱 비중 데이터(share_*)가 없습니다.")
+        st.info("No offense usage share data (share_*).")
         return
 
     area_df = df.melt(

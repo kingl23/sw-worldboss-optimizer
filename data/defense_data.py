@@ -197,7 +197,7 @@ def get_defense_deck_stats(limit: int = 50) -> pd.DataFrame:
         start += page_size
 
     if not base_map:
-        return pd.DataFrame([{"error": "defense_logs에 집계할 데이터가 없습니다."}])
+        return pd.DataFrame([{"error": "No defense_logs data available to aggregate."}])
 
     rows = []
     for k, v in base_map.items():
@@ -268,7 +268,7 @@ def get_defense_decks_vs_guild(opp_guild: str, limit: int = 50) -> pd.DataFrame:
     """
     opp_guild = (opp_guild or "").strip()
     if not opp_guild:
-        return pd.DataFrame([{"error": "상대 길드명을 선택/입력하세요."}])
+        return pd.DataFrame([{"error": "Select or enter an opponent guild name."}])
 
     if limit is None or int(limit) < 1:
         limit = 50
@@ -318,7 +318,7 @@ def get_defense_decks_vs_guild(opp_guild: str, limit: int = 50) -> pd.DataFrame:
         start += page_size
 
     if not base_map:
-        return pd.DataFrame([{"error": f"{opp_guild} 상대 방덱 기록이 없습니다."}])
+        return pd.DataFrame([{"error": f"No defense deck records found vs {opp_guild}."}])
 
     rows = []
     for k, v in base_map.items():

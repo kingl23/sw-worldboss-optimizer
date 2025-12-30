@@ -10,7 +10,12 @@ def require_access_or_stop(feature: str) -> bool:
     ok = isinstance(allowed, list) and (("all" in allowed) or (feature in allowed))
 
     if not ok:
-        st.warning(f"Access Key required for: {feature}")
+        feature_labels = {
+            "siege_battle": "Search Offense Deck",
+            "siege_defense": "Best Defense",
+        }
+        label = feature_labels.get(feature, feature)
+        st.warning(f"Access Key required for: {label}")
         return False
 
     return True

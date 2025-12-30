@@ -6,8 +6,8 @@ import streamlit as st
 from ui.auth import require_access_or_stop
 
 from ui.wb_tab import render_wb_tab
-from ui.siege_logs import render_siege_tab
-from ui.siege_defense import render_siege_defense_tab
+from ui.search_offense_deck import render_search_offense_deck_tab
+from ui.best_defense import render_best_defense_tab
 
 from ui.worst_offense import render_worst_offense_tab
 from ui.personal_data import render_personal_data_tab
@@ -60,8 +60,8 @@ st.sidebar.text_input(
 tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst, tab_personal = st.tabs([
     "World Boss",
     "Artifact Analysis",
-    "Siege Battle",
-    "Siege Defense",
+    "Search Offense Deck",
+    "Best Defense",
     "Worst Offense",
     "Personal Data",
 ])
@@ -160,7 +160,7 @@ with tab_artifact:
 # ------------------------------------------------------------
 
 with tab_siege:
-    render_siege_tab()
+    render_search_offense_deck_tab()
 
 
 # ------------------------------------------------------------
@@ -168,7 +168,7 @@ with tab_siege:
 # ------------------------------------------------------------
 
 with tab_siege_def:
-    render_siege_defense_tab()
+    render_best_defense_tab()
 
 
 # ------------------------------------------------------------
@@ -185,5 +185,4 @@ with tab_worst:
 
 with tab_personal:
     render_personal_data_tab()
-
 
