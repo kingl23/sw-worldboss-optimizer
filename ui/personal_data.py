@@ -207,62 +207,60 @@ def render_personal_data_tab():
     st.markdown("### Offense Deck Detail Logs")
     if not selected_key:
         st.info("Select a row from Top Offense Decks to see detail logs.")
-        return
+    else:
+        detail_limit = st.number_input(
+            "Detail Log Limit",
+            min_value=1,
+            max_value=500,
+            value=100,
+            step=10,
+            key="personal_detail_limit",
+        )
 
-    detail_limit = st.number_input(
-        "Detail Log Limit",
-        min_value=1,
-        max_value=500,
-        value=100,
-        step=10,
-        key="personal_detail_limit",
-    )
-
-    detail_df = get_offense_deck_details(wizard_name, selected_key, int(detail_limit))
-    if detail_df.empty:
-        st.info("No detail logs available for the selected deck.")
-        return
-
-    detail_display = detail_df.copy()
-    selected_offense = build_deck_column(
-        detail_display.iloc[[0]],
-        ["Offense Deck 1", "Offense Deck 2", "Offense Deck 3"],
-    ).iloc[0]
-    st.write(f"Selected Offense Deck: **{selected_offense}**")
-    detail_display["Offense Deck"] = build_deck_column(
-        detail_display,
-        ["Offense Deck 1", "Offense Deck 2", "Offense Deck 3"],
-    )
-    detail_display["Defense Deck"] = build_deck_column(
-        detail_display,
-        ["Defense Deck 1", "Defense Deck 2", "Defense Deck 3"],
-    )
-    detail_display = detail_display.drop(
-        columns=[
-            "Offense Deck 1",
-            "Offense Deck 2",
-            "Offense Deck 3",
-            "Defense Deck 1",
-            "Defense Deck 2",
-            "Defense Deck 3",
-        ]
-    )
-    detail_display = detail_display[["Defense Deck", "Result", "Defense Guild", "Defender"]]
-    st.dataframe(
-        detail_display,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Defense Deck": st.column_config.TextColumn("Defense Deck", width="large"),
-            "Defense Guild": st.column_config.TextColumn("Defense Guild", width="medium"),
-            "Defender": st.column_config.TextColumn("Defender", width="small"),
-            "Result": st.column_config.TextColumn("Result", width="small"),
-        },
-    )
+        detail_df = get_offense_deck_details(wizard_name, selected_key, int(detail_limit))
+        if detail_df.empty:
+            st.info("No detail logs available for the selected deck.")
+        else:
+            detail_display = detail_df.copy()
+            selected_offense = build_deck_column(
+                detail_display.iloc[[0]],
+                ["Offense Deck 1", "Offense Deck 2", "Offense Deck 3"],
+            ).iloc[0]
+            st.write(f"Selected Offense Deck: **{selected_offense}**")
+            detail_display["Offense Deck"] = build_deck_column(
+                detail_display,
+                ["Offense Deck 1", "Offense Deck 2", "Offense Deck 3"],
+            )
+            detail_display["Defense Deck"] = build_deck_column(
+                detail_display,
+                ["Defense Deck 1", "Defense Deck 2", "Defense Deck 3"],
+            )
+            detail_display = detail_display.drop(
+                columns=[
+                    "Offense Deck 1",
+                    "Offense Deck 2",
+                    "Offense Deck 3",
+                    "Defense Deck 1",
+                    "Defense Deck 2",
+                    "Defense Deck 3",
+                ]
+            )
+            detail_display = detail_display[["Defense Deck", "Result", "Defense Guild", "Defender"]]
+            st.dataframe(
+                detail_display,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Defense Deck": st.column_config.TextColumn("Defense Deck", width="large"),
+                    "Defense Guild": st.column_config.TextColumn("Defense Guild", width="medium"),
+                    "Defender": st.column_config.TextColumn("Defender", width="small"),
+                    "Result": st.column_config.TextColumn("Result", width="small"),
+                },
+            )
 
     st.divider()
 
-    st.markdown("### Attack Log Distribution by Hour (12–23)")
-    st.caption("Counts of siege_logs grouped by hour of day (date ignored).")
+    st.markdown("### Hourly Log Distribution (12–23)")
+    st.caption("Counts of siege_logs for the selected wizard grouped by hour (date ignored).")
     hour_df = get_attack_log_hour_distribution(wizard_name)
     st.bar_chart(hour_df.set_index("Hour"), height=240)
