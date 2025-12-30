@@ -6,9 +6,9 @@ from config.settings import WIZARD_NAMES
 from ui.auth import require_access_or_stop
 from ui.table_utils import apply_dataframe_style, build_deck_column, percent_to_float, to_numeric
 from services.personal_data_service import (
+    get_attack_log_hour_log,
     get_offense_deck_details,
     get_record_summary,
-    get_attack_log_hour_distribution,
     get_top_defense_decks,
     get_top_offense_decks,
 )
@@ -260,7 +260,11 @@ def render_personal_data_tab():
 
     st.divider()
 
-    st.markdown("### Hourly Log Distribution (12–23)")
-    st.caption("Counts of siege_logs for the selected wizard grouped by hour (date ignored).")
-    hour_df = get_attack_log_hour_distribution(wizard_name)
-    st.bar_chart(hour_df.set_index("Hour"), height=240)
+    st.markdown("### Hourly Log Debug List")
+    st.caption("Hourly timestamps from siege_logs for the selected wizard (date ignored).")
+    hour_log_df = get_attack_log_hour_log(wizard_name)
+    if hour_log_df.empty:
+        st.info("No hourly log entries available.")
+    else:
+        hour_text = ", ".join(hour_log_df["Hour"].astype(int).astype(str).tolist())
+        st.text(hour_text)
