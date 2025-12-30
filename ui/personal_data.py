@@ -13,7 +13,7 @@ from services.personal_data_service import (
 
 
 def _deck_label(row) -> str:
-    return f"{row['몬1']} / {row['몬2']} / {row['몬3']}"
+    return f"{row['Unit #1']} / {row['Unit #2']} / {row['Unit #3']}"
 
 
 def _select_offense_key(df, table_key: str) -> str | None:
@@ -40,7 +40,7 @@ def _select_offense_key(df, table_key: str) -> str | None:
         labels = [_deck_label(row) for _, row in df.iterrows()]
         label_map = {label: key for label, key in zip(labels, df["key"].tolist())}
         selected_label = st.selectbox(
-            "덱 선택",
+            "Select deck",
             options=[""] + labels,
             index=0,
             key=f"{table_key}_fallback",
@@ -75,7 +75,7 @@ def render_personal_data_tab():
         st.session_state.pop("personal_offense_table_fallback", None)
 
     if not wizard_name:
-        st.info("Wizard를 선택해 주세요.")
+        st.info("Please select a wizard.")
         return
 
     # 검색 버튼
@@ -91,14 +91,14 @@ def render_personal_data_tab():
 
     # 버튼 누르기 전에는 결과 숨김
     if not st.session_state.get(run_key, False):
-        st.info("Search를 눌러 데이터를 조회하세요.")
+        st.info("Click Search to load data.")
         return
 
     # --- 이하 결과 렌더 ---
-    st.markdown("### 전적 요약")
+    st.markdown("### Record Summary")
     summary_df = get_record_summary(wizard_name)
     if summary_df.empty:
-        st.info("전적 요약 데이터가 없습니다.")
+        st.info("No record summary data available.")
     else:
         st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
@@ -116,7 +116,7 @@ def render_personal_data_tab():
     off_df = get_top_offense_decks(wizard_name, int(off_limit))
     selected_key = None
     if off_df.empty:
-        st.info("Top Offense 덱 데이터가 없습니다.")
+        st.info("No Top Offense deck data available.")
     else:
         selected_key = _select_offense_key(off_df, "personal_offense_table")
 
@@ -133,7 +133,7 @@ def render_personal_data_tab():
     )
     def_df = get_top_defense_decks(wizard_name, int(def_limit))
     if def_df.empty:
-        st.info("Top Defense 덱 데이터가 없습니다.")
+        st.info("No Top Defense deck data available.")
     else:
         st.dataframe(
             def_df.drop(columns=["key"]).reset_index(drop=True),
@@ -143,13 +143,13 @@ def render_personal_data_tab():
 
     st.divider()
 
-    st.markdown("### Offense 덱 상세 로그")
+    st.markdown("### Offense Deck Detail Logs")
     if not selected_key:
-        st.info("Top Offense 덱에서 한 줄을 선택하면 상세 로그가 표시됩니다.")
+        st.info("Select a row from Top Offense Decks to view detail logs.")
         return
 
     detail_limit = st.number_input(
-        "상세 로그 Limit",
+        "Detail log limit",
         min_value=1,
         max_value=500,
         value=100,
@@ -159,7 +159,7 @@ def render_personal_data_tab():
 
     detail_df = get_offense_deck_details(wizard_name, selected_key, int(detail_limit))
     if detail_df.empty:
-        st.info("선택한 덱의 상세 로그가 없습니다.")
+        st.info("No detail logs for the selected deck.")
         return
 
     st.dataframe(detail_df, use_container_width=True, hide_index=True)
