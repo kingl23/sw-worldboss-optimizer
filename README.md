@@ -1,144 +1,85 @@
-# Summoners War – World Boss Rune Analyzer
+# Summoners War Analyzer
 
-This project is a **Streamlit-based web tool** that analyzes Summoners War JSON data to:
-
-- Optimize rune sets for specific units (World Boss–focused)
-- Rank all units by their current overall strength
-- Allow **non-developers** to upload a JSON file and view results easily in a browser
-
-The app is deployed on **Streamlit Cloud** and requires **no local setup** for users.
-
----
-
-## 🔗 Live App
-
-👉 **Access the app here:**
-
-
-
-[https://sw-worldboss-optimizer-fnyzujw3snm2om6bqh5vk9.streamlit.app/](https://sw-worldboss-optimizer-fnyzujw3snm2om6bqh5vk9.streamlit.app/)
-
-Anyone with this link can use the tool directly.
-
----
+A Streamlit web app for analyzing Summoners War data. It combines local JSON analysis
+(World Boss + artifacts) with Supabase-backed siege analytics and personal stats.
 
 ## ✨ Features
 
-### 1. Rune Optimizer
-- Finds the best rune combination for selected unit(s)
-- Uses:
-  - Rune main/sub stat scoring
-  - Set bonuses
-  - Pruning with top-K candidates per slot
-- Outputs:
-  - Slot-by-slot rune breakdown
-  - Final stat summary
-  - Total score
+### World Boss
+- Upload a Summoners War JSON export.
+- Rank units by score.
+- Optimize runes per unit and optionally apply the recommended build to the working data.
+- Manual optimizer for specific Unit Master IDs.
 
-### 2. Current Unit Ranking
-- Calculates the current strength of **all units with equipped runes**
-- Considers:
-  - Base stats
-  - Rune stats
-  - Set bonuses
-  - Artifacts
-  - Skill-ups
-- Displays **Top N units by total score**
+### Artifact Analysis
+- Upload a Summoners War JSON export.
+- Build attribute and archetype matrices to surface best artifact combinations.
 
-### 3. Web-Based UI
-- Upload JSON file
-- Choose mode:
-  - Optimizer
-  - Ranking
-  - Both
-- View results instantly in the browser
-- No coding knowledge required
+### Siege Analytics
+- **Search Offense Deck**: look up offense matchups against a selected defense deck.
+- **Best Defense**: ranked defense decks overall or by opponent guild.
+- **Worst Offense**: identify defenses that most often beat offense decks.
 
----
+### Personal Data
+- Per-wizard record summary.
+- Top offense/defense decks and hour-of-day distributions.
 
-## 📁 Input Data
+## 📁 Data Sources
 
-### Required
-- A Summoners War JSON export containing:
-  - `unit_list`
-  - `runes`
-  - `artifacts` (optional but supported)
+### Local JSON Uploads
+Used by **World Boss** and **Artifact Analysis** tabs.
+- Expected to include `unit_list`, `runes`, and (optionally) `artifacts`.
+- JSON is processed in-memory only.
 
-The file is uploaded via the web UI and **not stored** on the server.
+### Supabase Tables
+Used by **Siege Analytics** and **Personal Data** tabs.
+- Requires Supabase credentials in Streamlit secrets.
 
----
+## 🔐 Access Control
 
-## 🖥 How to Use (For Non-Developers)
+The sidebar accepts an **Access Key**. Keys are validated via `ACCESS_POLICY` in
+Streamlit secrets. Each key maps to a list of enabled features.
 
-1. Open the app link
-2. Upload your Summoners War JSON file
-3. Select a mode:
-   - **Optimizer**: Rune optimization only
-   - **Ranking**: Current unit ranking only
-   - **Both**
-4. Click **Run Analysis**
-5. Review results on screen
+Example `ACCESS_POLICY` structure:
 
-That’s it.
+```toml
+ACCESS_POLICY = { "example-key" = ["world_boss", "artifact", "siege_battle", "siege_defense", "worst_offense", "personal_data"] }
+```
 
----
+## 🛠 Local Development
 
-## 🛠 For Developers
+1. Create and activate a virtual environment.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Create `.streamlit/secrets.toml` with the following values:
+   ```toml
+   SUPABASE_URL = "https://your-project.supabase.co"
+   SUPABASE_ANON_KEY = "your-anon-key"
+   ACCESS_POLICY = { "example-key" = ["world_boss", "artifact", "siege_battle", "siege_defense", "worst_offense", "personal_data"] }
+   ```
+4. Run the app:
+   ```bash
+   streamlit run app.py
+   ```
 
-### Tech Stack
-- Python
-- Streamlit
-- GitHub + Streamlit Cloud deployment
-## Project Structure
+## 🧭 Project Structure
 
 ```
 .
 ├── app.py              # Streamlit entry point
 ├── config/             # Global configuration
 ├── data/               # Data loaders/aggregations
-├── domain/             # Core scoring/optimizer/ranking logic
-├── services/           # External integrations
+├── domain/             # Core scoring/optimizer logic
+├── services/           # Supabase and service helpers
 ├── ui/                 # Streamlit tabs/components
 ├── utils/              # Shared utilities
+├── mapping.txt         # Monster name mapping
 ├── requirements.txt    # Python dependencies
 ```
 
-
-## 🔄 Updating the App
-
-The app is **automatically redeployed** when code changes are pushed to GitHub.
-
-### To update:
-1. Edit files directly on GitHub (or push via git)
-2. Commit changes
-3. Streamlit Cloud redeploys automatically
-4. Refresh the app URL
-
-No additional deployment steps required.
-
----
-
-## ⚠️ Limitations (Streamlit Cloud – Free Tier)
-
-- Shared CPU / memory (heavy optimizations may be slow)
-- App sleeps when inactive (wakes up on access)
-- No user authentication
-- Uploaded files are not persisted
-
-These are acceptable for analysis and sharing purposes.
-
----
-
-## 📌 Notes
-
-- This tool is intended for **analysis and optimization**, not in-game automation.
-- JSON files remain in memory only during the session.
-- The scoring model is customizable in `domain/core_scores.py`.
-
----
-
 ## 📜 License
 
-This project is provided for personal and analytical use.  
+This project is provided for personal and analytical use.
 No affiliation with Com2uS.
-
