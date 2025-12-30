@@ -3,7 +3,7 @@ import math
 import pandas as pd
 
 MAX_POINTS = 500          # x축 포인트 최대(가볍게)
-TOP_N_OFFENSE = 5         # area에서 보여줄 공덱 개수 (나머지 Others)
+TOP_N_OFFENSE = 10         # area에서 보여줄 공덱 개수 (나머지 Others)
 
 
 def _norm(v) -> str:
