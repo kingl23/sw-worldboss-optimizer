@@ -8,6 +8,7 @@ from ui.table_utils import apply_dataframe_style, build_deck_column, percent_to_
 from services.personal_data_service import (
     get_offense_deck_details,
     get_record_summary,
+    get_attack_log_hour_distribution,
     get_top_defense_decks,
     get_top_offense_decks,
 )
@@ -258,3 +259,10 @@ def render_personal_data_tab():
             "Result": st.column_config.TextColumn("Result", width="small"),
         },
     )
+
+    st.divider()
+
+    st.markdown("### Attack Log Distribution by Hour (12–23)")
+    st.caption("Counts of siege_logs grouped by hour of day (date ignored).")
+    hour_df = get_attack_log_hour_distribution(wizard_name)
+    st.bar_chart(hour_df.set_index("Hour"), height=240)
