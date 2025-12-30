@@ -85,61 +85,25 @@ def render_best_defense_tab():
                 "In4 Win Rate",
             ]
             ordered_cols = [col for col in ordered_cols if col in df_display.columns]
-
-            st.markdown(
-                """
-                <style>
-                .defense-overall-header {
-                    display: grid;
-                    grid-template-columns: minmax(140px, 1.2fr) repeat(12, minmax(60px, 1fr));
-                    gap: 0;
-                    align-items: center;
-                    border-bottom: 1px solid rgba(49, 51, 63, 0.2);
-                    padding: 0.35rem 0.5rem;
-                    margin-bottom: 0.25rem;
-                    font-weight: 600;
-                    color: rgba(49, 51, 63, 0.8);
-                }
-                .defense-overall-header .deck-label {
-                    grid-column: span 1;
-                    text-align: left;
-                }
-                .defense-overall-header .group-label {
-                    grid-column: span 3;
-                    text-align: center;
-                }
-                </style>
-                <div class="defense-overall-header">
-                    <div class="deck-label">Defense Deck</div>
-                    <div class="group-label">vs Total</div>
-                    <div class="group-label">vs in 32</div>
-                    <div class="group-label">vs in 12</div>
-                    <div class="group-label">vs in 4</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-
+            
             st.dataframe(
                 df_display[ordered_cols],
                 use_container_width=True,
                 hide_index=True,
                 column_config={
-                    # "Defense Deck": st.column_config.TextColumn("Defense Deck", width="large"),
                     "Defense Deck": st.column_config.TextColumn("Defense Deck", width="medium"),
                     "Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
                     "Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
                     "Win Rate": st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
-                    "In32 Wins": st.column_config.NumberColumn("In32 Wins", format="%d", width="small"),
-                    "In32 Losses": st.column_config.NumberColumn("In32 Losses", format="%d", width="small"),
-                    "In32 Win Rate": st.column_config.NumberColumn("In32 Win Rate", format="%.1f%%", width="small"),
-                    "In12 Wins": st.column_config.NumberColumn("In12 Wins", format="%d", width="small"),
-                    "In12 Losses": st.column_config.NumberColumn("In12 Losses", format="%d", width="small"),
-                    "In12 Win Rate": st.column_config.NumberColumn("In12 Win Rate", format="%.1f%%", width="small"),
-                    "In4 Wins": st.column_config.NumberColumn("In4 Wins", format="%d", width="small"),
-                    "In4 Losses": st.column_config.NumberColumn("In4 Losses", format="%d", width="small"),
-                    "In4 Win Rate": st.column_config.NumberColumn("In4 Win Rate", format="%.1f%%", width="small"),
+                    "In32 Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
+                    "In32 Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
+                    "In32 Win Rate": st.column_config.NumberColumn("vs in 32", format="%.1f%%", width="small"),
+                    "In12 Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
+                    "In12 Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
+                    "In12 Win Rate": st.column_config.NumberColumn("vs in 12", format="%.1f%%", width="small"),
+                    "In4 Wins": st.column_config.NumberColumn("Wins", format="%d", width="small"),
+                    "In4 Losses": st.column_config.NumberColumn("Losses", format="%d", width="small"),
+                    "In4 Win Rate": st.column_config.NumberColumn("vs in 4", format="%.1f%%", width="small"),
                 },
             )
 
