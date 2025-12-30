@@ -362,8 +362,11 @@ def get_attack_log_hour_distribution(wizard_name: str, timezone: str = "Asia/Seo
     if not ts_values:
         return _empty_hour_distribution()
 
-    ts_series = pd.to_datetime(pd.Series(ts_values), utc=True, errors="coerce")
-    ts_series = ts_series.dt.tz_convert(timezone)
+    ts_series = pd.to_datetime(pd.Series(ts_values), errors="coerce")
+    if ts_series.dt.tz is None:
+        ts_series = ts_series.dt.tz_localize(timezone)
+    else:
+        ts_series = ts_series.dt.tz_convert(timezone)
     hours = ts_series.dt.hour.dropna()
 
     hour_range = list(range(12, 24))
