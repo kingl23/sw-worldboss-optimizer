@@ -2,6 +2,9 @@
 import streamlit as st
 from ui.auth import require_access_or_stop
 from data.siege_data import build_worst_offense_list, get_offense_stats_by_defense
+from data.siege_trend import build_cumulative_trend_df
+from ui.search_offense_deck import get_siege_logs_for_defense, make_def_key
+from ui.siege_trend_chart import render_cumulative_trend_chart
 from ui.table_utils import apply_dataframe_style, build_deck_column, percent_to_float, to_numeric
 
 
@@ -96,7 +99,7 @@ def render_worst_offense_tab():
 
     st.divider()
     st.subheader("Offense stats vs selected defense")
-    st.write(f"Selected Defense: **{def1} / {def2} / {def3}**")
+    st.write(f"Selected Defense Deck: **{def1} / {def2} / {def3}**")
 
     off_limit = st.number_input("Max offense rows", 5, 200, 50, 5, key="off_limit")
     off_df = get_offense_stats_by_defense(def1, def2, def3, limit=int(off_limit))
@@ -124,3 +127,13 @@ def render_worst_offense_tab():
             "Total Games": st.column_config.NumberColumn("Total Games", format="%d", width="small"),
         },
     )
+
+    st.divider()
+    st.subheader("Trend Analysis (Cumulative)")
+    def_key = make_def_key(def1, def2, def3)
+    logs_df = get_siege_logs_for_defense(def_key=def_key, limit=2000)
+    trend_df = build_cumulative_trend_df(logs_df)
+    if trend_df.empty:
+        st.info("No trend data available for this defense deck.")
+        return
+    render_cumulative_trend_chart(trend_df)

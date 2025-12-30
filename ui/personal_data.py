@@ -27,6 +27,7 @@ def _select_offense_key(df, table_key: str) -> str | None:
     df_display["Losses"] = to_numeric(df_display["Losses"])
     df_display["Total Games"] = to_numeric(df_display["Total Games"])
     df_display["Win Rate"] = percent_to_float(df_display["Win Rate"])
+    df_display = df_display[["Offense Deck", "Wins", "Losses", "Total Games", "Win Rate"]]
 
     try:
         st.dataframe(
@@ -186,6 +187,7 @@ def render_personal_data_tab():
         def_display["Losses"] = to_numeric(def_display["Losses"])
         def_display["Total Games"] = to_numeric(def_display["Total Games"])
         def_display["Win Rate"] = percent_to_float(def_display["Win Rate"])
+        def_display = def_display[["Defense Deck", "Win Rate", "Wins", "Losses", "Total Games"]]
         st.dataframe(
             def_display,
             use_container_width=True,
@@ -221,6 +223,11 @@ def render_personal_data_tab():
         return
 
     detail_display = detail_df.copy()
+    selected_offense = build_deck_column(
+        detail_display.iloc[[0]],
+        ["Offense Deck 1", "Offense Deck 2", "Offense Deck 3"],
+    ).iloc[0]
+    st.write(f"Selected Offense Deck: **{selected_offense}**")
     detail_display["Offense Deck"] = build_deck_column(
         detail_display,
         ["Offense Deck 1", "Offense Deck 2", "Offense Deck 3"],
@@ -239,13 +246,12 @@ def render_personal_data_tab():
             "Defense Deck 3",
         ]
     )
-    detail_display = detail_display[["Offense Deck", "Defense Deck", "Defense Guild", "Defender", "Result"]]
+    detail_display = detail_display[["Defense Deck", "Result", "Defense Guild", "Defender"]]
     st.dataframe(
         detail_display,
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Offense Deck": st.column_config.TextColumn("Offense Deck", width="large"),
             "Defense Deck": st.column_config.TextColumn("Defense Deck", width="large"),
             "Defense Guild": st.column_config.TextColumn("Defense Guild", width="medium"),
             "Defender": st.column_config.TextColumn("Defender", width="small"),
