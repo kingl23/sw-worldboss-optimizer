@@ -329,10 +329,6 @@ def _empty_hour_distribution() -> pd.DataFrame:
     return pd.DataFrame({"Hour": hours, "Count": [0] * len(hours)})
 
 
-def _empty_hour_log() -> pd.DataFrame:
-    return pd.DataFrame({"Hour": []})
-
-
 @st.cache_data(ttl=120)
 def get_attack_log_hour_distribution(wizard_name: str, timezone: str = "Asia/Seoul") -> pd.DataFrame:
     wizard_name = _clean_name(wizard_name)
@@ -377,46 +373,3 @@ def get_attack_log_hour_distribution(wizard_name: str, timezone: str = "Asia/Seo
     counts = hours.value_counts().reindex(hour_range, fill_value=0).sort_index()
 
     return pd.DataFrame({"Hour": counts.index.astype(int), "Count": counts.values.astype(int)})
-
-
-@st.cache_data(ttl=120)
-def get_attack_log_hour_log(wizard_name: str, timezone: str = "Asia/Seoul") -> pd.DataFrame:
-    wizard_name = _clean_name(wizard_name)
-    if not wizard_name:
-        return _empty_hour_log()
-
-    client = get_supabase_client()
-    page_size = 1000
-    start = 0
-    ts_values: List[str] = []
-
-    while True:
-        res = (
-            client
-            .table("siege_logs")
-            .select("ts")
-            .eq("wizard", wizard_name)
-            .range(start, start + page_size - 1)
-            .execute()
-        )
-        batch = res.data or []
-        if not batch:
-            break
-
-        ts_values.extend([row.get("ts") for row in batch if row.get("ts")])
-
-        if len(batch) < page_size:
-            break
-        start += page_size
-
-    if not ts_values:
-        return _empty_hour_log()
-
-    ts_series = pd.to_datetime(pd.Series(ts_values), errors="coerce")
-    if ts_series.dt.tz is None:
-        ts_series = ts_series.dt.tz_localize(timezone)
-    else:
-        ts_series = ts_series.dt.tz_convert(timezone)
-
-    hours = ts_series.dt.hour.dropna().astype(int)
-    return pd.DataFrame({"Hour": hours})
