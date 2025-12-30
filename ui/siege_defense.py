@@ -11,18 +11,15 @@ from data.defense_data import (
 
 
 def render_siege_defense_tab():
-    st.subheader("Siege Defense")
+    st.subheader("Best Defense")
 
-    # -------------------------
-    # Section 1: All Defense Deck Stats (mode=1 always)
-    # -------------------------
-    st.markdown("### 전체 방덱 통계 (길드그룹 포함)")
+    st.markdown("### 전체 방덱 통계")
     st.caption("Top N=0이면 전체 출력됩니다. (기본 50)")
 
     c1, c2 = st.columns([0.25, 0.75], vertical_alignment="bottom")
     with c1:
         top_n_all = st.number_input(
-            "Top N (전체 통계)",
+            "Top N",
             min_value=0,
             max_value=500,
             value=50,
@@ -30,7 +27,7 @@ def render_siege_defense_tab():
             key="def_all_topn",
         )
     with c2:
-        run_all = st.button("Run (전체 통계)", type="primary", key="def_all_run")
+        run_all = st.button("Run", type="primary", key="def_all_run")
 
     if run_all:
         if not require_access_or_stop("siege_defense"):
@@ -43,7 +40,7 @@ def render_siege_defense_tab():
     # -------------------------
     # Section 2: Defense Decks vs Opponent Guild
     # -------------------------
-    st.markdown("### 길드별(상대) 방덱 통계")
+    st.markdown("### 길드별 방덱 통계")
     st.caption("Top N 기본 50")
 
     # 옵션 로드(캐시)
@@ -59,7 +56,7 @@ def render_siege_defense_tab():
         )
     with c4:
         top_n_vs = st.number_input(
-            "Top N (길드별)",
+            "Top N",
             min_value=1,
             max_value=500,
             value=50,
@@ -67,7 +64,7 @@ def render_siege_defense_tab():
             key="def_vs_topn",
         )
     with c5:
-        run_vs = st.button("Run (길드별)", type="primary", key="def_vs_run")
+        run_vs = st.button("Run", type="primary", key="def_vs_run")
 
     if run_vs:
         if not require_access_or_stop("siege_defense"):
