@@ -61,7 +61,7 @@ tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst, tab_personal = st.tab
     "World Boss",
     "Artifact Analysis",
     "Siege Battle",
-    "Siege Defense",
+    "Best Defense",
     "Worst Offense",
     "Personal Data",
 ])
