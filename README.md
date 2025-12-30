@@ -14,8 +14,6 @@ The app is deployed on **Streamlit Cloud** and requires **no local setup** for u
 
 👉 **Access the app here:**
 
-
-
 [https://sw-worldboss-optimizer-fnyzujw3snm2om6bqh5vk9.streamlit.app/](https://sw-worldboss-optimizer-fnyzujw3snm2om6bqh5vk9.streamlit.app/)
 
 Anyone with this link can use the tool directly.
@@ -89,6 +87,18 @@ That’s it.
 - Python
 - Streamlit
 - GitHub + Streamlit Cloud deployment
+
+### Local Development
+1. Create and activate a virtual environment.
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Run the app:
+   ```bash
+   streamlit run app.py
+   ```
+4. Open the URL shown in the terminal to use the app locally.
 ## Project Structure
 
 ```
@@ -141,4 +151,3 @@ These are acceptable for analysis and sharing purposes.
 
 This project is provided for personal and analytical use.  
 No affiliation with Com2uS.
-
