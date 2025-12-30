@@ -94,12 +94,13 @@ That’s it.
 ```
 .
 ├── app.py              # Streamlit entry point
+├── config/             # Global configuration
+├── data/               # Data loaders/aggregations
+├── domain/             # Core scoring/optimizer/ranking logic
+├── services/           # External integrations
+├── ui/                 # Streamlit tabs/components
+├── utils/              # Shared utilities
 ├── requirements.txt    # Python dependencies
-├── config.py           # Global configuration
-├── core_scores.py      # Stat and scoring logic
-├── optimizer.py        # Rune optimizer logic
-├── ranking.py          # Current ranking logic
-├── visualize.py        # Result rendering
 ```
 
 
@@ -132,7 +133,7 @@ These are acceptable for analysis and sharing purposes.
 
 - This tool is intended for **analysis and optimization**, not in-game automation.
 - JSON files remain in memory only during the session.
-- The scoring model is customizable in `core_scores.py`.
+- The scoring model is customizable in `domain/core_scores.py`.
 
 ---
 
@@ -140,5 +141,4 @@ These are acceptable for analysis and sharing purposes.
 
 This project is provided for personal and analytical use.  
 No affiliation with Com2uS.
-
 

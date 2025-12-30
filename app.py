@@ -6,13 +6,13 @@ import streamlit as st
 from ui.auth import require_access_or_stop
 
 from ui.wb_tab import render_wb_tab
-from siege_logs import render_siege_tab
+from ui.siege_logs import render_siege_tab
 from ui.siege_defense import render_siege_defense_tab
 
 from ui.worst_offense import render_worst_offense_tab
 from ui.personal_data import render_personal_data_tab
 
-from artifact_analysis import collect_all_artifacts, artifact_attribute_matrix, artifact_archetype_matrix
+from data.artifact_analysis import collect_all_artifacts, artifact_attribute_matrix, artifact_archetype_matrix
 from ui.artifact_render import render_matrix
 
 
@@ -185,6 +185,5 @@ with tab_worst:
 
 with tab_personal:
     render_personal_data_tab()
-
 
 

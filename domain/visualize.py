@@ -2,7 +2,7 @@
 from collections import defaultdict
 
 from config import SET_NAME, EFF_NAME
-from core_scores import (rune_stat_score, init_stat, add_stat,
+from domain.core_scores import (rune_stat_score, init_stat, add_stat,
                          stat_struct_score, ceil, set_effect)
 
 # ============================================================

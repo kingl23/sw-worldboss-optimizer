@@ -2,7 +2,7 @@
 from itertools import product
 from collections import defaultdict
 
-from core_scores import (
+from domain.core_scores import (
     rune_stat_score,
     set_effect,
     unit_base_char,

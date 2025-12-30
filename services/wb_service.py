@@ -1,7 +1,7 @@
 import copy
-from core_scores import score_unit_total, rune_stat_score, unit_base_char
-from optimizer import optimize_unit_best_runes_by_unit_id
-from visualize import render_optimizer_result
+from domain.core_scores import score_unit_total, rune_stat_score, unit_base_char
+from domain.optimizer import optimize_unit_best_runes_by_unit_id
+from domain.visualize import render_optimizer_result
 from config import K_PER_SLOT
 from domain.unit_repo import get_unit_by_unit_id
 

@@ -1,10 +1,10 @@
 import copy
 import streamlit as st
 
-from ranking import rank_all_units
-from optimizer import optimize_unit_best_runes
-from core_scores import score_unit_total
-from visualize import render_optimizer_result
+from domain.ranking import rank_all_units
+from domain.optimizer import optimize_unit_best_runes
+from domain.core_scores import score_unit_total
+from domain.visualize import render_optimizer_result
 from services.wb_service import run_optimizer_for_unit
 from domain.unit_repo import apply_build_to_working_data
 from config import K_PER_SLOT
