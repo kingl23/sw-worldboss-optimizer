@@ -17,13 +17,20 @@ A Streamlit-based analyzer for Summoners War JSON exports. It brings **World Bos
 - **Personal Data**
   - Personal summary and data lookup
 
+## Usage
+
+This project is available as a web application powered by Streamlit.
+
+👉 **Live Demo**: https://sw-apper-caaasrmldj9rxdpq4dfbjd.streamlit.app/
+
+Open the link in your browser to explore the features without local setup.
+
+
 ## 🔗 Links
 
 - Streamlit Docs: https://docs.streamlit.io
 - Streamlit Community Cloud: https://streamlit.io/cloud
 - Supabase: https://supabase.com
-
-> [streamlit.app)](https://sw-apper-caaasrmldj9rxdpq4dfbjd.streamlit.app/)
 
 ## 📁 Data Input
 
