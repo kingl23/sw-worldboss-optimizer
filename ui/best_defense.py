@@ -15,15 +15,14 @@ def render_best_defense_tab():
     apply_dataframe_style()
 
     # -------------------------
-    # Section 1: All Defense Deck Stats (mode=1 always)
+    # Section 1: All Defense Deck Stats
     # -------------------------
-    st.markdown("### Overall Defense Deck Stats (Including Guild Groups)")
     st.caption("Top N=0 shows all results (default 50).")
 
     c1, c2 = st.columns([0.25, 0.75], vertical_alignment="bottom")
     with c1:
         top_n_all = st.number_input(
-            "Top N (overall)",
+            "Top N",
             min_value=0,
             max_value=500,
             value=50,
@@ -31,7 +30,7 @@ def render_best_defense_tab():
             key="def_all_topn",
         )
     with c2:
-        run_all = st.button("Run (overall)", type="primary", key="def_all_run")
+        run_all = st.button("Run", type="primary", key="def_all_run")
 
     if run_all:
         if not require_access_or_stop("siege_defense"):
@@ -112,7 +111,7 @@ def render_best_defense_tab():
     # -------------------------
     # Section 2: Defense Decks vs Opponent Guild
     # -------------------------
-    st.markdown("### Defense Deck Stats by Opponent Guild")
+    st.markdown("### vs Specific Opponent Guild")
     st.caption("Top N default: 50")
 
     # 옵션 로드(캐시)
@@ -136,7 +135,7 @@ def render_best_defense_tab():
             key="def_vs_topn",
         )
     with c5:
-        run_vs = st.button("Run (by guild)", type="primary", key="def_vs_run")
+        run_vs = st.button("Run", type="primary", key="def_vs_run")
 
     if run_vs:
         if not require_access_or_stop("siege_defense"):
