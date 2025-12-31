@@ -23,7 +23,7 @@ A Streamlit-based analyzer for Summoners War JSON exports. It brings **World Bos
 - Streamlit Community Cloud: https://streamlit.io/cloud
 - Supabase: https://supabase.com
 
-> If you have a deployed Streamlit URL, add it here (e.g., `https://<your-app>.streamlit.app`).
+> [If you have a deployed Streamlit URL, add it here (e.g., `https://<your-app>.streamlit.app`).](https://sw-apper-caaasrmldj9rxdpq4dfbjd.streamlit.app/)
 
 ## 📁 Data Input
 
