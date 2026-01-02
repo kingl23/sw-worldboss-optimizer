@@ -14,6 +14,7 @@ ATB_MONSTER_LIBRARY = {
         "rune_speed": 0,
         "isSwift": True,
         "speedIncreasingEffect": 0,
+        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
         "skills": [
             {
                 "applyOnTurn": 0,
@@ -42,6 +43,7 @@ ATB_MONSTER_LIBRARY = {
         "rune_speed": 0,
         "isSwift": False,
         "speedIncreasingEffect": 0,
+        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
         "skills": [
             {
                 "applyOnTurn": -1,
@@ -70,6 +72,7 @@ ATB_MONSTER_LIBRARY = {
         "rune_speed": 0,
         "isSwift": False,
         "speedIncreasingEffect": 0,
+        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
         "skills": [
             {
                 "applyOnTurn": -1,
@@ -111,6 +114,10 @@ ATB_SIMULATOR_PRESETS = {
 }
 
 
+def build_monsters_for_keys(monster_keys: list[str], is_ally: bool) -> list[Dict[str, Any]]:
+    return [_build_monster_from_library(key, is_ally=is_ally) for key in monster_keys]
+
+
 def build_atb_preset(preset_id: str) -> Dict[str, Any]:
     if preset_id not in ATB_SIMULATOR_PRESETS:
         raise ValueError(f"Preset '{preset_id}' not found. Please edit config/atb_simulator_presets.py.")
@@ -128,8 +135,8 @@ def build_atb_preset(preset_id: str) -> Dict[str, Any]:
             f"Preset '{preset_id}' must define exactly 3 enemy monster keys."
         )
 
-    allies = [_build_monster_from_library(key, is_ally=True) for key in ally_keys]
-    enemies = [_build_monster_from_library(key, is_ally=False) for key in enemy_keys]
+    allies = build_monsters_for_keys(ally_keys, is_ally=True)
+    enemies = build_monsters_for_keys(enemy_keys, is_ally=False)
 
     ally_effects = preset_meta.get("allyEffects", {})
     enemy_effects = preset_meta.get("enemyEffects") or copy.deepcopy(ally_effects)

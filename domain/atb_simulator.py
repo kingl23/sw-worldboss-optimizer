@@ -1,6 +1,6 @@
 import copy
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def simulate(preset: Dict[str, Any], overrides: Optional[Dict[str, Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
@@ -40,7 +40,7 @@ def simulate(preset: Dict[str, Any], overrides: Optional[Dict[str, Dict[str, Any
     })
 
     for i in range(1, tick_count + 1):
-        tick_monsters = run_tick(simulator, simulator["ticks"][i - 1]["monsters"])
+        tick_monsters = run_tick(simulator, simulator["ticks"][i - 1]["monsters"], tick_index=i)
         simulator["ticks"].append({
             "tick": i,
             "monsters": copy.deepcopy(tick_monsters),
@@ -50,6 +50,61 @@ def simulate(preset: Dict[str, Any], overrides: Optional[Dict[str, Dict[str, Any
         simulator["ticks"].pop()
 
     return simulator["ticks"]
+
+
+def simulate_with_turn_log(
+    preset: Dict[str, Any],
+    overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    allies = preset.get("allies", [])
+    enemies = preset.get("enemies", [])
+    if not allies and not enemies:
+        return [], []
+
+    tick_count = preset.get("tickCount", 0)
+    overrides = overrides or {}
+    allies = apply_overrides(allies, overrides)
+    enemies = apply_overrides(enemies, overrides)
+
+    simulator = {
+        "allies": allies,
+        "enemies": enemies,
+        "allyEffects": preset.get("allyEffects", {}),
+        "enemyEffects": preset.get("enemyEffects", {}),
+        "tickCount": tick_count,
+        "ticks": [],
+    }
+
+    monsters: List[Dict[str, Any]] = []
+    for ally in allies:
+        monsters.append(transform_monster(simulator, ally))
+    for enemy in enemies:
+        monsters.append(transform_monster(simulator, enemy))
+
+    monsters = sorted(monsters, key=lambda item: item["combat_speed"], reverse=True)
+
+    simulator["ticks"].append({
+        "tick": 0,
+        "monsters": copy.deepcopy(monsters),
+    })
+
+    turn_events: List[Dict[str, Any]] = []
+    for i in range(1, tick_count + 1):
+        tick_monsters = run_tick(
+            simulator,
+            simulator["ticks"][i - 1]["monsters"],
+            tick_index=i,
+            turn_events=turn_events,
+        )
+        simulator["ticks"].append({
+            "tick": i,
+            "monsters": copy.deepcopy(tick_monsters),
+        })
+
+    if simulator["ticks"]:
+        simulator["ticks"].pop()
+
+    return simulator["ticks"], turn_events
 
 
 def apply_overrides(base_monsters: List[Dict[str, Any]], overrides: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -108,6 +163,8 @@ def transform_monster(simulator: Dict[str, Any], base_monster: Dict[str, Any]) -
 
     monster = {
         "key": base_monster.get("key"),
+        "name": base_monster.get("name"),
+        "base_key": base_monster.get("base_key", base_monster.get("key")),
         "isAlly": base_monster.get("isAlly"),
         "combat_speed": 0,
         "tower_buff": simulator["allyEffects"].get("tower", 0)
@@ -134,7 +191,12 @@ def transform_monster(simulator: Dict[str, Any], base_monster: Dict[str, Any]) -
     return monster
 
 
-def run_tick(simulator: Dict[str, Any], monsters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def run_tick(
+    simulator: Dict[str, Any],
+    monsters: List[Dict[str, Any]],
+    tick_index: int,
+    turn_events: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
     if len(simulator["ticks"]) == 1:
         for i, monster in enumerate(monsters):
             actual_monster = find_base_monster(simulator, monster)
@@ -149,6 +211,17 @@ def run_tick(simulator: Dict[str, Any], monsters: List[Dict[str, Any]]) -> List[
         idx = next((index for index, item in enumerate(monsters) if item["key"] == move_candidate["key"]), None)
         if idx is not None:
             monsters[idx]["turn"] += 1
+            if turn_events is not None:
+                turn_events.append({
+                    "tick": tick_index,
+                    "key": monsters[idx].get("key"),
+                    "base_key": monsters[idx].get("base_key", monsters[idx].get("key")),
+                    "name": monsters[idx].get("name"),
+                    "isAlly": monsters[idx].get("isAlly"),
+                    "turn_number": monsters[idx].get("turn"),
+                    "attack_bar_before_reset": monsters[idx].get("attack_bar"),
+                    "combat_speed": monsters[idx].get("combat_speed"),
+                })
             actual_monster = find_base_monster(simulator, monsters[idx])
             skills = []
             if actual_monster:
@@ -177,8 +250,7 @@ def run_tick(simulator: Dict[str, Any], monsters: List[Dict[str, Any]]) -> List[
 
     for monster in monsters:
         monster["combat_speed"] = calculate_combat_speed(monster)
-        tick_scale = simulator["tickSize"] / 100 if simulator["tickSize"] else 0.07
-        monster["attack_bar"] += monster["combat_speed"] * tick_scale
+        monster["attack_bar"] += monster["combat_speed"] * 0.07
 
     move_candidate = get_monster_that_moves(monsters)
     if move_candidate:
