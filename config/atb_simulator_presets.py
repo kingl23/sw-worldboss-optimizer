@@ -64,7 +64,7 @@ ATB_SIMULATOR_ALLY_PRESETS = {
             "lead": 0,
             "element": None,
         },
-        "tickCount": 10,
+        "tickCount": 100,
     },
 }
 
@@ -78,7 +78,7 @@ ATB_SIMULATOR_ENEMY_PRESETS = {
             "lead": 0,
             "element": None,
         },
-        "tickCount": 10,
+        "tickCount": 100,
     },
 }
 
