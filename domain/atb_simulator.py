@@ -1,0 +1,285 @@
+import copy
+import math
+from typing import Any, Dict, List, Optional
+
+
+def simulate(preset: Dict[str, Any], overrides: Optional[Dict[str, Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    allies = preset.get("allies", [])
+    enemies = preset.get("enemies", [])
+    if not allies and not enemies:
+        return []
+
+    tick_count = preset.get("tickCount", 0)
+    tick_size = preset.get("tickSize", 0)
+
+    overrides = overrides or {}
+    allies = apply_overrides(allies, overrides)
+    enemies = apply_overrides(enemies, overrides)
+
+    simulator = {
+        "allies": allies,
+        "enemies": enemies,
+        "allyEffects": preset.get("allyEffects", {}),
+        "enemyEffects": preset.get("enemyEffects", {}),
+        "tickCount": tick_count,
+        "tickSize": tick_size,
+        "ticks": [],
+    }
+
+    monsters: List[Dict[str, Any]] = []
+    for ally in allies:
+        monsters.append(transform_monster(simulator, ally))
+    for enemy in enemies:
+        monsters.append(transform_monster(simulator, enemy))
+
+    monsters = sorted(monsters, key=lambda item: item["combat_speed"], reverse=True)
+
+    simulator["ticks"].append({
+        "tick": 0,
+        "monsters": copy.deepcopy(monsters),
+    })
+
+    for i in range(1, tick_count + 1):
+        tick_monsters = run_tick(simulator, simulator["ticks"][i - 1]["monsters"])
+        simulator["ticks"].append({
+            "tick": i,
+            "monsters": copy.deepcopy(tick_monsters),
+        })
+
+    if simulator["ticks"]:
+        simulator["ticks"].pop()
+
+    return simulator["ticks"]
+
+
+def apply_overrides(base_monsters: List[Dict[str, Any]], overrides: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    monsters = copy.deepcopy(base_monsters)
+    for monster in monsters:
+        override = overrides.get(monster.get("key"))
+        if not override:
+            continue
+        monster.update({
+            "rune_speed": override.get("rune_speed", monster.get("rune_speed", 0)),
+            "speedIncreasingEffect": override.get(
+                "speedIncreasingEffect",
+                monster.get("speedIncreasingEffect", 0),
+            ),
+        })
+    return monsters
+
+
+def calculate_combat_speed(monster: Dict[str, Any]) -> int:
+    speed = monster["base_speed"] * (100 + monster["tower_buff"] + monster["lead"]) / 100
+    speed += monster.get("rune_speed", 0)
+
+    for flat_speed_buff in monster.get("flatSpeedBuffs", []):
+        buff_type = flat_speed_buff.get("type")
+        amount = float(flat_speed_buff.get("flatSpeedBuffAmount", 0))
+        if buff_type == "add":
+            speed += amount
+        elif buff_type == "add_percent":
+            speed += amount / 100 * monster["base_speed"]
+        elif buff_type == "subtract":
+            speed -= amount
+        elif buff_type == "subtract_percent":
+            speed *= 1 - amount / 100
+
+    if monster.get("isSwift") and (monster["base_speed"] * 0.25) % 1 > 0:
+        speed -= 1 - ((monster["base_speed"] * 0.25) % 1)
+
+    if monster.get("has_slow"):
+        speed *= 0.7
+
+    if monster.get("has_speed_buff"):
+        speed *= 1 + 0.3 * (100 + monster.get("speedIncreasingEffect", 0)) / 100
+
+    return math.ceil(speed)
+
+
+def transform_monster(simulator: Dict[str, Any], base_monster: Dict[str, Any]) -> Dict[str, Any]:
+    if base_monster.get("isAlly"):
+        lead = simulator["allyEffects"].get("lead", 0)
+        if simulator["allyEffects"].get("element") and simulator["allyEffects"].get("element") != base_monster.get("element"):
+            lead = 0
+    else:
+        lead = simulator["enemyEffects"].get("lead", 0)
+        if simulator["enemyEffects"].get("element") and simulator["enemyEffects"].get("element") != base_monster.get("element"):
+            lead = 0
+
+    monster = {
+        "key": base_monster.get("key"),
+        "isAlly": base_monster.get("isAlly"),
+        "combat_speed": 0,
+        "tower_buff": simulator["allyEffects"].get("tower", 0)
+        if base_monster.get("isAlly")
+        else simulator["enemyEffects"].get("tower", 0),
+        "lead": lead,
+        "base_speed": base_monster.get("base_speed", 0),
+        "rune_speed": base_monster.get("rune_speed", 0),
+        "has_speed_buff": False,
+        "speedIncreasingEffect": base_monster.get("speedIncreasingEffect", 0),
+        "speedBuffDuration": 0,
+        "has_slow": False,
+        "isSwift": base_monster.get("isSwift", False),
+        "slowDuration": 0,
+        "flatSpeedBuffs": [],
+        "skills": base_monster.get("skills", []),
+        "attack_bar": 0,
+        "turn": 0,
+        "element": base_monster.get("element"),
+        "tookTurn": False,
+        "image": base_monster.get("image"),
+    }
+    monster["combat_speed"] = calculate_combat_speed(monster)
+    return monster
+
+
+def run_tick(simulator: Dict[str, Any], monsters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if len(simulator["ticks"]) == 1:
+        for i, monster in enumerate(monsters):
+            actual_monster = find_base_monster(simulator, monster)
+            if not actual_monster:
+                continue
+            skills = [skill for skill in actual_monster.get("skills", []) if skill.get("applyOnTurn") == 0]
+            skill_targets = get_skill_targets(skills, monsters, i)
+            apply_skill_effects(monsters, skills, skill_targets)
+
+    move_candidate = get_monster_that_moves(monsters)
+    if move_candidate:
+        idx = next((index for index, item in enumerate(monsters) if item["key"] == move_candidate["key"]), None)
+        if idx is not None:
+            monsters[idx]["turn"] += 1
+            actual_monster = find_base_monster(simulator, monsters[idx])
+            skills = []
+            if actual_monster:
+                skills = [
+                    skill for skill in actual_monster.get("skills", [])
+                    if skill.get("applyOnTurn") == monsters[idx]["turn"] or skill.get("applyOnTurn") == -1
+                ]
+            skill_targets = get_skill_targets(skills, monsters, idx)
+
+            monsters[idx]["attack_bar"] = 0
+
+            if monsters[idx].get("has_speed_buff"):
+                monsters[idx]["speedBuffDuration"] -= 1
+                monsters[idx]["has_speed_buff"] = monsters[idx]["speedBuffDuration"] > 0
+            if monsters[idx].get("has_slow"):
+                monsters[idx]["slowDuration"] -= 1
+                monsters[idx]["has_slow"] = monsters[idx]["slowDuration"] > 0
+            for buff in monsters[idx].get("flatSpeedBuffs", []):
+                buff["flatSpeedBuffDuration"] -= 1
+            monsters[idx]["flatSpeedBuffs"] = [
+                buff for buff in monsters[idx].get("flatSpeedBuffs", [])
+                if buff.get("flatSpeedBuffDuration", 0) > 0
+            ]
+
+            apply_skill_effects(monsters, skills, skill_targets)
+
+    for monster in monsters:
+        monster["combat_speed"] = calculate_combat_speed(monster)
+        tick_scale = simulator["tickSize"] / 100 if simulator["tickSize"] else 0.07
+        monster["attack_bar"] += monster["combat_speed"] * tick_scale
+
+    move_candidate = get_monster_that_moves(monsters)
+    if move_candidate:
+        idx = next((index for index, item in enumerate(monsters) if item["key"] == move_candidate["key"]), None)
+        if idx is not None:
+            monsters[idx]["tookTurn"] = True
+
+    return monsters
+
+
+def get_monster_that_moves(monsters: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    candidate = None
+    for monster in monsters:
+        monster["tookTurn"] = False
+        if monster.get("attack_bar", 0) >= 100:
+            if candidate is None or monster["attack_bar"] > candidate["attack_bar"]:
+                candidate = monster
+    return candidate
+
+
+def apply_skill_effects(
+    monsters: List[Dict[str, Any]],
+    skills: List[Dict[str, Any]],
+    targets: List[List[int]],
+) -> None:
+    for skill_index, skill in enumerate(skills):
+        target_indexes = targets[skill_index] if skill_index < len(targets) else []
+        for target_index in target_indexes:
+            if target_index < 0 or target_index >= len(monsters):
+                continue
+            if skill.get("atbManipulationType") == "add":
+                monsters[target_index]["attack_bar"] += skill.get("atbManipulationAmount", 0)
+            elif skill.get("atbManipulationType") == "subtract":
+                monsters[target_index]["attack_bar"] -= skill.get("atbManipulationAmount", 0)
+            elif skill.get("atbManipulationType") == "set":
+                monsters[target_index]["attack_bar"] = skill.get("atbManipulationAmount", 0)
+
+            if skill.get("buffSpeed"):
+                monsters[target_index]["has_speed_buff"] = True
+                monsters[target_index]["speedBuffDuration"] = skill.get("speedBuffDuration", 0)
+            if skill.get("stripSpeed"):
+                monsters[target_index]["has_speed_buff"] = False
+                monsters[target_index]["speedBuffDuration"] = 0
+            if skill.get("flatSpeedBuff"):
+                monsters[target_index]["flatSpeedBuffs"].append({
+                    "type": skill.get("flatSpeedBuffType"),
+                    "flatSpeedBuffAmount": skill.get("flatSpeedBuffAmount", 0),
+                    "flatSpeedBuffDuration": skill.get("flatSpeedBuffDuration", 0),
+                })
+            if skill.get("slow"):
+                monsters[target_index]["has_slow"] = True
+                monsters[target_index]["slowDuration"] = skill.get("slowDuration", 0)
+
+
+def get_skill_targets(
+    skills: List[Dict[str, Any]],
+    monsters: List[Dict[str, Any]],
+    self_idx: int,
+) -> List[List[int]]:
+    skill_targets: List[List[int]] = []
+    for skill in skills:
+        targets: List[int] = []
+        target_type = skill.get("target")
+        if target_type == "allies":
+            targets = [index for index, item in enumerate(monsters) if item.get("isAlly")]
+        elif target_type == "enemies":
+            targets = [index for index, item in enumerate(monsters) if not item.get("isAlly")]
+        elif target_type == "self":
+            targets = [self_idx]
+        elif target_type == "ally_atb_high":
+            allies = [(m, idx) for idx, m in enumerate(monsters) if m.get("isAlly")]
+            if allies:
+                best = max(allies, key=lambda item: item[0].get("attack_bar", 0))
+                targets = [best[1]]
+        elif target_type == "ally_atb_low":
+            allies = [(m, idx) for idx, m in enumerate(monsters) if m.get("isAlly")]
+            if allies:
+                best = min(allies, key=lambda item: item[0].get("attack_bar", 0))
+                targets = [best[1]]
+        elif target_type == "enemy_atb_high":
+            enemies = [(m, idx) for idx, m in enumerate(monsters) if not m.get("isAlly")]
+            if enemies:
+                best = max(enemies, key=lambda item: item[0].get("attack_bar", 0))
+                targets = [best[1]]
+        elif target_type == "enemy_atb_low":
+            enemies = [(m, idx) for idx, m in enumerate(monsters) if not m.get("isAlly")]
+            if enemies:
+                best = min(enemies, key=lambda item: item[0].get("attack_bar", 0))
+                targets = [best[1]]
+        else:
+            target_index = next(
+                (index for index, item in enumerate(monsters) if item.get("key") == target_type),
+                None,
+            )
+            if target_index is not None:
+                targets = [target_index]
+
+        skill_targets.append(targets)
+    return skill_targets
+
+
+def find_base_monster(simulator: Dict[str, Any], monster: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    source = simulator["allies"] if monster.get("isAlly") else simulator["enemies"]
+    return next((item for item in source if item.get("key") == monster.get("key")), None)
