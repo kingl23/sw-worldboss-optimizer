@@ -1,4 +1,5 @@
 from typing import Any, Dict
+import copy
 
 ### EDIT HERE: ATB SIMULATOR MONSTER DEFINITIONS ###
 
