@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-from config.atb_simulator_presets import ATB_SIMULATOR_PRESET
+from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS, build_atb_preset
 from domain.atb_simulator import simulate
 
 
@@ -15,7 +15,19 @@ This tab runs a Summoners War style ATB tick simulation.
 """
     )
 
-    preset = ATB_SIMULATOR_PRESET
+    if not ATB_SIMULATOR_PRESETS:
+        st.warning("No ATB presets found. Please edit config/atb_simulator_presets.py.")
+        st.stop()
+
+    preset_id = st.selectbox("Preset", options=list(ATB_SIMULATOR_PRESETS.keys()))
+    st.caption("Enemy uses the same trio as Ally by default.")
+
+    try:
+        preset = build_atb_preset(preset_id)
+    except ValueError as exc:
+        st.warning(str(exc))
+        st.stop()
+
     allies = preset.get("allies", [])
     enemies = preset.get("enemies", [])
 
