@@ -110,13 +110,15 @@ This tab runs a Summoners War style ATB tick simulation.
     max_turns = st.number_input("Max turns to display", min_value=1, value=20, step=1)
 
     rows = []
-    for event in turn_events[:max_turns]:
+    for index, event in enumerate(turn_events[:max_turns], start=1):
         rows.append({
+            "turn_index": index,
             "tick": event.get("tick"),
             "side": "Ally" if event.get("isAlly") else "Enemy",
-            "key": event.get("base_key"),
-            "turn_number_for_that_monster": event.get("turn_number"),
+            "name": event.get("name"),
         })
+
+    
 
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
