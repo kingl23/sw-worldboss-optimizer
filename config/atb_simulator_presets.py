@@ -9,17 +9,17 @@ ATB_MONSTER_LIBRARY = {
         "name": "Swift Support",
         "monster_family": "Fairy",
         "element": "Wind",
-        "base_speed": 100,
+        "base_speed": 115,
         "rune_speed": 0,
         "isSwift": True,
         "speedIncreasingEffect": 0,
         # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
         "skills": [
             {
-                "applyOnTurn": 0,
+                "applyOnTurn": 1,
                 "target": "allies",
                 "atbManipulationType": "add",
-                "atbManipulationAmount": 5,
+                "atbManipulationAmount": 15,
                 "buffSpeed": True,
                 "speedBuffDuration": 2,
                 "stripSpeed": False,
@@ -41,24 +41,6 @@ ATB_MONSTER_LIBRARY = {
         "rune_speed": 0,
         "isSwift": False,
         "speedIncreasingEffect": 0,
-        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
-        "skills": [
-            {
-                "applyOnTurn": -1,
-                "target": "enemy_atb_high",
-                "atbManipulationType": "subtract",
-                "atbManipulationAmount": 10,
-                "buffSpeed": False,
-                "speedBuffDuration": 0,
-                "stripSpeed": False,
-                "flatSpeedBuff": False,
-                "flatSpeedBuffType": None,
-                "flatSpeedBuffAmount": 0,
-                "flatSpeedBuffDuration": 0,
-                "slow": False,
-                "slowDuration": 0,
-            }
-        ],
     },
     "enemy_target": {
         "key": "enemy_target",
@@ -69,24 +51,6 @@ ATB_MONSTER_LIBRARY = {
         "rune_speed": 0,
         "isSwift": False,
         "speedIncreasingEffect": 0,
-        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
-        "skills": [
-            {
-                "applyOnTurn": -1,
-                "target": "self",
-                "atbManipulationType": "add",
-                "atbManipulationAmount": 0,
-                "buffSpeed": False,
-                "speedBuffDuration": 0,
-                "stripSpeed": False,
-                "flatSpeedBuff": True,
-                "flatSpeedBuffType": "add",
-                "flatSpeedBuffAmount": 0,
-                "flatSpeedBuffDuration": 0,
-                "slow": False,
-                "slowDuration": 0,
-            }
-        ],
     },
 }
 
