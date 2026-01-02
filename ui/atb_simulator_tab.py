@@ -5,7 +5,10 @@ import pandas as pd
 import streamlit as st
 
 from config.atb_simulator_presets import (
-    ATB_SIMULATOR_PRESETS,
+    ATB_SIMULATOR_ALLY_PRESETS,
+    ATB_SIMULATOR_ENEMY_PRESETS,
+    build_ally_preset,
+    build_enemy_preset,
     build_monsters_for_keys,
 )
 from domain.atb_simulator import simulate_with_turn_log
@@ -21,50 +24,57 @@ This tab runs a Summoners War style ATB tick simulation.
 """
     )
 
-    if not ATB_SIMULATOR_PRESETS:
-        st.warning("No ATB presets found. Please edit config/atb_simulator_presets.py.")
+    if not ATB_SIMULATOR_ALLY_PRESETS:
+        st.warning("No ally presets found. Please edit config/atb_simulator_presets.py.")
         st.stop()
 
-    preset_ids = list(ATB_SIMULATOR_PRESETS.keys())
-    ally_preset_id = st.selectbox("Ally preset", options=preset_ids)
-    ally_meta = ATB_SIMULATOR_PRESETS.get(ally_preset_id, {})
-    ally_keys = ally_meta.get("allies", [])
-    if len(ally_keys) != 3:
-        st.warning("Ally preset must define exactly 3 monster keys.")
+    ally_preset_ids = list(ATB_SIMULATOR_ALLY_PRESETS.keys())
+    ally_preset_id = st.selectbox("Ally preset", options=ally_preset_ids)
+    try:
+        ally_preset = build_ally_preset(ally_preset_id)
+    except ValueError as exc:
+        st.warning(str(exc))
         st.stop()
 
-    st.caption("Enemy uses the same trio as Ally by default.")
-    enemy_options = ["Same as Allies"] + preset_ids
-    enemy_selection = st.selectbox("Enemy preset", options=enemy_options, index=0)
-
-    ally_monsters = build_monsters_for_keys(ally_keys, is_ally=True)
+    ally_monsters = ally_preset["monsters"]
     ally_overrides = _render_monster_overrides(
         "Allies",
         ally_monsters,
         prefix="ally",
     )
 
-    if enemy_selection == "Same as Allies":
-        enemy_keys = ally_keys
+    st.caption("Enemy preset defaults to mirroring the Ally trio and overrides.")
+    enemy_preset_ids = list(ATB_SIMULATOR_ENEMY_PRESETS.keys())
+    enemy_options = ["Default"] + enemy_preset_ids
+    enemy_selection = st.selectbox("Enemy preset", options=enemy_options, index=0)
+
+    if enemy_selection == "Default":
+        enemy_keys = [monster.get("key") for monster in ally_monsters]
         enemy_monsters = build_monsters_for_keys(enemy_keys, is_ally=False)
-        st.markdown("### Enemies")
-        st.caption("Enemy overrides mirror the Ally values when using the same preset.")
+        st.caption("Enemy values are mirrored from Allies when using Default.")
         _render_monster_overrides(
-            "Enemies (Same as Allies)",
+            "Enemies",
             enemy_monsters,
-            prefix="enemy",
+            prefix="enemy_default",
             defaults=ally_overrides,
             disabled=True,
         )
         enemy_overrides = copy.deepcopy(ally_overrides)
-        enemy_meta = ally_meta
+        enemy_preset = {
+            "monsters": enemy_monsters,
+            "effects": ally_preset.get("effects", {}),
+            "tickCount": ally_preset.get("tickCount", 0),
+        }
     else:
-        enemy_meta = ATB_SIMULATOR_PRESETS.get(enemy_selection, {})
-        enemy_keys = enemy_meta.get("allies", [])
-        if len(enemy_keys) != 3:
-            st.warning("Enemy preset must define exactly 3 monster keys.")
+        if not ATB_SIMULATOR_ENEMY_PRESETS:
+            st.warning("No enemy presets found. Please edit config/atb_simulator_presets.py.")
             st.stop()
-        enemy_monsters = build_monsters_for_keys(enemy_keys, is_ally=False)
+        try:
+            enemy_preset = build_enemy_preset(enemy_selection)
+        except ValueError as exc:
+            st.warning(str(exc))
+            st.stop()
+        enemy_monsters = enemy_preset["monsters"]
         enemy_overrides = _render_monster_overrides(
             "Enemies",
             enemy_monsters,
@@ -87,9 +97,9 @@ This tab runs a Summoners War style ATB tick simulation.
     preset = {
         "allies": prefixed_allies,
         "enemies": prefixed_enemies,
-        "allyEffects": ally_meta.get("allyEffects", {}),
-        "enemyEffects": enemy_meta.get("enemyEffects", ally_meta.get("enemyEffects", {})),
-        "tickCount": ally_meta.get("tickCount", 0),
+        "allyEffects": ally_preset.get("effects", {}),
+        "enemyEffects": enemy_preset.get("effects", {}),
+        "tickCount": ally_preset.get("tickCount", 0),
     }
 
     _, turn_events = simulate_with_turn_log(preset, overrides)
@@ -124,29 +134,36 @@ def _render_monster_overrides(
 ) -> Dict[str, Dict[str, Any]]:
     st.markdown(f"### {title}")
     overrides: Dict[str, Dict[str, Any]] = {}
-    for monster in monsters:
+    columns = st.columns(3)
+    for index, monster in enumerate(monsters):
         key = monster.get("key")
         name = monster.get("name") or key
-        st.markdown(f"**{name}** (`{key}`)")
         default_values = (defaults or {}).get(key, {})
-        rune_speed = st.number_input(
-            "Rune speed",
-            min_value=0,
-            max_value=400,
-            value=int(default_values.get("rune_speed", 0)),
-            step=1,
-            key=f"{prefix}_{key}_rune_speed",
-            disabled=disabled,
-        )
-        speed_increasing_effect = st.number_input(
-            "Speed increasing effect",
-            min_value=0,
-            max_value=200,
-            value=int(default_values.get("speedIncreasingEffect", 0)),
-            step=1,
-            key=f"{prefix}_{key}_speed_increasing_effect",
-            disabled=disabled,
-        )
+        rune_speed_key = f"{prefix}_{key}_rune_speed"
+        speed_effect_key = f"{prefix}_{key}_speed_increasing_effect"
+        if disabled:
+            st.session_state[rune_speed_key] = int(default_values.get("rune_speed", 0))
+            st.session_state[speed_effect_key] = int(default_values.get("speedIncreasingEffect", 0))
+        with columns[index % 3]:
+            st.markdown(f"**{name}** (`{key}`)")
+            rune_speed = st.number_input(
+                "Rune speed",
+                min_value=0,
+                max_value=400,
+                value=int(default_values.get("rune_speed", 0)),
+                step=1,
+                key=rune_speed_key,
+                disabled=disabled,
+            )
+            speed_increasing_effect = st.number_input(
+                "Speed increasing effect",
+                min_value=0,
+                max_value=200,
+                value=int(default_values.get("speedIncreasingEffect", 0)),
+                step=1,
+                key=speed_effect_key,
+                disabled=disabled,
+            )
         overrides[key] = {
             "rune_speed": rune_speed,
             "speedIncreasingEffect": speed_increasing_effect,

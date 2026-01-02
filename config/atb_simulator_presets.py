@@ -1,4 +1,3 @@
-import copy
 from typing import Any, Dict
 
 ### EDIT HERE: ATB SIMULATOR MONSTER DEFINITIONS ###
@@ -6,7 +5,6 @@ from typing import Any, Dict
 ATB_MONSTER_LIBRARY = {
     "swift_support": {
         "key": "swift_support",
-        "isAlly": True,
         "name": "Swift Support",
         "monster_family": "Fairy",
         "element": "Wind",
@@ -35,7 +33,6 @@ ATB_MONSTER_LIBRARY = {
     },
     "damage_dealer": {
         "key": "damage_dealer",
-        "isAlly": True,
         "name": "Damage Dealer",
         "monster_family": "Warrior",
         "element": "Fire",
@@ -64,7 +61,6 @@ ATB_MONSTER_LIBRARY = {
     },
     "enemy_target": {
         "key": "enemy_target",
-        "isAlly": False,
         "name": "Enemy Target",
         "monster_family": "Knight",
         "element": "Water",
@@ -93,24 +89,32 @@ ATB_MONSTER_LIBRARY = {
     },
 }
 
-### EDIT HERE: ATB SIMULATOR PRESET TRIOS ###
+### EDIT HERE: ATB SIMULATOR ALLY PRESET TRIOS ###
 
-ATB_SIMULATOR_PRESETS = {
-    "Default Trio": {
-        "allies": ["swift_support", "damage_dealer", "enemy_target"],
-        "allyEffects": {
-            "tower": 0,
-            "lead": 0,
-            "element": None,
-        },
-        "enemyEffects": {
+ATB_SIMULATOR_ALLY_PRESETS = {
+    "Ally Preset A": {
+        "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+        "effects": {
             "tower": 0,
             "lead": 0,
             "element": None,
         },
         "tickCount": 10,
-        "tickSize": 0,
-    }
+    },
+}
+
+### EDIT HERE: ATB SIMULATOR ENEMY PRESET TRIOS ###
+
+ATB_SIMULATOR_ENEMY_PRESETS = {
+    "Enemy Preset A": {
+        "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+        "effects": {
+            "tower": 0,
+            "lead": 0,
+            "element": None,
+        },
+        "tickCount": 10,
+    },
 }
 
 
@@ -118,36 +122,43 @@ def build_monsters_for_keys(monster_keys: list[str], is_ally: bool) -> list[Dict
     return [_build_monster_from_library(key, is_ally=is_ally) for key in monster_keys]
 
 
-def build_atb_preset(preset_id: str) -> Dict[str, Any]:
-    if preset_id not in ATB_SIMULATOR_PRESETS:
-        raise ValueError(f"Preset '{preset_id}' not found. Please edit config/atb_simulator_presets.py.")
-
-    preset_meta = ATB_SIMULATOR_PRESETS[preset_id]
-    ally_keys = preset_meta.get("allies", [])
-    if len(ally_keys) != 3:
+def build_ally_preset(preset_id: str) -> Dict[str, Any]:
+    if preset_id not in ATB_SIMULATOR_ALLY_PRESETS:
         raise ValueError(
-            f"Preset '{preset_id}' must define exactly 3 ally monster keys."
+            f"Ally preset '{preset_id}' not found. Please edit config/atb_simulator_presets.py."
         )
 
-    enemy_keys = preset_meta.get("enemies") or ally_keys
-    if len(enemy_keys) != 3:
+    preset_meta = ATB_SIMULATOR_ALLY_PRESETS[preset_id]
+    keys = preset_meta.get("monsters", [])
+    if len(keys) != 3:
         raise ValueError(
-            f"Preset '{preset_id}' must define exactly 3 enemy monster keys."
+            f"Ally preset '{preset_id}' must define exactly 3 monster keys."
         )
-
-    allies = build_monsters_for_keys(ally_keys, is_ally=True)
-    enemies = build_monsters_for_keys(enemy_keys, is_ally=False)
-
-    ally_effects = preset_meta.get("allyEffects", {})
-    enemy_effects = preset_meta.get("enemyEffects") or copy.deepcopy(ally_effects)
 
     return {
-        "allies": allies,
-        "enemies": enemies,
-        "allyEffects": ally_effects,
-        "enemyEffects": enemy_effects,
+        "monsters": build_monsters_for_keys(keys, is_ally=True),
+        "effects": preset_meta.get("effects", {}),
         "tickCount": preset_meta.get("tickCount", 0),
-        "tickSize": preset_meta.get("tickSize", 0),
+    }
+
+
+def build_enemy_preset(preset_id: str) -> Dict[str, Any]:
+    if preset_id not in ATB_SIMULATOR_ENEMY_PRESETS:
+        raise ValueError(
+            f"Enemy preset '{preset_id}' not found. Please edit config/atb_simulator_presets.py."
+        )
+
+    preset_meta = ATB_SIMULATOR_ENEMY_PRESETS[preset_id]
+    keys = preset_meta.get("monsters", [])
+    if len(keys) != 3:
+        raise ValueError(
+            f"Enemy preset '{preset_id}' must define exactly 3 monster keys."
+        )
+
+    return {
+        "monsters": build_monsters_for_keys(keys, is_ally=False),
+        "effects": preset_meta.get("effects", {}),
+        "tickCount": preset_meta.get("tickCount", 0),
     }
 
 
