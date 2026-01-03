@@ -28,7 +28,7 @@ def add_stat(a, b):
 
 
 def stat_struct_score(st):
-    return (st["HP"] * 0.08 + st["ATK"] * 1.2 + st["DEF"] * 1.2 +
+    return (st["HP"] * 0.075 + st["ATK"] * 1.2 + st["DEF"] * 1.2 +
             st["SPD"] * 7.99 + st["CR"] * 8.67 + st["CD"] * 6.32 +
             st["RES"] * 7.85 + st["ACC"] * 7.85)
 
@@ -60,11 +60,11 @@ def eff_score(typ, val, ch):
     if typ == 1:
         real = val
         add["HP"] = real
-        coef = 0.08
+        coef = 0.075
     elif typ == 2:
         real = ch["HP"] * val / 100
         add["HP"] = real
-        coef = 0.08
+        coef = 0.075
     elif typ == 3:
         real = val
         add["ATK"] = real
