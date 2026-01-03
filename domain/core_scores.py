@@ -332,8 +332,10 @@ def score_unit_total(u):
 
     total_add_stat = add_stat(rune_stat_sum, stat_bonus)
 
+    # total_score = (base_stat_score + sum(base_scores) + stat_bonus_score +
+    #                fixed_score + artifact_score_sum + su_score)
     total_score = (base_stat_score + sum(base_scores) + stat_bonus_score +
-                   fixed_score + artifact_score_sum + su_score)
+                   fixed_score + su_score)
 
     print("DEBUG score_unit_total called, stat_bonus_score=", stat_bonus_score, "fixed_score=", fixed_score, "cnt=", dict(cnt))
 
