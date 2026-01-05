@@ -48,6 +48,15 @@ def unit_base_char(u):
 
 # ---------- Rune scoring ----------
 
+def apply_flag_bonus(ch):
+    ch2 = dict(ch)  # avoid mutating original dict unexpectedly
+    ch2["SPD"] *= 1.15
+    ch2["HP"]  *= 1.20
+    ch2["DEF"] *= 1.20
+    ch2["ATK"] *= 1.41
+    ch2["CD"]  += 25.0
+    return ch2
+
 
 def eff_score(typ, val, ch):
     """
@@ -156,7 +165,6 @@ def artifact_sub_score_only(art):
         if max_val <= 0:
             continue
 
-        # MATLAB: (value / maxVal) * 25
         score += (value / max_val) * 25.0
 
     return score
@@ -190,7 +198,8 @@ def score_unit_total(u):
         return None
 
     ch = unit_base_char(u)
-
+    ch = apply_flag_bonus(ch)
+    
     rune_stat_sum = init_stat()
     base_scores = []
 
