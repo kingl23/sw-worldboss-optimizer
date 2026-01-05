@@ -57,12 +57,12 @@ SKILLUP_COEF = 53.93
 STAT_KEYS = ("HP", "ATK", "DEF", "SPD", "CR", "CD", "RES", "ACC")
 
 STAT_COEF = {
-    "HP": 0.08 + 0.00, # 0.08 + 0.01
+    "HP": 0.08 + 0.0067,
     "ATK": 1.2 + 0.10,
     "DEF": 1.2 + 0.10,
     "SPD": 7.99 + 0.68,
-    "CR": 8.67 + 0.67,
-    "CD": 6.32 + 0.53,
+    "CR": 8.67 + 0.6667,
+    "CD": 6.32 + 0.5286,
     "RES": 7.85 + 0.65,
     "ACC": 7.85 + 0.65,
 }
@@ -192,7 +192,7 @@ SET_EFFECTS = {
     22: {  # Accuracy (Immemorial set score in your code)
         "need": 2,
         "stat": {},
-        "fixed": 160 + 13.50,
+        "fixed": 160 + 13.10,
     },
     23: {  # Tolerance
         "need": 2,
