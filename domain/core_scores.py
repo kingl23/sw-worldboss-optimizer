@@ -7,6 +7,7 @@ from config import (
     STAT_KEYS,
     STAT_COEF,
     TYP_TO_STAT_KEY,
+    SET_EFFECTS,
 )
 
 # ---------- Basic utils ----------
@@ -101,78 +102,20 @@ def rune_stat_score(r, ch):
 
 
 def set_effect(set_id, ch):
+    cfg = SET_EFFECTS.get(set_id)
+    if not cfg:
+        return 0, init_stat(), 0.0
+
+    need = int(cfg["need"])
+    fixedB = float(cfg.get("fixed", 0.0))
+
     statB = init_stat()
-    fixedB = 0.0
-    need = 0
+    for stat_key, v in cfg.get("stat", {}).items():
+        if v < 1.0:
+            statB[stat_key] = ch[stat_key] * v
+        else:
+            statB[stat_key] = v
 
-    if set_id == 1:
-        need = 2
-        statB["HP"] = ch["HP"] * 0.15
-    elif set_id == 2:
-        need = 2
-        statB["DEF"] = ch["DEF"] * 0.15
-    elif set_id == 3:
-        need = 4
-        statB["SPD"] = ch["SPD"] * 0.25
-    elif set_id == 4:
-        need = 2
-        statB["CR"] = 12
-    elif set_id == 5:
-        need = 4
-        statB["CD"] = 40
-    elif set_id == 6:
-        need = 2
-        statB["ACC"] = 20
-    elif set_id == 7:
-        need = 2
-        statB["RES"] = 20
-    elif set_id == 8:
-        need = 4
-        statB["ATK"] = ch["ATK"] * 0.35
-    elif set_id == 10:
-        need = 4
-        fixedB = 299
-    elif set_id == 11:
-        need = 4
-        fixedB = 291
-    elif set_id == 13:
-        need = 4
-        fixedB = 296
-    elif set_id == 14:
-        need = 2
-        fixedB = 124
-    elif set_id == 15:
-        need = 2
-        fixedB = 123
-    elif set_id == 16:
-        need = 2
-        fixedB = 124
-    elif set_id == 17:
-        need = 2
-        fixedB = 123
-    elif set_id == 18:
-        need = 2
-        fixedB = 125
-    elif set_id == 19:  # Fight
-        need = 2
-        statB["ATK"] = ch["ATK"] * 0.175
-    elif set_id == 20:  # Determination
-        need = 2
-        statB["DEF"] = ch["DEF"] * 0.15
-    elif set_id == 21:  # Enhance
-        need = 2
-        statB["HP"] = ch["HP"] * 0.15
-    elif set_id == 22:  # Accuracy
-        need = 2
-        fixedB = 160
-    elif set_id == 23:  # Tolerance
-        need = 2
-        fixedB = 160
-    elif set_id == 24:  # Seal
-        need = 2
-        fixedB = 160
-
-    need = int(need)
     return need, statB, fixedB
 
 
