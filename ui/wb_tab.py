@@ -168,9 +168,10 @@ def render_wb_tab(state, monster_names):
             st.caption("Current Top 60 list (use unit_id to map true ranks)")
             top_rows = []
             ranking_map = {}
-            for idx, r in enumerate(state.wb_ranking, start=1):
+            top_ranking = state.wb_ranking[:60]
+            for idx, r in enumerate(top_ranking, start=1):
                 unit_id = int(r["unit_id"])
-                ranking_map[unit_id] = r
+                ranking_map[unit_id] = {**r, "pred_rank": idx}
                 top_rows.append(
                     {
                         "pred_rank": idx,
@@ -183,42 +184,88 @@ def render_wb_tab(state, monster_names):
             top_df = pd.DataFrame(top_rows)
             st.dataframe(top_df, use_container_width=True, hide_index=True)
 
-            if "calib_true_rank" not in st.session_state:
-                st.session_state.calib_true_rank = {
-                    row["unit_id"]: int(row["pred_rank"]) for row in top_rows
-                }
-            else:
-                for row in top_rows:
-                    st.session_state.calib_true_rank.setdefault(
-                        row["unit_id"], int(row["pred_rank"])
-                    )
-
-            rank_rows = []
-            for row in top_rows:
-                unit_id = int(row["unit_id"])
-                rank_rows.append(
-                    {
-                        "unit_id": unit_id,
-                        "pred_rank": int(row["pred_rank"]),
-                        "true_rank": int(st.session_state.calib_true_rank.get(unit_id, row["pred_rank"]))
-                    }
+            st.markdown("#### True ranking input (unit_id order)")
+            st.markdown(
+                "Workflow: copy the predicted unit_id list, reorder it to match TRUE ranks, "
+                "then run calibration."
+            )
+            fill_pred = st.button("Fill from predicted order")
+            if fill_pred:
+                st.session_state.calib_true_text = "\n".join(
+                    str(row["unit_id"]) for row in top_rows
                 )
 
-            rank_df = pd.DataFrame(rank_rows)
-            edited_df = st.data_editor(
-                rank_df,
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "unit_id": st.column_config.NumberColumn("unit_id", disabled=True),
-                    "pred_rank": st.column_config.NumberColumn("pred_rank", disabled=True),
-                    "true_rank": st.column_config.NumberColumn("true_rank", min_value=1, max_value=60, step=1),
-                },
-                key="calib_rank_editor",
+            true_text = st.text_area(
+                "Paste unit_id order for TRUE ranks 1..60 (one per line or comma-separated).",
+                key="calib_true_text",
+                height=200,
             )
 
-            for _, row in edited_df.iterrows():
-                st.session_state.calib_true_rank[int(row["unit_id"])] = int(row["true_rank"])
+            def _parse_true_order(raw_text: str):
+                cleaned = raw_text.replace(",", "\n")
+                tokens = [tok.strip() for tok in cleaned.splitlines()]
+                tokens = [tok for tok in tokens if tok]
+                order = []
+                seen = set()
+                duplicates = []
+                invalid = []
+                for tok in tokens:
+                    try:
+                        unit_id = int(tok)
+                    except ValueError:
+                        invalid.append(tok)
+                        continue
+                    if unit_id in seen:
+                        duplicates.append(unit_id)
+                        continue
+                    seen.add(unit_id)
+                    order.append(unit_id)
+                return order, duplicates, invalid
+
+            true_order, dup_ids, invalid_tokens = _parse_true_order(true_text)
+            if invalid_tokens:
+                st.error(f"Invalid unit_id values: {', '.join(invalid_tokens)}")
+            if dup_ids:
+                dup_display = ", ".join(str(uid) for uid in dup_ids)
+                st.warning(f"Duplicate unit_id entries ignored: {dup_display}")
+
+            top_unit_ids = {row["unit_id"] for row in top_rows}
+            valid_true_map = None
+            if true_order:
+                missing_from_top = [uid for uid in top_unit_ids if uid not in true_order]
+                extra_ids = [uid for uid in true_order if uid not in top_unit_ids]
+                if len(true_order) != 60:
+                    st.error(f"Expected 60 unit_ids, got {len(true_order)}.")
+                elif extra_ids:
+                    st.error(
+                        "These unit_ids are not in the current Top 60: "
+                        + ", ".join(str(uid) for uid in extra_ids)
+                    )
+                elif missing_from_top:
+                    st.error(
+                        "Missing unit_ids from the current Top 60: "
+                        + ", ".join(str(uid) for uid in missing_from_top)
+                    )
+                else:
+                    valid_true_map = {uid: idx + 1 for idx, uid in enumerate(true_order)}
+
+            if valid_true_map:
+                st.session_state.calib_true_order = true_order
+                st.session_state.calib_true_rank_map = valid_true_map
+                confirm_rows = []
+                for unit_id in true_order:
+                    pred_row = ranking_map[unit_id]
+                    confirm_rows.append(
+                        {
+                            "true_rank": valid_true_map[unit_id],
+                            "unit_id": unit_id,
+                            "pred_rank": int(pred_row.get("pred_rank", 0)) if "pred_rank" in pred_row else None,
+                            "total_score": float(pred_row.get("total_score", 0.0)),
+                        }
+                    )
+                confirm_df = pd.DataFrame(confirm_rows)
+                st.markdown("##### True ranking confirmation")
+                st.dataframe(confirm_df, use_container_width=True, hide_index=True)
 
             st.markdown("#### Calibration Controls")
             iter_col, seed_col, step_col = st.columns(3)
@@ -246,19 +293,23 @@ def render_wb_tab(state, monster_names):
             run_calib = st.button("Run calibration", type="primary")
 
             if run_calib:
+                true_rank_map = st.session_state.get("calib_true_rank_map")
+                true_order_ids = st.session_state.get("calib_true_order")
+                if not true_rank_map or not true_order_ids:
+                    st.error("Provide a valid 60-unit true ranking order before running calibration.")
+                    st.stop()
+
                 fixed_set_ids = [10, 11, 13, 14, 15, 16, 17, 18, 22, 23, 24]
                 unit_map = {int(u.get("unit_id", 0)): u for u in state.working_data.get("unit_list", [])}
                 calib_rows = []
 
-                for _, row in edited_df.iterrows():
-                    unit_id = int(row["unit_id"])
+                for unit_id in true_order_ids:
+                    unit_id = int(unit_id)
                     unit = unit_map.get(unit_id)
                     if not unit:
                         continue
 
-                    base_stats = ranking_map.get(unit_id, {}).get("char")
-                    if not base_stats:
-                        base_stats = unit_base_char(unit)
+                    base_stats = unit_base_char(unit)
 
                     rune_set_counts = defaultdict(int)
                     for r in unit.get("runes", []) or []:
@@ -286,7 +337,7 @@ def render_wb_tab(state, monster_names):
                     calib_rows.append(
                         {
                             "unit_id": unit_id,
-                            "true_rank": int(row["true_rank"]),
+                            "true_rank": int(true_rank_map[unit_id]),
                             "stats": base_stats,
                             "fixed_counts": fixed_counts,
                             "skillup_count": skillup_count,
