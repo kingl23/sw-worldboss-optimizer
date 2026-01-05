@@ -1,7 +1,13 @@
 # core_scores.py
 import math
 from collections import defaultdict
-from config import SKILLUP_COEF
+
+from config import (
+    SKILLUP_COEF,
+    STAT_KEYS,
+    STAT_COEF,
+    TYP_TO_STAT_KEY,
+)
 
 # ---------- Basic utils ----------
 
@@ -11,16 +17,7 @@ def ceil(x):
 
 
 def init_stat():
-    return {
-        "HP": 0.0,
-        "ATK": 0.0,
-        "DEF": 0.0,
-        "SPD": 0.0,
-        "CR": 0.0,
-        "CD": 0.0,
-        "RES": 0.0,
-        "ACC": 0.0
-    }
+    return {k: 0.0 for k in STAT_KEYS}
 
 
 def add_stat(a, b):
@@ -28,9 +25,8 @@ def add_stat(a, b):
 
 
 def stat_struct_score(st):
-    return (st["HP"] * 0.08 + st["ATK"] * 1.2 + st["DEF"] * 1.2 +
-            st["SPD"] * 7.99 + st["CR"] * 8.67 + st["CD"] * 6.32 +
-            st["RES"] * 7.85 + st["ACC"] * 7.85)
+    # coefficients are defined in config (STAT_COEF)
+    return sum(st[k] * STAT_COEF[k] for k in STAT_KEYS)
 
 
 # ---------- Unit base ----------
@@ -53,68 +49,42 @@ def unit_base_char(u):
 
 
 def eff_score(typ, val, ch):
+    """
+    Returns:
+      (score_contribution, added_stat_dict)
+
+    - score_contribution = real_value * STAT_COEF[stat_key]
+    - added_stat_dict accumulates the real-value (converted) stat for aggregation
+    """
     add = init_stat()
-    coef = 0.0
-    real = 0.0
 
-    if typ == 1:
-        real = val
-        add["HP"] = real
-        coef = 0.08
-    elif typ == 2:
-        real = ch["HP"] * val / 100
-        add["HP"] = real
-        coef = 0.08
-    elif typ == 3:
-        real = val
-        add["ATK"] = real
-        coef = 1.2
-    elif typ == 4:
-        real = ch["ATK"] * val / 100
-        add["ATK"] = real
-        coef = 1.2
-    elif typ == 5:
-        real = val
-        add["DEF"] = real
-        coef = 1.2
-    elif typ == 6:
-        real = ch["DEF"] * val / 100
-        add["DEF"] = real
-        coef = 1.2
-    elif typ == 8:
-        real = val
-        add["SPD"] = real
-        coef = 7.99
-    elif typ == 9:
-        real = val
-        add["CR"] = real
-        coef = 8.67
-    elif typ == 10:
-        real = val
-        add["CD"] = real
-        coef = 6.32
-    elif typ == 11:
-        real = val
-        add["RES"] = real
-        coef = 7.85
-    elif typ == 12:
-        real = val
-        add["ACC"] = real
-        coef = 7.85
+    mapping = TYP_TO_STAT_KEY.get(int(typ))
+    if mapping is None:
+        return 0.0, add
 
-    return real * coef, add
+    stat_key, is_percent = mapping
+
+    if is_percent:
+        real = ch[stat_key] * float(val) / 100.0
+    else:
+        real = float(val)
+
+    add[stat_key] = real
+    return real * STAT_COEF[stat_key], add
 
 
 def rune_stat_score(r, ch):
     score = 0.0
     st = init_stat()
 
+    # prefix + primary
     for eff in (r.get("prefix_eff"), r.get("pri_eff")):
         if isinstance(eff, list) and len(eff) >= 2 and eff[0] != 0:
             v, add = eff_score(int(eff[0]), float(eff[1]), ch)
             score += v
             st = add_stat(st, add)
 
+    # secondary (incl grind)
     for row in r.get("sec_eff", []):
         if not row or row[0] == 0:
             continue
@@ -183,22 +153,22 @@ def set_effect(set_id, ch):
     elif set_id == 18:
         need = 2
         fixedB = 125
-    elif set_id == 19:     # Fight
+    elif set_id == 19:  # Fight
         need = 2
         statB["ATK"] = ch["ATK"] * 0.175
-    elif set_id == 20:     # Determination
+    elif set_id == 20:  # Determination
         need = 2
         statB["DEF"] = ch["DEF"] * 0.15
-    elif set_id == 21:     # Enhance
+    elif set_id == 21:  # Enhance
         need = 2
         statB["HP"] = ch["HP"] * 0.15
-    elif set_id == 22:     # Accuracy
+    elif set_id == 22:  # Accuracy
         need = 2
         fixedB = 160
-    elif set_id == 23:     # Tolerance
+    elif set_id == 23:  # Tolerance
         need = 2
         fixedB = 160
-    elif set_id == 24:     # Seal
+    elif set_id == 24:  # Seal
         need = 2
         fixedB = 160
 
@@ -219,31 +189,24 @@ def artifact_sub_score_only(art):
         effect_type = int(row[0])
         value = float(row[1])
 
-        # --- artifactSubMax(type) 인라인 구현 ---
-        if effect_type in {200,201,202,203,207,208,211,212,213,216,217}:
+        # --- artifactSubMax(type) inlined ---
+        if effect_type in {200, 201, 202, 203, 207, 208, 211, 212, 213, 216, 217}:
             max_val = 0.0
-
-        elif effect_type in {204,205,226,300,301,302,303,304}:
+        elif effect_type in {204, 205, 226, 300, 301, 302, 303, 304}:
             max_val = 5.0
-
-        elif effect_type in {209,210,214,219,220,224,225}:
+        elif effect_type in {209, 210, 214, 219, 220, 224, 225}:
             max_val = 4.0
-
         elif effect_type in {
-            222,305,306,307,308,309,
-            400,401,402,403,404,405,406,407,408,409,410,411
+            222, 305, 306, 307, 308, 309,
+            400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411
         }:
             max_val = 6.0
-
-        elif effect_type in {215,223}:
+        elif effect_type in {215, 223}:
             max_val = 12.0
-
         elif effect_type == 218:
             max_val = 0.3
-
         elif effect_type == 221:
             max_val = 40.0
-
         else:
             max_val = 6.0
 
@@ -254,7 +217,6 @@ def artifact_sub_score_only(art):
         score += (value / max_val) * 25.0
 
     return score
-
 
 
 def artifact_score_total(art):
@@ -311,7 +273,6 @@ def score_unit_total(u):
                 stat_bonus = add_stat(stat_bonus, statB)
                 fixed_score += fixedB
 
-
     base_stat_score = stat_struct_score(ch)
     stat_bonus_score = stat_struct_score(stat_bonus)
 
@@ -332,13 +293,23 @@ def score_unit_total(u):
 
     total_add_stat = add_stat(rune_stat_sum, stat_bonus)
 
-    # total_score = (base_stat_score + sum(base_scores) + stat_bonus_score +
-    #                fixed_score + artifact_score_sum + su_score)
-    total_score = (base_stat_score + sum(base_scores) + stat_bonus_score +
-                   fixed_score + su_score)
+    # NOTE: artifact_score_sum is currently excluded from total_score (as per your existing code)
+    total_score = (
+        base_stat_score
+        + sum(base_scores)
+        + stat_bonus_score
+        + fixed_score
+        + su_score
+    )
 
-    print("DEBUG score_unit_total called, stat_bonus_score=", stat_bonus_score, "fixed_score=", fixed_score, "cnt=", dict(cnt))
-
+    print(
+        "DEBUG score_unit_total called, stat_bonus_score=",
+        stat_bonus_score,
+        "fixed_score=",
+        fixed_score,
+        "cnt=",
+        dict(cnt),
+    )
 
     return {
         "unit_id": int(u.get("unit_id", 0)),
