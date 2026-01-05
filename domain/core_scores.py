@@ -198,7 +198,7 @@ def score_unit_total(u):
         return None
 
     ch = unit_base_char(u)
-    ch = apply_flag_bonus(ch)
+    ch_flag = apply_flag_bonus(ch)
     
     rune_stat_sum = init_stat()
     base_scores = []
@@ -225,7 +225,7 @@ def score_unit_total(u):
                 stat_bonus = add_stat(stat_bonus, statB)
                 fixed_score += fixedB
 
-    base_stat_score = stat_struct_score(ch)
+    base_stat_score = stat_struct_score(ch_flag)
     stat_bonus_score = stat_struct_score(stat_bonus)
 
     artifact_score_sum = 0.0
