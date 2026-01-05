@@ -82,3 +82,126 @@ TYP_TO_STAT_KEY = {
     12: ("ACC", False),
 }
 
+# ---------- Set effects (matches core_scores.set_effect 1:1) ----------
+# Convention:
+# - "stat" values:
+#     * 0 < x < 1 => percent of base stat (ch[stat_key] * x)
+#     * x >= 1    => flat value (e.g., CR +12, CD +40, ACC +20, RES +20)
+# - "fixed" is the fixed score bonus for the set (your fixedB)
+
+SET_EFFECTS = {
+    1: {   # Energy
+        "need": 2,
+        "stat": {"HP": 0.15},
+        "fixed": 0,
+    },
+    2: {   # Guard
+        "need": 2,
+        "stat": {"DEF": 0.15},
+        "fixed": 0,
+    },
+    3: {   # Swift
+        "need": 4,
+        "stat": {"SPD": 0.25},
+        "fixed": 0,
+    },
+    4: {   # Blade
+        "need": 2,
+        "stat": {"CR": 12},
+        "fixed": 0,
+    },
+    5: {   # Rage
+        "need": 4,
+        "stat": {"CD": 40},
+        "fixed": 0,
+    },
+    6: {   # Focus
+        "need": 2,
+        "stat": {"ACC": 20},
+        "fixed": 0,
+    },
+    7: {   # Endure
+        "need": 2,
+        "stat": {"RES": 20},
+        "fixed": 0,
+    },
+    8: {   # Fatal
+        "need": 4,
+        "stat": {"ATK": 0.35},
+        "fixed": 0,
+    },
+
+    10: {  # Despair
+        "need": 4,
+        "stat": {},
+        "fixed": 299 + 10.10,
+    },
+    11: {  # Vampire
+        "need": 4,
+        "stat": {},
+        "fixed": 291 + 24.00,
+    },
+    13: {  # Violent
+        "need": 4,
+        "stat": {},
+        "fixed": 296 + 26.60,
+    },
+
+    14: {  # Nemesis
+        "need": 2,
+        "stat": {},
+        "fixed": 124 + 10.50,
+    },
+    15: {  # Will
+        "need": 2,
+        "stat": {},
+        "fixed": 123 + 10.00,
+    },
+    16: {  # Shield
+        "need": 2,
+        "stat": {},
+        "fixed": 124 + 10.10,
+    },
+    17: {  # Revenge
+        "need": 2,
+        "stat": {},
+        "fixed": 123 + 10.00,
+    },
+    18: {  # Destroy
+        "need": 2,
+        "stat": {},
+        "fixed": 125 + 10.50,
+    },
+
+    19: {  # Fight
+        "need": 2,
+        "stat": {"ATK": 0.175},
+        "fixed": 0,
+    },
+    20: {  # Determination
+        "need": 2,
+        "stat": {"DEF": 0.15},
+        "fixed": 0,
+    },
+    21: {  # Enhance
+        "need": 2,
+        "stat": {"HP": 0.15},
+        "fixed": 0,
+    },
+
+    22: {  # Accuracy (Immemorial set score in your code)
+        "need": 2,
+        "stat": {},
+        "fixed": 160 + 13.50,
+    },
+    23: {  # Tolerance
+        "need": 2,
+        "stat": {},
+        "fixed": 160 + 13.50,
+    },
+    24: {  # Seal
+        "need": 2,
+        "stat": {},
+        "fixed": 160 + 13.50,
+    },
+}
