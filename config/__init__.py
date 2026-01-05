@@ -52,19 +52,19 @@ EFF_NAME = {
 # ---------- Scoring coefficients (single source of truth) ----------
 
 # Skill-up coefficient
-SKILLUP_COEF = 49.4
+SKILLUP_COEF = 53.93
 
 STAT_KEYS = ("HP", "ATK", "DEF", "SPD", "CR", "CD", "RES", "ACC")
 
 STAT_COEF = {
-    "HP": 0.08,
-    "ATK": 1.2,
-    "DEF": 1.2,
-    "SPD": 7.99,
-    "CR": 8.67,
-    "CD": 6.32,
-    "RES": 7.85,
-    "ACC": 7.85,
+    "HP": 0.08 + 0.01,
+    "ATK": 1.2 + 0.10,
+    "DEF": 1.2 + 0.10,
+    "SPD": 7.99 + 0.68,
+    "CR": 8.67 + 0.67,
+    "CD": 6.32 + 0.53,
+    "RES": 7.85 + 0.65,
+    "ACC": 7.85 + 0.65,
 }
 
 # Rune effect type -> (stat_key, is_percent)
