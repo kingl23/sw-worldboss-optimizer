@@ -1,14 +1,18 @@
 import copy
+import json
+from collections import defaultdict
+
+import pandas as pd
 import streamlit as st
 
-from domain.ranking import rank_all_units
+from config import K_PER_SLOT, SET_EFFECTS, SKILLUP_COEF, STAT_COEF, STAT_KEYS
+from domain.coef_calibrator import build_calib_items, calibrate_rank60
+from domain.core_scores import score_unit_total, unit_base_char
 from domain.optimizer import optimize_unit_best_runes
-from domain.core_scores import score_unit_total
+from domain.ranking import rank_all_units
+from domain.unit_repo import apply_build_to_working_data
 from domain.visualize import render_optimizer_result
 from services.wb_service import run_optimizer_for_unit
-from domain.unit_repo import apply_build_to_working_data
-from config import K_PER_SLOT
-
 from ui.auth import require_access_or_stop  # Run 클릭 시 Access gate
 
 
@@ -158,6 +162,225 @@ def render_wb_tab(state, monster_names):
                     u, ch, runes, picked, base, final_score=final
                 )
                 st.text(_strip_header(txt))
+
+        st.divider()
+        with st.expander("Calibration (Rank-60)", expanded=False):
+            st.caption("Current Top 60 list (use unit_id to map true ranks)")
+            top_rows = []
+            ranking_map = {}
+            for idx, r in enumerate(state.wb_ranking, start=1):
+                unit_id = int(r["unit_id"])
+                ranking_map[unit_id] = r
+                top_rows.append(
+                    {
+                        "pred_rank": idx,
+                        "unit_id": unit_id,
+                        "unit_master_id": int(r.get("unit_master_id", 0)),
+                        "total_score": float(r.get("total_score", 0.0)),
+                    }
+                )
+
+            top_df = pd.DataFrame(top_rows)
+            st.dataframe(top_df, use_container_width=True, hide_index=True)
+
+            if "calib_true_rank" not in st.session_state:
+                st.session_state.calib_true_rank = {
+                    row["unit_id"]: int(row["pred_rank"]) for row in top_rows
+                }
+            else:
+                for row in top_rows:
+                    st.session_state.calib_true_rank.setdefault(
+                        row["unit_id"], int(row["pred_rank"])
+                    )
+
+            rank_rows = []
+            for row in top_rows:
+                unit_id = int(row["unit_id"])
+                rank_rows.append(
+                    {
+                        "unit_id": unit_id,
+                        "pred_rank": int(row["pred_rank"]),
+                        "true_rank": int(st.session_state.calib_true_rank.get(unit_id, row["pred_rank"]))
+                    }
+                )
+
+            rank_df = pd.DataFrame(rank_rows)
+            edited_df = st.data_editor(
+                rank_df,
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "unit_id": st.column_config.NumberColumn("unit_id", disabled=True),
+                    "pred_rank": st.column_config.NumberColumn("pred_rank", disabled=True),
+                    "true_rank": st.column_config.NumberColumn("true_rank", min_value=1, max_value=60, step=1),
+                },
+                key="calib_rank_editor",
+            )
+
+            for _, row in edited_df.iterrows():
+                st.session_state.calib_true_rank[int(row["unit_id"])] = int(row["true_rank"])
+
+            st.markdown("#### Calibration Controls")
+            iter_col, seed_col, step_col = st.columns(3)
+            with iter_col:
+                iterations = st.number_input(
+                    "Iterations",
+                    min_value=500,
+                    max_value=30000,
+                    value=3000,
+                    step=500,
+                )
+            with seed_col:
+                seed = st.number_input("Seed", min_value=0, max_value=999999, value=7, step=1)
+            with step_col:
+                step0 = st.number_input("Step0", min_value=0.01, max_value=50.0, value=1.0, step=0.05)
+
+            reg_col1, reg_col2, reg_col3 = st.columns(3)
+            with reg_col1:
+                lambda_stat = st.number_input("λ_stat", min_value=0.0, max_value=1.0, value=0.0001, step=0.0001, format="%.5f")
+            with reg_col2:
+                lambda_fixed = st.number_input("λ_fixed", min_value=0.0, max_value=1.0, value=0.0001, step=0.0001, format="%.5f")
+            with reg_col3:
+                lambda_su = st.number_input("λ_su", min_value=0.0, max_value=1.0, value=0.0001, step=0.0001, format="%.5f")
+
+            run_calib = st.button("Run calibration", type="primary")
+
+            if run_calib:
+                fixed_set_ids = [10, 11, 13, 14, 15, 16, 17, 18, 22, 23, 24]
+                unit_map = {int(u.get("unit_id", 0)): u for u in state.working_data.get("unit_list", [])}
+                calib_rows = []
+
+                for _, row in edited_df.iterrows():
+                    unit_id = int(row["unit_id"])
+                    unit = unit_map.get(unit_id)
+                    if not unit:
+                        continue
+
+                    base_stats = ranking_map.get(unit_id, {}).get("char")
+                    if not base_stats:
+                        base_stats = unit_base_char(unit)
+
+                    rune_set_counts = defaultdict(int)
+                    for r in unit.get("runes", []) or []:
+                        rune_set_counts[int(r.get("set_id", 0))] += 1
+
+                    fixed_counts = {}
+                    for sid in fixed_set_ids:
+                        cfg = SET_EFFECTS.get(int(sid))
+                        if not cfg:
+                            continue
+                        need = int(cfg.get("need", 0))
+                        if need <= 0:
+                            continue
+                        times = rune_set_counts.get(int(sid), 0) // need
+                        if need >= 4:
+                            times = min(times, 1)
+                        if times > 0:
+                            fixed_counts[int(sid)] = int(times)
+
+                    skillup_count = 0
+                    for skill in unit.get("skills", []) or []:
+                        if isinstance(skill, list) and len(skill) >= 2:
+                            skillup_count += max(0, int(skill[1]) - 1)
+
+                    calib_rows.append(
+                        {
+                            "unit_id": unit_id,
+                            "true_rank": int(row["true_rank"]),
+                            "stats": base_stats,
+                            "fixed_counts": fixed_counts,
+                            "skillup_count": skillup_count,
+                        }
+                    )
+
+                calib_items = build_calib_items(calib_rows, STAT_KEYS)
+                init_fixed = {sid: float(SET_EFFECTS[sid]["fixed"]) for sid in fixed_set_ids}
+
+                result = calibrate_rank60(
+                    items=calib_items,
+                    stat_keys=STAT_KEYS,
+                    fixed_ids=fixed_set_ids,
+                    init_stat_coef=STAT_COEF,
+                    init_fixed_map=init_fixed,
+                    init_skillup_coef=SKILLUP_COEF,
+                    iterations=int(iterations),
+                    seed=int(seed),
+                    step0=float(step0),
+                    lambdas=(float(lambda_stat), float(lambda_fixed), float(lambda_su)),
+                )
+
+                summary = result["summary"]
+                st.subheader("Calibration Summary")
+                st.write(
+                    {
+                        "objective": summary["objective"],
+                        "pairwise_loss": summary["pairwise_loss"],
+                        "concordance": summary["concordance"],
+                        "iterations": summary["iterations"],
+                    }
+                )
+
+                def _delta_pct(init_val: float, tuned_val: float) -> float:
+                    if init_val == 0:
+                        return 0.0
+                    return (tuned_val - init_val) / init_val * 100.0
+
+                stat_rows = []
+                for key in STAT_KEYS:
+                    init_val = float(STAT_COEF[key])
+                    tuned_val = float(result["STAT_COEF"][key])
+                    stat_rows.append(
+                        {
+                            "stat": key,
+                            "init": init_val,
+                            "tuned": tuned_val,
+                            "delta_pct": _delta_pct(init_val, tuned_val),
+                        }
+                    )
+                st.markdown("##### STAT_COEF")
+                st.dataframe(pd.DataFrame(stat_rows), use_container_width=True, hide_index=True)
+
+                fixed_rows = []
+                for sid in fixed_set_ids:
+                    init_val = float(init_fixed[sid])
+                    tuned_val = float(result["SET_FIXED"][sid])
+                    fixed_rows.append(
+                        {
+                            "set_id": sid,
+                            "init": init_val,
+                            "tuned": tuned_val,
+                            "delta_pct": _delta_pct(init_val, tuned_val),
+                        }
+                    )
+                st.markdown("##### SET_FIXED")
+                st.dataframe(pd.DataFrame(fixed_rows), use_container_width=True, hide_index=True)
+
+                su_init = float(SKILLUP_COEF)
+                su_tuned = float(result["SKILLUP_COEF"])
+                st.markdown("##### SKILLUP_COEF")
+                st.write(
+                    {
+                        "init": su_init,
+                        "tuned": su_tuned,
+                        "delta_pct": _delta_pct(su_init, su_tuned),
+                    }
+                )
+
+                download_payload = {
+                    "STAT_COEF": result["STAT_COEF"],
+                    "SET_FIXED": {str(k): v for k, v in result["SET_FIXED"].items()},
+                    "SKILLUP_COEF": result["SKILLUP_COEF"],
+                    "summary": summary,
+                }
+                download_json = json.dumps(download_payload, indent=2)
+                st.download_button(
+                    "Download calibrated_coefs.json",
+                    data=download_json,
+                    file_name="calibrated_coefs.json",
+                    mime="application/json",
+                )
+                st.markdown("##### Copy/paste snippet")
+                st.code(download_json, language="json")
 
     # ==================================================
     # RIGHT: Optimizer Panel
