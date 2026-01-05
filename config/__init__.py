@@ -6,9 +6,6 @@ TARGET_MASTER_IDS = []
 # Optimizer pruning
 K_PER_SLOT = 10
 
-# Skill-up coefficient
-SKILLUP_COEF = 49.4
-
 # Rune / stat names
 SET_NAME = {
     1: "Energy",
@@ -50,3 +47,38 @@ EFF_NAME = {
     11: "RES",
     12: "ACC"
 }
+
+
+# ---------- Scoring coefficients (single source of truth) ----------
+
+# Skill-up coefficient
+SKILLUP_COEF = 49.4
+
+STAT_KEYS = ("HP", "ATK", "DEF", "SPD", "CR", "CD", "RES", "ACC")
+
+STAT_COEF = {
+    "HP": 0.08,
+    "ATK": 1.2,
+    "DEF": 1.2,
+    "SPD": 7.99,
+    "CR": 8.67,
+    "CD": 6.32,
+    "RES": 7.85,
+    "ACC": 7.85,
+}
+
+# Rune effect type -> (stat_key, is_percent)
+TYP_TO_STAT_KEY = {
+    1: ("HP", False),
+    2: ("HP", True),
+    3: ("ATK", False),
+    4: ("ATK", True),
+    5: ("DEF", False),
+    6: ("DEF", True),
+    8: ("SPD", False),
+    9: ("CR", False),
+    10: ("CD", False),
+    11: ("RES", False),
+    12: ("ACC", False),
+}
+
