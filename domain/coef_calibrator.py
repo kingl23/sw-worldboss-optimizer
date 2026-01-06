@@ -27,7 +27,7 @@ def _clamp(val: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, val))
 
 
-def _make_bounds(values: Sequence[float], ratio: float = 0.15) -> List[Tuple[float, float]]:
+def _make_bounds(values: Sequence[float], ratio: float = 0.10) -> List[Tuple[float, float]]:
     bounds = []
     for v in values:
         span = abs(v) * ratio
@@ -127,6 +127,7 @@ def calibrate_rank60(
     seed: int = 7,
     step0: float = 1.0,
     lambdas: Tuple[float, float, float] = (1e-4, 1e-4, 1e-4),
+    initial_params: Sequence[float] | None = None,
 ) -> Dict[str, object]:
     stat_keys = list(stat_keys)
     fixed_ids = list(fixed_ids)
@@ -135,52 +136,56 @@ def calibrate_rank60(
     base_params += [init_fixed_map[sid] for sid in fixed_ids]
     base_params.append(init_skillup_coef)
 
-    bounds = _make_bounds(base_params, ratio=0.15)
+    bounds = _make_bounds(base_params)
 
     rng = random.Random(seed)
-    best_params = list(base_params)
+    start_params = list(initial_params) if initial_params is not None else list(base_params)
+    best_params = list(start_params)
     best_obj, best_pair, best_conc = _objective(
         items, stat_keys, fixed_ids, best_params, base_params, lambdas
     )
 
-    current_params = list(best_params)
+    current_params = list(start_params)
     current_obj = best_obj
+
+    t0 = 1.0
+    tmin = 1e-3
+    jump_prob = 0.02
 
     for t in range(int(iterations)):
         decay = 0.1 + 0.9 * (1.0 - (t / max(1, iterations)))
         step = step0 * decay
-        idx = rng.randrange(len(current_params))
-        direction = -1.0 if rng.random() < 0.5 else 1.0
+        if rng.random() < jump_prob:
+            candidate = [rng.uniform(lo, hi) for lo, hi in bounds]
+        else:
+            idx = rng.randrange(len(current_params))
+            direction = -1.0 if rng.random() < 0.5 else 1.0
 
-        candidate = list(current_params)
-        lo, hi = bounds[idx]
-        candidate[idx] = _clamp(candidate[idx] + direction * step, lo, hi)
+            candidate = list(current_params)
+            lo, hi = bounds[idx]
+            candidate[idx] = _clamp(candidate[idx] + direction * step, lo, hi)
 
         cand_obj, cand_pair, cand_conc = _objective(
             items, stat_keys, fixed_ids, candidate, base_params, lambdas
         )
 
-        if cand_obj < current_obj:
+        temperature = max(tmin, t0 * (0.01 ** (t / max(1, iterations))))
+        delta = cand_obj - current_obj
+
+        if delta <= 0:
             current_params = candidate
             current_obj = cand_obj
-            if cand_obj < best_obj:
-                best_params = candidate
-                best_obj = cand_obj
-                best_pair = cand_pair
-                best_conc = cand_conc
-        elif rng.random() < 0.03:
-            random_params = [rng.uniform(lo, hi) for lo, hi in bounds]
-            rand_obj, rand_pair, rand_conc = _objective(
-                items, stat_keys, fixed_ids, random_params, base_params, lambdas
-            )
-            if rand_obj < current_obj:
-                current_params = random_params
-                current_obj = rand_obj
-                if rand_obj < best_obj:
-                    best_params = random_params
-                    best_obj = rand_obj
-                    best_pair = rand_pair
-                    best_conc = rand_conc
+        else:
+            accept_prob = math.exp(-delta / temperature)
+            if rng.random() < accept_prob:
+                current_params = candidate
+                current_obj = cand_obj
+
+        if cand_obj < best_obj:
+            best_params = candidate
+            best_obj = cand_obj
+            best_pair = cand_pair
+            best_conc = cand_conc
 
     stat_n = len(stat_keys)
     fixed_n = len(fixed_ids)
@@ -203,6 +208,59 @@ def calibrate_rank60(
             "iterations": int(iterations),
         },
     }
+
+
+def calibrate_rank60_multistart(
+    items: Sequence[CalibItem],
+    stat_keys: Sequence[str],
+    fixed_ids: Sequence[int],
+    init_stat_coef: Dict[str, float],
+    init_fixed_map: Dict[int, float],
+    init_skillup_coef: float,
+    iterations: int = 3000,
+    seed: int = 7,
+    step0: float = 1.0,
+    lambdas: Tuple[float, float, float] = (1e-4, 1e-4, 1e-4),
+    restarts: int = 5,
+) -> Dict[str, object]:
+    stat_keys = list(stat_keys)
+    fixed_ids = list(fixed_ids)
+
+    base_params = [init_stat_coef[k] for k in stat_keys]
+    base_params += [init_fixed_map[sid] for sid in fixed_ids]
+    base_params.append(init_skillup_coef)
+    bounds = _make_bounds(base_params)
+
+    best_result = None
+    best_obj = None
+    for k in range(int(restarts)):
+        run_seed = seed + k
+        if k == 0:
+            start_params = None
+        else:
+            rng = random.Random(run_seed)
+            start_params = [rng.uniform(lo, hi) for lo, hi in bounds]
+
+        result = calibrate_rank60(
+            items=items,
+            stat_keys=stat_keys,
+            fixed_ids=fixed_ids,
+            init_stat_coef=init_stat_coef,
+            init_fixed_map=init_fixed_map,
+            init_skillup_coef=init_skillup_coef,
+            iterations=iterations,
+            seed=run_seed,
+            step0=step0,
+            lambdas=lambdas,
+            initial_params=start_params,
+        )
+
+        obj = float(result["summary"]["objective"])
+        if best_result is None or obj < best_obj:
+            best_result = result
+            best_obj = obj
+
+    return best_result
 
 
 def build_calib_items(

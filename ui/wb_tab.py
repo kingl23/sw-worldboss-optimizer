@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from config import K_PER_SLOT, SET_EFFECTS, SKILLUP_COEF, STAT_COEF, STAT_KEYS
-from domain.coef_calibrator import build_calib_items, calibrate_rank60
+from domain.coef_calibrator import build_calib_items, calibrate_rank60_multistart
 from domain.core_scores import score_unit_total, unit_base_char
 from domain.optimizer import optimize_unit_best_runes
 from domain.ranking import rank_all_units
@@ -282,6 +282,14 @@ def render_wb_tab(state, monster_names):
             with step_col:
                 step0 = st.number_input("Step0", min_value=0.01, max_value=50.0, value=1.0, step=0.05)
 
+            restarts = st.number_input(
+                "Restarts",
+                min_value=1,
+                max_value=30,
+                value=5,
+                step=1,
+            )
+
             reg_col1, reg_col2, reg_col3 = st.columns(3)
             with reg_col1:
                 lambda_stat = st.number_input("λ_stat", min_value=0.0, max_value=1.0, value=0.0001, step=0.0001, format="%.5f")
@@ -347,7 +355,7 @@ def render_wb_tab(state, monster_names):
                 calib_items = build_calib_items(calib_rows, STAT_KEYS)
                 init_fixed = {sid: float(SET_EFFECTS[sid]["fixed"]) for sid in fixed_set_ids}
 
-                result = calibrate_rank60(
+                result = calibrate_rank60_multistart(
                     items=calib_items,
                     stat_keys=STAT_KEYS,
                     fixed_ids=fixed_set_ids,
@@ -358,6 +366,7 @@ def render_wb_tab(state, monster_names):
                     seed=int(seed),
                     step0=float(step0),
                     lambdas=(float(lambda_stat), float(lambda_fixed), float(lambda_su)),
+                    restarts=int(restarts),
                 )
 
                 summary = result["summary"]
