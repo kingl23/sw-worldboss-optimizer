@@ -314,20 +314,32 @@ def render_wb_tab(state, monster_names):
                     rune_set_counts = defaultdict(int)
                     for r in unit.get("runes", []) or []:
                         rune_set_counts[int(r.get("set_id", 0))] += 1
-
+                    
+                    intangible_left = min(int(rune_set_counts.get(25, 0)), 1)
+                    
                     fixed_counts = {}
                     for sid in fixed_set_ids:
-                        cfg = SET_EFFECTS.get(int(sid))
+                        sid = int(sid)
+                        cfg = SET_EFFECTS.get(sid)
                         if not cfg:
                             continue
                         need = int(cfg.get("need", 0))
                         if need <= 0:
                             continue
-                        times = rune_set_counts.get(int(sid), 0) // need
+                    
+                        c = int(rune_set_counts.get(sid, 0))
+                        times = c // need
                         if need >= 4:
                             times = min(times, 1)
+                    
+                        # Intangible wildcard (unit-wide max 1)
+                        if times == 0 and intangible_left > 0 and need in (2, 4) and c == (need - 1):
+                            times = 1
+                            intangible_left -= 1
+                    
                         if times > 0:
-                            fixed_counts[int(sid)] = int(times)
+                            fixed_counts[sid] = times
+
 
                     skillup_count = 0
                     for skill in unit.get("skills", []) or []:
