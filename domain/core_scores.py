@@ -25,9 +25,10 @@ def add_stat(a, b):
     return {k: a[k] + b[k] for k in a}
 
 
-def stat_struct_score(st):
+def stat_struct_score(st, stat_coef=None):
     # coefficients are defined in config (STAT_COEF)
-    return sum(st[k] * STAT_COEF[k] for k in STAT_KEYS)
+    coef = stat_coef or STAT_COEF
+    return sum(st[k] * coef[k] for k in STAT_KEYS)
 
 
 # ---------- Unit base ----------
@@ -71,7 +72,7 @@ def flag_bonus_delta(ch_base):
 # ---------- Rune scoring ----------
 
 
-def eff_score(typ, val, ch_base):
+def eff_score(typ, val, ch_base, stat_coef=None):
     """
     Returns:
       (score_contribution, added_stat_dict)
@@ -93,17 +94,18 @@ def eff_score(typ, val, ch_base):
         real = float(val)
 
     add[stat_key] = real
-    return real * STAT_COEF[stat_key], add
+    coef = stat_coef or STAT_COEF
+    return real * coef[stat_key], add
 
 
-def rune_stat_score(r, ch_base):
+def rune_stat_score(r, ch_base, stat_coef=None):
     score = 0.0
     st = init_stat()
 
     # prefix + primary
     for eff in (r.get("prefix_eff"), r.get("pri_eff")):
         if isinstance(eff, list) and len(eff) >= 2 and eff[0] != 0:
-            v, add = eff_score(int(eff[0]), float(eff[1]), ch_base)
+            v, add = eff_score(int(eff[0]), float(eff[1]), ch_base, stat_coef=stat_coef)
             score += v
             st = add_stat(st, add)
 
@@ -113,7 +115,7 @@ def rune_stat_score(r, ch_base):
             continue
         base = float(row[1]) if len(row) > 1 else 0.0
         grind = float(row[3]) if len(row) > 3 else 0.0
-        v, add = eff_score(int(row[0]), base + grind, ch_base)
+        v, add = eff_score(int(row[0]), base + grind, ch_base, stat_coef=stat_coef)
         score += v
         st = add_stat(st, add)
 
@@ -123,7 +125,7 @@ def rune_stat_score(r, ch_base):
 # ---------- Set effects ----------
 
 
-def set_effect(set_id, ch_base):
+def set_effect(set_id, ch_base, set_fixed_override=None):
     """
     Set effects are also BASE-based.
     stat effects:
@@ -137,7 +139,10 @@ def set_effect(set_id, ch_base):
         return 0, init_stat(), 0.0
 
     need = int(cfg["need"])
-    fixedB = float(cfg.get("fixed", 0.0))
+    if set_fixed_override and int(set_id) in set_fixed_override:
+        fixedB = float(set_fixed_override[int(set_id)])
+    else:
+        fixedB = float(cfg.get("fixed", 0.0))
 
     statB = init_stat()
     for stat_key, v in cfg.get("stat", {}).items():
@@ -202,18 +207,19 @@ def artifact_score_total(art):
 # ---------- Skill-up ----------
 
 
-def skillup_score(u):
+def skillup_score(u, skillup_coef_override=None):
     total = 0
     for row in u.get("skills", []):
         if isinstance(row, list) and len(row) >= 2:
             total += max(0, int(row[1]) - 1)
-    return total * SKILLUP_COEF
+    coef = SKILLUP_COEF if skillup_coef_override is None else skillup_coef_override
+    return total * coef
 
 
 # ---------- Current unit total ----------
 
 
-def score_unit_total(u):
+def score_unit_total(u, stat_coef=None, set_fixed=None, skillup_coef=None):
     runes = u.get("runes", [])
     if not isinstance(runes, list) or not runes:
         return None
@@ -223,13 +229,13 @@ def score_unit_total(u):
 
     # 2) Flag bonus (base-based delta; added at the end)
     flag_delta = flag_bonus_delta(ch)
-    flag_bonus_score = stat_struct_score(flag_delta)
+    flag_bonus_score = stat_struct_score(flag_delta, stat_coef=stat_coef)
 
     # 3) Rune scores (base-based)
     rune_stat_sum = init_stat()
     base_scores = []
     for r in runes:
-        s, add = rune_stat_score(r, ch)
+        s, add = rune_stat_score(r, ch, stat_coef=stat_coef)
         base_scores.append(s)
         rune_stat_sum = add_stat(rune_stat_sum, add)
 
@@ -242,7 +248,7 @@ def score_unit_total(u):
     stat_bonus = init_stat()
     fixed_score = 0.0
     for sid, c in cnt.items():
-        need, statB, fixedB = set_effect(sid, ch)
+        need, statB, fixedB = set_effect(sid, ch, set_fixed_override=set_fixed)
         if need > 0:
             times = c // need
             # preserve your original rule: 4-set effects apply at most once
@@ -253,10 +259,10 @@ def score_unit_total(u):
                 fixed_score += fixedB
 
     # 5) Score components
-    base_stat_score = stat_struct_score(ch)               # pure base
-    stat_bonus_score = stat_struct_score(stat_bonus)      # set stat bonus only
+    base_stat_score = stat_struct_score(ch, stat_coef=stat_coef)               # pure base
+    stat_bonus_score = stat_struct_score(stat_bonus, stat_coef=stat_coef)      # set stat bonus only
     rune_score_sum = sum(base_scores)                     # rune score only
-    su_score = skillup_score(u)                           # skill-up only
+    su_score = skillup_score(u, skillup_coef_override=skillup_coef)                           # skill-up only
 
     # Display/debug: total added stats (runes + set stats + flag delta)
     total_add_stat = add_stat(add_stat(rune_stat_sum, stat_bonus), flag_delta)
