@@ -13,6 +13,16 @@ class CalibItem:
     skillup_count: int
 
 
+def _softplus(x: float) -> float:
+    # stable log(1+exp(x))
+    # for large x, log(1+exp(x)) ~= x
+    if x > 50.0:
+        return x
+    if x < -50.0:
+        return math.exp(x)  # ~= 0
+    return math.log1p(math.exp(x))
+
+
 def _clamp(val: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, val))
 
@@ -41,7 +51,8 @@ def _pairwise_loss(scores: Sequence[float], ranks: Sequence[int]) -> Tuple[float
             if ri == rj:
                 continue
             diff = scores[i] - scores[j] if ri < rj else scores[j] - scores[i]
-            loss += math.log1p(math.exp(-diff))
+            # loss += math.log1p(math.exp(-diff))
+            loss += _softplus(-diff)
             if diff > 0:
                 correct += 1
             total += 1
