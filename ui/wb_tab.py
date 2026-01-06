@@ -373,8 +373,8 @@ def render_wb_tab(state, monster_names):
                 st.subheader("Calibration Summary")
                 st.write(
                     {
-                        "objective": summary["objective"],
                         "rank_loss": summary["rank_loss"],
+                        "reg": summary["reg"],
                         "exact_match_rate": summary["exact_match_rate"],
                         "iterations": summary["iterations"],
                     }

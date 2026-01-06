@@ -1,4 +1,3 @@
-import math
 import random
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Sequence, Tuple
@@ -110,7 +109,38 @@ def _objective(
     reg_skill = delta * delta
 
     reg = stat_lambda * reg_stat + fixed_lambda * reg_fixed + skill_lambda * reg_skill
-    return rank_loss + reg, rank_loss, exact_match_rate
+    return rank_loss, reg, exact_match_rate
+
+
+def _result_from_params(
+    stat_keys: Sequence[str],
+    fixed_ids: Sequence[int],
+    params: Sequence[float],
+    rank_loss: float,
+    reg: float,
+    exact_match_rate: float,
+    iterations: int,
+) -> Dict[str, object]:
+    stat_n = len(stat_keys)
+    tuned_stat = {
+        key: float(params[i]) for i, key in enumerate(stat_keys)
+    }
+    tuned_fixed = {
+        int(sid): float(params[stat_n + i]) for i, sid in enumerate(fixed_ids)
+    }
+    tuned_skill = float(params[-1])
+
+    return {
+        "STAT_COEF": tuned_stat,
+        "SET_FIXED": tuned_fixed,
+        "SKILLUP_COEF": tuned_skill,
+        "summary": {
+            "rank_loss": float(rank_loss),
+            "reg": float(reg),
+            "exact_match_rate": float(exact_match_rate),
+            "iterations": int(iterations),
+        },
+    }
 
 
 def calibrate_rank60(
@@ -137,42 +167,29 @@ def calibrate_rank60(
 
     rng = random.Random(seed)
     start_params = list(initial_params) if initial_params is not None else list(base_params)
-    base_obj, base_rank_loss, base_exact = _objective(
+    base_rank_loss, base_reg, base_exact = _objective(
         items, stat_keys, fixed_ids, base_params, base_params, lambdas
     )
     if base_rank_loss == 0:
-        stat_n = len(stat_keys)
-        fixed_n = len(fixed_ids)
-        tuned_stat = {
-            key: float(base_params[i]) for i, key in enumerate(stat_keys)
-        }
-        tuned_fixed = {
-            int(sid): float(base_params[stat_n + i]) for i, sid in enumerate(fixed_ids)
-        }
-        tuned_skill = float(base_params[-1])
-
-        return {
-            "STAT_COEF": tuned_stat,
-            "SET_FIXED": tuned_fixed,
-            "SKILLUP_COEF": tuned_skill,
-            "summary": {
-                "objective": float(base_obj),
-                "rank_loss": float(base_rank_loss),
-                "exact_match_rate": float(base_exact),
-                "iterations": int(iterations),
-            },
-        }
+        return _result_from_params(
+            stat_keys,
+            fixed_ids,
+            base_params,
+            base_rank_loss,
+            base_reg,
+            base_exact,
+            iterations,
+        )
 
     best_params = list(start_params)
-    best_obj, best_rank, best_exact = _objective(
+    best_rank, best_reg, best_exact = _objective(
         items, stat_keys, fixed_ids, best_params, base_params, lambdas
     )
+    best_key = (best_rank, best_reg)
 
     current_params = list(start_params)
-    current_obj = best_obj
+    current_key = best_key
 
-    t0 = 1.0
-    tmin = 1e-3
     jump_prob = 0.02
 
     for t in range(int(iterations)):
@@ -188,49 +205,31 @@ def calibrate_rank60(
             lo, hi = bounds[idx]
             candidate[idx] = _clamp(candidate[idx] + direction * step, lo, hi)
 
-        cand_obj, cand_rank, cand_exact = _objective(
+        cand_rank, cand_reg, cand_exact = _objective(
             items, stat_keys, fixed_ids, candidate, base_params, lambdas
         )
+        cand_key = (cand_rank, cand_reg)
 
-        temperature = max(tmin, t0 * (0.01 ** (t / max(1, iterations))))
-        delta = cand_obj - current_obj
-
-        if delta <= 0:
+        if cand_key < current_key:
             current_params = candidate
-            current_obj = cand_obj
-        else:
-            accept_prob = math.exp(-delta / temperature)
-            if rng.random() < accept_prob:
-                current_params = candidate
-                current_obj = cand_obj
+            current_key = cand_key
 
-        if cand_obj < best_obj:
+        if cand_key < best_key:
             best_params = candidate
-            best_obj = cand_obj
+            best_key = cand_key
             best_rank = cand_rank
+            best_reg = cand_reg
             best_exact = cand_exact
 
-    stat_n = len(stat_keys)
-    fixed_n = len(fixed_ids)
-    tuned_stat = {
-        key: float(best_params[i]) for i, key in enumerate(stat_keys)
-    }
-    tuned_fixed = {
-        int(sid): float(best_params[stat_n + i]) for i, sid in enumerate(fixed_ids)
-    }
-    tuned_skill = float(best_params[-1])
-
-    return {
-        "STAT_COEF": tuned_stat,
-        "SET_FIXED": tuned_fixed,
-        "SKILLUP_COEF": tuned_skill,
-        "summary": {
-            "objective": float(best_obj),
-            "rank_loss": float(best_rank),
-            "exact_match_rate": float(best_exact),
-            "iterations": int(iterations),
-        },
-    }
+    return _result_from_params(
+        stat_keys,
+        fixed_ids,
+        best_params,
+        best_rank,
+        best_reg,
+        best_exact,
+        iterations,
+    )
 
 
 def calibrate_rank60_multistart(
@@ -254,8 +253,22 @@ def calibrate_rank60_multistart(
     base_params.append(init_skillup_coef)
     bounds = _make_bounds(base_params)
 
+    base_rank_loss, base_reg, base_exact = _objective(
+        items, stat_keys, fixed_ids, base_params, base_params, lambdas
+    )
+    if base_rank_loss == 0:
+        return _result_from_params(
+            stat_keys,
+            fixed_ids,
+            base_params,
+            base_rank_loss,
+            base_reg,
+            base_exact,
+            iterations,
+        )
+
     best_result = None
-    best_obj = None
+    best_key = None
     for k in range(int(restarts)):
         run_seed = seed + k
         if k == 0:
@@ -278,10 +291,11 @@ def calibrate_rank60_multistart(
             initial_params=start_params,
         )
 
-        obj = float(result["summary"]["objective"])
-        if best_result is None or obj < best_obj:
+        summary = result["summary"]
+        cand_key = (float(summary["rank_loss"]), float(summary["reg"]))
+        if best_result is None or cand_key < best_key:
             best_result = result
-            best_obj = obj
+            best_key = cand_key
 
     return best_result
 
