@@ -233,24 +233,44 @@ def score_unit_total(u):
         base_scores.append(s)
         rune_stat_sum = add_stat(rune_stat_sum, add)
 
-    # 4) Set effects (base-based)
+    # 4) Set effects (base-based)  --- UPDATED for Intangible(25)
     set_ids = [int(r.get("set_id", 0)) for r in runes]
     cnt = defaultdict(int)
     for sid in set_ids:
         cnt[sid] += 1
-
+    
+    # Intangible: unit can use at most 1 as wildcard
+    intangible_left = min(int(cnt.get(25, 0)), 1)
+    
     stat_bonus = init_stat()
     fixed_score = 0.0
+    
+    # Iterate real set ids only (exclude 25)
     for sid, c in cnt.items():
+        sid = int(sid)
+        if sid == 25:
+            continue
+    
         need, statB, fixedB = set_effect(sid, ch)
-        if need > 0:
-            times = c // need
-            # preserve your original rule: 4-set effects apply at most once
-            if need >= 4:
-                times = min(times, 1)
-            for _ in range(times):
-                stat_bonus = add_stat(stat_bonus, statB)
-                fixed_score += fixedB
+        if need <= 0:
+            continue
+    
+        times = c // need
+    
+        # Preserve original rule: 4-set effects apply at most once
+        if need >= 4:
+            times = min(times, 1)
+    
+        # Intangible wildcard: if we are exactly 1 short for a 2-set or 4-set,
+        # and we haven't activated this set yet, consume intangible to activate once.
+        if times == 0 and intangible_left > 0 and need in (2, 4) and c == (need - 1):
+            times = 1
+            intangible_left -= 1
+    
+        for _ in range(times):
+            stat_bonus = add_stat(stat_bonus, statB)
+            fixed_score += fixedB
+
 
     # 5) Score components
     base_stat_score = stat_struct_score(ch)               # pure base
