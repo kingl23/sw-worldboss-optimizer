@@ -1,5 +1,22 @@
 # config/__init__.py
 
+# ---------- Scoring coefficients (single source of truth) ----------
+
+STAT_KEYS = ("HP", "ATK", "DEF", "SPD", "CR", "CD", "RES", "ACC")
+
+SKILLUP_COEF = 53.93
+
+STAT_COEF = {
+    "HP": 0.08 + 0.0067,
+    "ATK": 1.2 + 0.10,
+    "DEF": 1.2 + 0.10,
+    "SPD": 7.99 + 0.67,
+    "CR": 8.67 + 0.6667,
+    "CD": 6.33 + 0.5286,
+    "RES": 7.85 + 0.65,
+    "ACC": 7.85 + 0.65,
+}
+
 # Optimizer targets
 TARGET_MASTER_IDS = []
 
@@ -48,24 +65,6 @@ EFF_NAME = {
     12: "ACC"
 }
 
-
-# ---------- Scoring coefficients (single source of truth) ----------
-
-# Skill-up coefficient
-SKILLUP_COEF = 53.93
-
-STAT_KEYS = ("HP", "ATK", "DEF", "SPD", "CR", "CD", "RES", "ACC")
-
-STAT_COEF = {
-    "HP": 0.08 + 0.0067,
-    "ATK": 1.2 + 0.10,
-    "DEF": 1.2 + 0.10,
-    "SPD": 7.99 + 0.67,
-    "CR": 8.67 + 0.6667,
-    "CD": 6.33 + 0.5286,
-    "RES": 7.85 + 0.65,
-    "ACC": 7.85 + 0.65,
-}
 
 # Rune effect type -> (stat_key, is_percent)
 TYP_TO_STAT_KEY = {
