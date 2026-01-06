@@ -13,16 +13,6 @@ class CalibItem:
     skillup_count: int
 
 
-def _softplus(x: float) -> float:
-    # stable log(1+exp(x))
-    # for large x, log(1+exp(x)) ~= x
-    if x > 50.0:
-        return x
-    if x < -50.0:
-        return math.exp(x)  # ~= 0
-    return math.log1p(math.exp(x))
-
-
 def _clamp(val: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, val))
 
@@ -39,25 +29,30 @@ def _make_bounds(values: Sequence[float], ratio: float = 0.10) -> List[Tuple[flo
     return bounds
 
 
-def _pairwise_loss(scores: Sequence[float], ranks: Sequence[int]) -> Tuple[float, float]:
-    loss = 0.0
-    correct = 0
-    total = 0
-    n = len(scores)
-    for i in range(n):
-        ri = ranks[i]
-        for j in range(i + 1, n):
-            rj = ranks[j]
-            if ri == rj:
-                continue
-            diff = scores[i] - scores[j] if ri < rj else scores[j] - scores[i]
-            # loss += math.log1p(math.exp(-diff))
-            loss += _softplus(-diff)
-            if diff > 0:
-                correct += 1
-            total += 1
-    concordance = correct / total if total else 0.0
-    return loss, concordance
+def _predicted_ranks(
+    scores: Sequence[float],
+    unit_ids: Sequence[int],
+) -> Dict[int, int]:
+    pairs = list(zip(unit_ids, scores))
+    pairs_sorted = sorted(pairs, key=lambda x: (-x[1], x[0]))
+    return {unit_id: rank + 1 for rank, (unit_id, _) in enumerate(pairs_sorted)}
+
+
+def _footrule_loss(
+    pred_rank_map: Dict[int, int],
+    unit_ids: Sequence[int],
+    true_ranks: Sequence[int],
+) -> Tuple[float, float]:
+    loss = 0
+    exact = 0
+    total = len(unit_ids)
+    for unit_id, true_rank in zip(unit_ids, true_ranks):
+        pred_rank = pred_rank_map[unit_id]
+        loss += abs(pred_rank - true_rank)
+        if pred_rank == true_rank:
+            exact += 1
+    exact_match_rate = exact / total if total else 0.0
+    return float(loss), exact_match_rate
 
 
 def _score_items(
@@ -93,8 +88,10 @@ def _objective(
     lambdas: Tuple[float, float, float],
 ) -> Tuple[float, float, float]:
     scores = _score_items(items, stat_keys, fixed_ids, params)
-    ranks = [item.true_rank for item in items]
-    pair_loss, concordance = _pairwise_loss(scores, ranks)
+    unit_ids = [item.unit_id for item in items]
+    true_ranks = [item.true_rank for item in items]
+    pred_rank_map = _predicted_ranks(scores, unit_ids)
+    rank_loss, exact_match_rate = _footrule_loss(pred_rank_map, unit_ids, true_ranks)
 
     stat_n = len(stat_keys)
     fixed_n = len(fixed_ids)
@@ -113,7 +110,7 @@ def _objective(
     reg_skill = delta * delta
 
     reg = stat_lambda * reg_stat + fixed_lambda * reg_fixed + skill_lambda * reg_skill
-    return pair_loss + reg, pair_loss, concordance
+    return rank_loss + reg, rank_loss, exact_match_rate
 
 
 def calibrate_rank60(
@@ -140,8 +137,34 @@ def calibrate_rank60(
 
     rng = random.Random(seed)
     start_params = list(initial_params) if initial_params is not None else list(base_params)
+    base_obj, base_rank_loss, base_exact = _objective(
+        items, stat_keys, fixed_ids, base_params, base_params, lambdas
+    )
+    if base_rank_loss == 0:
+        stat_n = len(stat_keys)
+        fixed_n = len(fixed_ids)
+        tuned_stat = {
+            key: float(base_params[i]) for i, key in enumerate(stat_keys)
+        }
+        tuned_fixed = {
+            int(sid): float(base_params[stat_n + i]) for i, sid in enumerate(fixed_ids)
+        }
+        tuned_skill = float(base_params[-1])
+
+        return {
+            "STAT_COEF": tuned_stat,
+            "SET_FIXED": tuned_fixed,
+            "SKILLUP_COEF": tuned_skill,
+            "summary": {
+                "objective": float(base_obj),
+                "rank_loss": float(base_rank_loss),
+                "exact_match_rate": float(base_exact),
+                "iterations": int(iterations),
+            },
+        }
+
     best_params = list(start_params)
-    best_obj, best_pair, best_conc = _objective(
+    best_obj, best_rank, best_exact = _objective(
         items, stat_keys, fixed_ids, best_params, base_params, lambdas
     )
 
@@ -165,7 +188,7 @@ def calibrate_rank60(
             lo, hi = bounds[idx]
             candidate[idx] = _clamp(candidate[idx] + direction * step, lo, hi)
 
-        cand_obj, cand_pair, cand_conc = _objective(
+        cand_obj, cand_rank, cand_exact = _objective(
             items, stat_keys, fixed_ids, candidate, base_params, lambdas
         )
 
@@ -184,8 +207,8 @@ def calibrate_rank60(
         if cand_obj < best_obj:
             best_params = candidate
             best_obj = cand_obj
-            best_pair = cand_pair
-            best_conc = cand_conc
+            best_rank = cand_rank
+            best_exact = cand_exact
 
     stat_n = len(stat_keys)
     fixed_n = len(fixed_ids)
@@ -203,8 +226,8 @@ def calibrate_rank60(
         "SKILLUP_COEF": tuned_skill,
         "summary": {
             "objective": float(best_obj),
-            "pairwise_loss": float(best_pair),
-            "concordance": float(best_conc),
+            "rank_loss": float(best_rank),
+            "exact_match_rate": float(best_exact),
             "iterations": int(iterations),
         },
     }

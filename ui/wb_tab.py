@@ -374,8 +374,8 @@ def render_wb_tab(state, monster_names):
                 st.write(
                     {
                         "objective": summary["objective"],
-                        "pairwise_loss": summary["pairwise_loss"],
-                        "concordance": summary["concordance"],
+                        "rank_loss": summary["rank_loss"],
+                        "exact_match_rate": summary["exact_match_rate"],
                         "iterations": summary["iterations"],
                     }
                 )
