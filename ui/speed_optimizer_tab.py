@@ -61,7 +61,7 @@ def _render_section_1() -> None:
     with row[2]:
         st.text_input("Input 3", key="speedopt_sec1_in3")
     with row[3]:
-        if st.button("Run", key="speedopt_sec1_run"):
+        if _run_button_col(key="speedopt_sec1_run", spacer_px=28):
             input_1 = st.session_state.speedopt_sec1_in1
             input_2 = st.session_state.speedopt_sec1_in2
             input_3 = st.session_state.speedopt_sec1_in3
@@ -97,7 +97,7 @@ def _render_section_2() -> None:
     with row[4]:
         st.number_input("Input 5", key="speedopt_sec2_in5", step=1)
     with row[5]:
-        if st.button("Run", key="speedopt_sec2_run"):
+        if _run_button_col(key="speedopt_sec2_run", spacer_px=34):
             payload = {
                 "input_1": st.session_state.speedopt_sec2_in1,
                 "input_2": st.session_state.speedopt_sec2_in2,
@@ -134,7 +134,7 @@ def _render_section_3() -> None:
     with row[3]:
         st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
     with row[4]:
-        if st.button("Run", key="speedopt_sec3_run"):
+        if _run_button_col(key="speedopt_sec3_run", spacer_px=34):
             payload = {
                 "preset": st.session_state.speedopt_sec3_preset,
                 "input_2": st.session_state.speedopt_sec3_in2,
@@ -173,3 +173,11 @@ def _render_details(prefix: str) -> None:
         if st.session_state.get(ran_key):
             st.markdown("TODO: details")
             st.json(st.session_state.get(payload_key) or {})
+
+
+def _run_button_col(label: str = "Run", key: str | None = None, spacer_px: int = 28) -> bool:
+    st.markdown(
+        f"<div style='height: {spacer_px}px'></div>",
+        unsafe_allow_html=True,
+    )
+    return st.button(label, key=key)
