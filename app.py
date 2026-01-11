@@ -12,6 +12,7 @@ from ui.best_defense import render_best_defense_tab
 from ui.worst_offense import render_worst_offense_tab
 from ui.personal_data import render_personal_data_tab
 from ui.atb_simulator_tab import render_atb_simulator_tab
+from ui.speed_optimizer_tab import render_speed_optimizer_tab
 
 from data.artifact_analysis import collect_all_artifacts, artifact_attribute_matrix, artifact_archetype_matrix
 from ui.artifact_render import render_matrix
@@ -58,13 +59,14 @@ st.sidebar.text_input(
 # Tabs
 # ------------------------------------------------------------
 
-tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst, tab_personal, tab_atb = st.tabs([
+tab_wb, tab_artifact, tab_siege, tab_siege_def, tab_worst, tab_personal, tab_speed, tab_atb = st.tabs([
     "World Boss",
     "Artifact Analysis",
     "Search Offense Deck",
     "Best Defense",
     "Worst Offense",
     "Personal Data",
+    "Speed Optimizer",
     "ATB Simulator",
 ])
 
@@ -187,6 +189,14 @@ with tab_worst:
 
 with tab_personal:
     render_personal_data_tab()
+
+
+# ------------------------------------------------------------
+# Speed Optimizer Tab
+# ------------------------------------------------------------
+
+with tab_speed:
+    render_speed_optimizer_tab(st.session_state, load_monster_names())
 
 
 # ------------------------------------------------------------
