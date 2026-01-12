@@ -7,9 +7,9 @@ import streamlit as st
 DROPDOWN_OPTIONS = [19, 21, 24, 28, 33]
 PRESET_VALUES = {
     "Manual": None,
-    "Preset A": {"v2": 19, "v3": 5, "v4": 10},
-    "Preset B": {"v2": 24, "v3": 8, "v4": 12},
-    "Preset C": {"v2": 33, "v3": 15, "v4": 20},
+    "Preset A": {"v2": 19, "v3": 100, "v4": 190},
+    "Preset B": {"v2": 24, "v3": 102, "v4": 190},
+    "Preset C": {"v2": 33, "v3": 106, "v4": 190},
 }
 
 
