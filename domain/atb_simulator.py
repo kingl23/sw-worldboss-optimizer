@@ -55,6 +55,9 @@ def simulate(preset: Dict[str, Any], overrides: Optional[Dict[str, Dict[str, Any
 def simulate_with_turn_log(
     preset: Dict[str, Any],
     overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+    debug_snapshots: Optional[List[Dict[str, Any]]] = None,
+    debug_ticks: int = 0,
+    debug_keys: Optional[set[str]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     allies = preset.get("allies", [])
     enemies = preset.get("enemies", [])
@@ -87,6 +90,13 @@ def simulate_with_turn_log(
         "tick": 0,
         "monsters": copy.deepcopy(monsters),
     })
+    _collect_debug_tick(
+        debug_snapshots,
+        tick_index=0,
+        monsters=simulator["ticks"][0]["monsters"],
+        debug_ticks=debug_ticks,
+        debug_keys=debug_keys,
+    )
 
     turn_events: List[Dict[str, Any]] = []
     for i in range(1, tick_count + 1):
@@ -100,11 +110,45 @@ def simulate_with_turn_log(
             "tick": i,
             "monsters": copy.deepcopy(tick_monsters),
         })
+        _collect_debug_tick(
+            debug_snapshots,
+            tick_index=i,
+            monsters=simulator["ticks"][i]["monsters"],
+            debug_ticks=debug_ticks,
+            debug_keys=debug_keys,
+        )
 
     if simulator["ticks"]:
         simulator["ticks"].pop()
 
     return simulator["ticks"], turn_events
+
+
+def _collect_debug_tick(
+    debug_snapshots: Optional[List[Dict[str, Any]]],
+    tick_index: int,
+    monsters: List[Dict[str, Any]],
+    debug_ticks: int,
+    debug_keys: Optional[set[str]],
+) -> None:
+    if debug_snapshots is None or debug_ticks <= 0:
+        return
+    if tick_index > debug_ticks:
+        return
+    for monster in monsters:
+        key = monster.get("key")
+        if debug_keys and key not in debug_keys:
+            continue
+        debug_snapshots.append({
+            "tick": tick_index,
+            "key": key,
+            "isAlly": monster.get("isAlly"),
+            "attack_bar": monster.get("attack_bar"),
+            "combat_speed": monster.get("combat_speed"),
+            "has_speed_buff": monster.get("has_speed_buff"),
+            "has_slow": monster.get("has_slow"),
+            "turn": monster.get("turn"),
+        })
 
 
 def apply_overrides(base_monsters: List[Dict[str, Any]], overrides: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:

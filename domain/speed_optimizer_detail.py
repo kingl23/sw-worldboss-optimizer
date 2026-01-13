@@ -135,11 +135,33 @@ def _build_preset_detail(
 
     if debug_payload is not None:
         debug_payload["required_order"] = required_order
+        debug_payload["unit_order"] = {
+            "a2": detail_keys["a2"],
+            "a1": detail_keys["a1"],
+            "a3": detail_keys["a3"],
+            "e": detail_keys["e_fast"],
+        }
         debug_payload["selected_units"] = _build_debug_unit_summary(
             detail_preset,
             required_order,
             prefixed_overrides,
         )
+        debug_payload["tick_limit"] = 30
+        debug_snapshots: List[Dict[str, Any]] = []
+        baseline_overrides = dict(prefixed_overrides)
+        baseline_overrides[detail_keys["a3"]] = {
+            "rune_speed": MIN_RUNE_SPEED,
+            "speedIncreasingEffect": 0,
+        }
+        _, baseline_turn_events = simulate_with_turn_log(
+            detail_preset,
+            baseline_overrides,
+            debug_snapshots=debug_snapshots,
+            debug_ticks=debug_payload["tick_limit"],
+            debug_keys=set(debug_payload["unit_order"].values()),
+        )
+        debug_payload["tick_snapshots"] = debug_snapshots
+        debug_payload["baseline_turn_events"] = baseline_turn_events
 
     a3_start = time.perf_counter()
     a3_table, a3_error = _build_unit_detail_table(

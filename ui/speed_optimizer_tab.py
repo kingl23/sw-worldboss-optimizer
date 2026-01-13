@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 import time
 
 import streamlit as st
+import pandas as pd
 
 from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS
 from domain.speed_optimizer_detail import (
@@ -341,12 +342,13 @@ def _build_error_result(preset_id: str, message: str):
 def _render_debug_output(debug_payload: Dict[str, Any]) -> None:
     st.markdown("**Debug Output**")
     st.json(debug_payload.get("input_summary", {}))
-    st.json(debug_payload.get("selected_units", {}))
+    _render_debug_unit_summary(debug_payload)
     st.caption(
         "Search bounds — "
         f"min rune speed: {debug_payload.get('min_rune_speed')}, "
         f"max rune speed: {debug_payload.get('max_rune_speed')}"
     )
+    _render_tick_timeline(debug_payload)
     attempts = debug_payload.get("attempts", [])
     if attempts:
         st.caption("Simulation attempts (limited for performance).")
@@ -370,3 +372,67 @@ def _render_debug_output(debug_payload: Dict[str, Any]) -> None:
                 st.json(effect_log)
     if debug_payload.get("truncated"):
         st.info("Debug output truncated after the first 25 attempts.")
+
+
+def _render_debug_unit_summary(debug_payload: Dict[str, Any]) -> None:
+    unit_order = debug_payload.get("unit_order", {})
+    units = (debug_payload.get("selected_units") or {}).get("units", {})
+    rows = []
+    for label in ["a2", "a1", "a3", "e"]:
+        key = unit_order.get(label)
+        if not key or key not in units:
+            continue
+        row = {"unit": label, "key": key}
+        row.update(units[key])
+        rows.append(row)
+    if rows:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
+def _render_tick_timeline(debug_payload: Dict[str, Any]) -> None:
+    unit_order = debug_payload.get("unit_order", {})
+    snapshots = debug_payload.get("tick_snapshots", [])
+    if not snapshots or not unit_order:
+        return
+    tick_limit = debug_payload.get("tick_limit", 30)
+    turn_events = debug_payload.get("baseline_turn_events", [])
+    turn_map = {}
+    for event in turn_events:
+        key = event.get("key")
+        tick = event.get("tick")
+        turn_number = event.get("turn_number")
+        if key is not None and tick is not None and turn_number is not None:
+            turn_map[(key, tick)] = turn_number
+
+    snapshot_map = {}
+    for snap in snapshots:
+        key = snap.get("key")
+        tick = snap.get("tick")
+        if key is None or tick is None:
+            continue
+        snapshot_map[(key, tick)] = snap
+
+    columns = ["Unit"] + [f"Tick {tick}" for tick in range(0, tick_limit + 1)]
+    rows = []
+    for label in ["a2", "a1", "a3", "e"]:
+        key = unit_order.get(label)
+        row = {"Unit": label}
+        for tick in range(0, tick_limit + 1):
+            snap = snapshot_map.get((key, tick))
+            value = ""
+            if snap:
+                atb = snap.get("attack_bar")
+                value = f"{atb:.1f}" if isinstance(atb, (int, float)) else str(atb)
+                if snap.get("has_speed_buff"):
+                    value += " +SPD"
+                if snap.get("has_slow"):
+                    value += " SLOW"
+                turn_number = turn_map.get((key, tick))
+                if turn_number:
+                    value += f" (TURN #{turn_number})"
+            row[f"Tick {tick}"] = value
+        rows.append(row)
+
+    st.markdown("**Debug: Tick Timeline**")
+    st.dataframe(pd.DataFrame(rows, columns=columns), use_container_width=True, hide_index=True)
+    st.caption("TURN #k indicates the tick where the unit acted.")
