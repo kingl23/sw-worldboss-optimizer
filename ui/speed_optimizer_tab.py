@@ -39,6 +39,7 @@ def _initialize_speedopt_state() -> None:
         "speedopt_sec1_results": None,
         "speedopt_sec1_cache": {},
         "speedopt_sec1_debug_only_first": False,
+        "speedopt_sec1_debug_mode": False,
         "speedopt_sec1_max_runtime_s": 10.0,
         "speedopt_sec2_ran": False,
         "speedopt_sec2_payload": None,
@@ -103,6 +104,11 @@ def _render_section_1() -> None:
         "Debug: only first preset",
         key="speedopt_sec1_debug_only_first",
         help="Limit calculations to the first preset to speed up debugging.",
+    )
+    st.checkbox(
+        "Debug Mode (show ATB turn details)",
+        key="speedopt_sec1_debug_mode",
+        help="Show detailed ATB turn logs (limited attempts for performance).",
     )
     st.number_input(
         "Max runtime per preset (seconds)",
@@ -239,6 +245,9 @@ def _render_section_1_details() -> None:
                 )
             if result.error:
                 st.warning(result.error)
+            if result.debug:
+                _render_debug_output(result.debug)
+            if result.error:
                 continue
             _render_unit_detail_table(
                 "A3 Detail",
@@ -277,13 +286,14 @@ def _compute_section1_details(
     input_2: Optional[int],
     input_3: Optional[int],
 ) -> list[Any]:
-    cache_key = (input_1, input_2, input_3)
+    debug_mode = bool(st.session_state.get("speedopt_sec1_debug_mode"))
+    cache_key = (input_1, input_2, input_3, debug_mode)
     cached = st.session_state.speedopt_sec1_cache.get(cache_key)
     if cached is not None:
         return cached
 
     preset_ids = list(ATB_SIMULATOR_PRESETS.keys())
-    if st.session_state.get("speedopt_sec1_debug_only_first") and preset_ids:
+    if (st.session_state.get("speedopt_sec1_debug_only_first") or debug_mode) and preset_ids:
         preset_ids = preset_ids[:1]
 
     max_runtime_s = float(st.session_state.get("speedopt_sec1_max_runtime_s") or 10.0)
@@ -304,6 +314,7 @@ def _compute_section1_details(
                     input_2,
                     input_3,
                     max_runtime_s,
+                    debug_mode,
                 )
             except ValueError as exc:
                 result = _build_error_result(preset_id, str(exc))
@@ -325,3 +336,25 @@ def _build_error_result(preset_id: str, message: str):
         error=message,
         timing=None,
     )
+
+
+def _render_debug_output(debug_payload: Dict[str, Any]) -> None:
+    st.markdown("**Debug Output**")
+    st.json(debug_payload.get("input_summary", {}))
+    st.json(debug_payload.get("selected_units", {}))
+    attempts = debug_payload.get("attempts", [])
+    if attempts:
+        st.caption("Simulation attempts (limited for performance).")
+        for attempt in attempts:
+            title = (
+                f"Effect {attempt.get('effect')} | Rune Speed {attempt.get('rune_speed')} | "
+                f"{'MATCH' if attempt.get('matched') else 'FAIL'}"
+            )
+            with st.expander(title):
+                st.markdown(
+                    f"Required: {attempt.get('required_order')}  \n"
+                    f"Actual: {attempt.get('actual_order')}"
+                )
+                st.json(attempt.get("turn_events", []))
+    if debug_payload.get("truncated"):
+        st.info("Debug output truncated after the first 25 attempts.")

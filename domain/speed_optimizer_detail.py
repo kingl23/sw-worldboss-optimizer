@@ -27,6 +27,7 @@ class PresetDetailResult:
     a3_table: Optional[DetailTable]
     error: Optional[str] = None
     timing: Optional[Dict[str, float]] = None
+    debug: Optional[Dict[str, Any]] = None
 
 
 @lru_cache(maxsize=128)
@@ -36,6 +37,7 @@ def build_section1_detail_cached(
     input_2: Optional[int],
     input_3: Optional[int],
     max_runtime_s: Optional[float],
+    debug: bool,
 ) -> PresetDetailResult:
     preset = build_full_preset(preset_id)
     return _build_preset_detail(
@@ -45,6 +47,7 @@ def build_section1_detail_cached(
         input_2,
         input_3,
         max_runtime_s=max_runtime_s,
+        debug=debug,
     )
 
 
@@ -55,6 +58,7 @@ def _build_preset_detail(
     input_2: Optional[int],
     input_3: Optional[int],
     max_runtime_s: Optional[float],
+    debug: bool,
 ) -> PresetDetailResult:
     allies = preset.get("allies", [])
     enemies = preset.get("enemies", [])
@@ -75,6 +79,20 @@ def _build_preset_detail(
     prefixed_enemies, enemy_key_map = prefix_monsters(enemies, prefix="E")
 
     prefixed_overrides = _prefix_overrides(base_overrides, ally_key_map, enemy_key_map)
+    debug_payload: Optional[Dict[str, Any]] = None
+    if debug:
+        debug_payload = {
+            "input_summary": {
+                "preset_id": preset_id,
+                "input_1": input_1,
+                "input_2": input_2,
+                "input_3": input_3 if input_3 is not None else base_overrides.get(enemies[1].get("key"), {}).get("rune_speed"),
+            },
+            "attempts": [],
+            # Debug mode stores only a limited number of attempts to avoid heavy memory use.
+            "attempt_limit": 25,
+            "truncated": False,
+        }
     e_fast_start = time.perf_counter()
     e_fast_key = _select_fastest_enemy(
         preset,
@@ -90,6 +108,7 @@ def _build_preset_detail(
             a3_table=None,
             error="No enemy took a turn in the simulation.",
             timing={"e_fast_s": e_fast_time},
+            debug=debug_payload,
         )
 
     detail_preset, detail_keys = _build_detail_preset(
@@ -106,6 +125,15 @@ def _build_preset_detail(
             a3_table=None,
             error="Invalid required turn order mapping for this preset.",
             timing={"e_fast_s": e_fast_time},
+            debug=debug_payload,
+        )
+
+    if debug_payload is not None:
+        debug_payload["required_order"] = required_order
+        debug_payload["selected_units"] = _build_debug_unit_summary(
+            detail_preset,
+            required_order,
+            prefixed_overrides,
         )
 
     a3_start = time.perf_counter()
@@ -115,6 +143,7 @@ def _build_preset_detail(
         prefixed_overrides,
         target_key=detail_keys["a3"],
         deadline=deadline,
+        debug=debug_payload,
     )
     a3_time = time.perf_counter() - a3_start
 
@@ -130,6 +159,7 @@ def _build_preset_detail(
             "e_fast_s": e_fast_time,
             "a3_s": a3_time,
         },
+        debug=debug_payload,
     )
 
 
@@ -243,6 +273,7 @@ def _build_unit_detail_table(
     base_overrides: Dict[str, Dict[str, int]],
     target_key: Optional[str],
     deadline: Optional[float],
+    debug: Optional[Dict[str, Any]],
 ) -> Tuple[Optional[DetailTable], Optional[str]]:
     if not target_key:
         return None, "Target unit key was missing."
@@ -260,6 +291,7 @@ def _build_unit_detail_table(
             effect,
             start_speed,
             deadline,
+            debug,
         )
         effect_to_speed[effect] = minimum
         if minimum is not None:
@@ -279,6 +311,7 @@ def _find_minimum_rune_speed(
     effect: int,
     start_speed: int,
     deadline: Optional[float],
+    debug: Optional[Dict[str, Any]],
 ) -> Optional[int]:
     for rune_speed in range(start_speed, MAX_RUNE_SPEED + 1):
         if deadline and time.perf_counter() > deadline:
@@ -288,7 +321,22 @@ def _find_minimum_rune_speed(
             "rune_speed": rune_speed,
             "speedIncreasingEffect": effect,
         }
-        if _matches_required_order(detail_preset, overrides, required_order):
+        matched, actual_order, turn_events = _matches_required_order(
+            detail_preset,
+            overrides,
+            required_order,
+            debug=debug,
+        )
+        _record_debug_attempt(
+            debug,
+            effect,
+            rune_speed,
+            required_order,
+            matched,
+            actual_order,
+            turn_events,
+        )
+        if matched:
             return rune_speed
     return None
 
@@ -297,12 +345,14 @@ def _matches_required_order(
     detail_preset: Dict[str, Any],
     overrides: Dict[str, Dict[str, int]],
     required_order: List[str],
-) -> bool:
+    debug: Optional[Dict[str, Any]] = None,
+) -> Tuple[bool, List[str], List[Dict[str, Any]]]:
     _, turn_events = simulate_with_turn_log(detail_preset, overrides)
     if len(turn_events) < len(required_order):
-        return False
+        actual_order = [event.get("key") for event in turn_events]
+        return False, actual_order, _trim_turn_events(turn_events, debug)
     actual_order = [event.get("key") for event in turn_events[: len(required_order)]]
-    return actual_order == required_order
+    return actual_order == required_order, actual_order, _trim_turn_events(turn_events, debug)
 
 
 def _summarize_effect_ranges(effect_to_speed: Dict[int, Optional[int]]) -> List[Dict[str, str]]:
@@ -328,3 +378,76 @@ def _format_range(start: int, end: int, speed: Optional[int]) -> Dict[str, str]:
     label = f"{start}~{end}" if start != end else str(start)
     speed_label = "No solution" if speed is None else str(speed)
     return {"Effect Range": label, "Rune Speed": speed_label}
+
+
+def _trim_turn_events(
+    turn_events: List[Dict[str, Any]],
+    debug: Optional[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if not debug:
+        return []
+    return [
+        {
+            "tick": event.get("tick"),
+            "key": event.get("key"),
+            "isAlly": event.get("isAlly"),
+            "attack_bar_before_reset": event.get("attack_bar_before_reset"),
+        }
+        for event in turn_events[:10]
+    ]
+
+
+def _record_debug_attempt(
+    debug: Optional[Dict[str, Any]],
+    effect: int,
+    rune_speed: int,
+    required_order: List[str],
+    matched: bool,
+    actual_order: List[str],
+    turn_events: List[Dict[str, Any]],
+) -> None:
+    if debug is None:
+        return
+    if debug.get("truncated"):
+        return
+    attempts = debug.get("attempts", [])
+    limit = debug.get("attempt_limit", 25)
+    if len(attempts) >= limit:
+        debug["truncated"] = True
+        return
+    attempts.append({
+        "effect": effect,
+        "rune_speed": rune_speed,
+        "matched": matched,
+        "required_order": required_order,
+        "actual_order": actual_order,
+        "turn_events": turn_events,
+    })
+
+
+def _build_debug_unit_summary(
+    detail_preset: Dict[str, Any],
+    required_order: List[str],
+    overrides: Dict[str, Dict[str, int]],
+) -> Dict[str, Any]:
+    base_units = detail_preset.get("allies", []) + detail_preset.get("enemies", [])
+    summary = {}
+    for unit in base_units:
+        key = unit.get("key")
+        if not key:
+            continue
+        override = overrides.get(key, {})
+        summary[key] = {
+            "base_speed": unit.get("base_speed"),
+            "rune_speed": override.get("rune_speed", unit.get("rune_speed")),
+            "speedIncreasingEffect": override.get(
+                "speedIncreasingEffect",
+                unit.get("speedIncreasingEffect"),
+            ),
+            "isSwift": unit.get("isSwift"),
+            "isAlly": unit.get("isAlly"),
+        }
+    return {
+        "required_order": required_order,
+        "units": summary,
+    }
