@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import streamlit as st
+
+from domain.speed_optimizer_detail import build_section1_details
 
 DROPDOWN_OPTIONS = [19, 21, 24, 28, 33]
 PRESET_VALUES = {
@@ -29,6 +31,7 @@ def _initialize_speedopt_state() -> None:
     defaults = {
         "speedopt_sec1_ran": False,
         "speedopt_sec1_payload": None,
+        "speedopt_sec1_results": None,
         "speedopt_sec2_ran": False,
         "speedopt_sec2_payload": None,
         "speedopt_sec3_ran": False,
@@ -65,6 +68,15 @@ def _render_section_1() -> None:
             input_1 = st.session_state.speedopt_sec1_in1
             input_2 = st.session_state.speedopt_sec1_in2
             input_3 = st.session_state.speedopt_sec1_in3
+            parsed_input_1 = _parse_optional_int(input_1, label="Input 1")
+            parsed_input_2 = _parse_optional_int(input_2, label="Input 2")
+            parsed_input_3 = _parse_optional_int(input_3, label="Input 3")
+            if parsed_input_1 is None and input_1.strip():
+                st.stop()
+            if parsed_input_2 is None and input_2.strip():
+                st.stop()
+            if parsed_input_3 is None and input_3.strip():
+                st.stop()
             effective_input_3 = input_3 or input_1
             payload = {
                 "input_1": input_1,
@@ -72,9 +84,14 @@ def _render_section_1() -> None:
                 "input_3": effective_input_3,
             }
             st.session_state.speedopt_sec1_payload = payload
+            st.session_state.speedopt_sec1_results = build_section1_details(
+                parsed_input_1,
+                parsed_input_2,
+                parsed_input_3,
+            )
             st.session_state.speedopt_sec1_ran = True
 
-    _render_details("speedopt_sec1")
+    _render_section_1_details()
 
 
 def _render_section_2() -> None:
@@ -181,3 +198,41 @@ def _run_button_col(label: str = "Run", key: str | None = None, spacer_px: int =
         unsafe_allow_html=True,
     )
     return st.button(label, key=key)
+
+
+def _render_section_1_details() -> None:
+    with st.expander("Details", expanded=bool(st.session_state.get("speedopt_sec1_ran"))):
+        if not st.session_state.get("speedopt_sec1_ran"):
+            return
+        results = st.session_state.get("speedopt_sec1_results") or []
+        if not results:
+            st.info("No results yet.")
+            return
+        for result in results:
+            st.markdown(f"#### {result.preset_id}")
+            if result.error:
+                st.warning(result.error)
+                continue
+            _render_unit_detail_table("A1 Detail", result.a1_table)
+            _render_unit_detail_table("A3 Detail", result.a3_table)
+
+
+def _render_unit_detail_table(title: str, detail_table: Optional[Any]) -> None:
+    st.markdown(f"**{title}**")
+    if not detail_table or not detail_table.ranges:
+        st.caption("No feasible solution.")
+        return
+    st.table(detail_table.ranges)
+
+
+def _parse_optional_int(value: str, label: str) -> Optional[int]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    try:
+        return int(stripped)
+    except ValueError:
+        st.warning(f"{label} must be an integer.")
+        return None

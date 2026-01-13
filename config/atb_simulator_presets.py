@@ -54,37 +54,147 @@ ATB_MONSTER_LIBRARY = {
     },
 }
 
-### EDIT HERE: ATB SIMULATOR ALLY PRESET TRIOS ###
+### EDIT HERE: ATB SIMULATOR PRESET DEFINITIONS ###
 
-ATB_SIMULATOR_ALLY_PRESETS = {
-    "Ally Preset A": {
-        "monsters": ["swift_support", "damage_dealer", "enemy_target"],
-        "effects": {
-            "tower": 0,
-            "lead": 0,
-            "element": None,
+_DEFAULT_EFFECTS = {
+    "tower": 0,
+    "lead": 0,
+    "element": None,
+}
+
+ATB_SIMULATOR_PRESETS = {
+    "Preset A": {
+        "allies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "enemies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "tickCount": 100,
+    },
+    "Preset B": {
+        "allies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "enemies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "tickCount": 100,
+    },
+    "Preset C": {
+        "allies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "enemies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "tickCount": 100,
+    },
+    "Preset D": {
+        "allies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "enemies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "tickCount": 100,
+    },
+    "Preset E": {
+        "allies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "enemies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "tickCount": 100,
+    },
+    "Preset F": {
+        "allies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "enemies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "tickCount": 100,
+    },
+    "Preset G": {
+        "allies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
+        },
+        "enemies": {
+            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
 }
 
-### EDIT HERE: ATB SIMULATOR ENEMY PRESET TRIOS ###
+### ATB SIMULATOR ALLY/ENEMY PRESET LISTS (DERIVED) ###
+
+ATB_SIMULATOR_ALLY_PRESETS = {
+    f"Ally {preset_id}": {
+        "monsters": preset.get("allies", {}).get("monsters", []),
+        "effects": preset.get("allies", {}).get("effects", {}),
+        "tickCount": preset.get("tickCount", 0),
+    }
+    for preset_id, preset in ATB_SIMULATOR_PRESETS.items()
+}
 
 ATB_SIMULATOR_ENEMY_PRESETS = {
-    "Enemy Preset A": {
-        "monsters": ["swift_support", "damage_dealer", "enemy_target"],
-        "effects": {
-            "tower": 0,
-            "lead": 0,
-            "element": None,
-        },
-        "tickCount": 100,
-    },
+    f"Enemy {preset_id}": {
+        "monsters": preset.get("enemies", {}).get("monsters", []),
+        "effects": preset.get("enemies", {}).get("effects", {}),
+        "tickCount": preset.get("tickCount", 0),
+    }
+    for preset_id, preset in ATB_SIMULATOR_PRESETS.items()
 }
 
 
 def build_monsters_for_keys(monster_keys: list[str], is_ally: bool) -> list[Dict[str, Any]]:
     return [_build_monster_from_library(key, is_ally=is_ally) for key in monster_keys]
+
+
+def build_full_preset(preset_id: str) -> Dict[str, Any]:
+    if preset_id not in ATB_SIMULATOR_PRESETS:
+        raise ValueError(
+            f"Preset '{preset_id}' not found. Please edit config/atb_simulator_presets.py."
+        )
+
+    preset_meta = ATB_SIMULATOR_PRESETS[preset_id]
+    ally_meta = preset_meta.get("allies", {})
+    enemy_meta = preset_meta.get("enemies", {})
+
+    ally_keys = ally_meta.get("monsters", [])
+    enemy_keys = enemy_meta.get("monsters", [])
+    if len(ally_keys) != 3:
+        raise ValueError(
+            f"Preset '{preset_id}' must define exactly 3 ally monster keys."
+        )
+    if len(enemy_keys) < 1:
+        raise ValueError(
+            f"Preset '{preset_id}' must define at least 1 enemy monster key."
+        )
+
+    return {
+        "allies": build_monsters_for_keys(ally_keys, is_ally=True),
+        "enemies": build_monsters_for_keys(enemy_keys, is_ally=False),
+        "allyEffects": ally_meta.get("effects", {}),
+        "enemyEffects": enemy_meta.get("effects", {}),
+        "tickCount": preset_meta.get("tickCount", 0),
+    }
 
 
 def build_ally_preset(preset_id: str) -> Dict[str, Any]:
