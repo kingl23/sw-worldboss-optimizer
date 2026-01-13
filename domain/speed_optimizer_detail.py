@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS, build_full_preset
@@ -24,6 +26,7 @@ class PresetDetailResult:
     a1_table: Optional[DetailTable]
     a3_table: Optional[DetailTable]
     error: Optional[str] = None
+    timing: Optional[Dict[str, float]] = None
 
 
 def build_section1_details(
@@ -35,7 +38,14 @@ def build_section1_details(
     for preset_id in ATB_SIMULATOR_PRESETS.keys():
         try:
             preset = build_full_preset(preset_id)
-            result = _build_preset_detail(preset_id, preset, input_1, input_2, input_3)
+            result = _build_preset_detail(
+                preset_id,
+                preset,
+                input_1,
+                input_2,
+                input_3,
+                max_runtime_s=None,
+            )
         except ValueError as exc:
             result = PresetDetailResult(
                 preset_id=preset_id,
@@ -47,12 +57,32 @@ def build_section1_details(
     return results
 
 
+@lru_cache(maxsize=128)
+def build_section1_detail_cached(
+    preset_id: str,
+    input_1: Optional[int],
+    input_2: Optional[int],
+    input_3: Optional[int],
+    max_runtime_s: Optional[float],
+) -> PresetDetailResult:
+    preset = build_full_preset(preset_id)
+    return _build_preset_detail(
+        preset_id,
+        preset,
+        input_1,
+        input_2,
+        input_3,
+        max_runtime_s=max_runtime_s,
+    )
+
+
 def _build_preset_detail(
     preset_id: str,
     preset: Dict[str, Any],
     input_1: Optional[int],
     input_2: Optional[int],
     input_3: Optional[int],
+    max_runtime_s: Optional[float],
 ) -> PresetDetailResult:
     allies = preset.get("allies", [])
     enemies = preset.get("enemies", [])
@@ -64,23 +94,30 @@ def _build_preset_detail(
             error="Preset must contain at least 3 allies and 2 enemies.",
         )
 
+    _ = input_2
+    start_time = time.perf_counter()
+    deadline = start_time + max_runtime_s if max_runtime_s else None
+
     base_overrides = _build_section1_overrides(allies, enemies, input_1, input_3)
     prefixed_allies, ally_key_map = prefix_monsters(allies, prefix="A")
     prefixed_enemies, enemy_key_map = prefix_monsters(enemies, prefix="E")
 
     prefixed_overrides = _prefix_overrides(base_overrides, ally_key_map, enemy_key_map)
+    e_fast_start = time.perf_counter()
     e_fast_key = _select_fastest_enemy(
         preset,
         prefixed_allies,
         prefixed_enemies,
         prefixed_overrides,
     )
+    e_fast_time = time.perf_counter() - e_fast_start
     if not e_fast_key:
         return PresetDetailResult(
             preset_id=preset_id,
             a1_table=None,
             a3_table=None,
             error="No enemy took a turn in the simulation.",
+            timing={"e_fast_s": e_fast_time},
         )
 
     detail_preset, detail_keys = _build_detail_preset(
@@ -90,23 +127,48 @@ def _build_preset_detail(
         e_fast_key,
     )
     required_order = _resolve_required_order(preset_id, detail_keys)
-    a1_table = _build_unit_detail_table(
+    if required_order is None:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a3_table=None,
+            error="Invalid required turn order mapping for this preset.",
+            timing={"e_fast_s": e_fast_time},
+        )
+
+    a1_start = time.perf_counter()
+    a1_table, a1_error = _build_unit_detail_table(
         detail_preset,
         required_order,
         prefixed_overrides,
         target_key=detail_keys["a1"],
+        deadline=deadline,
     )
-    a3_table = _build_unit_detail_table(
+    a1_time = time.perf_counter() - a1_start
+
+    a3_start = time.perf_counter()
+    a3_table, a3_error = _build_unit_detail_table(
         detail_preset,
         required_order,
         prefixed_overrides,
         target_key=detail_keys["a3"],
+        deadline=deadline,
     )
+    a3_time = time.perf_counter() - a3_start
+
+    error_messages = [msg for msg in [a1_error, a3_error] if msg]
+    combined_error = "\n".join(error_messages) if error_messages else None
 
     return PresetDetailResult(
         preset_id=preset_id,
         a1_table=a1_table,
         a3_table=a3_table,
+        error=combined_error,
+        timing={
+            "e_fast_s": e_fast_time,
+            "a1_s": a1_time,
+            "a3_s": a3_time,
+        },
     )
 
 
@@ -133,11 +195,15 @@ def _build_section1_overrides(
 def _resolve_required_order(
     preset_id: str,
     detail_keys: Dict[str, str],
-) -> List[str]:
+) -> Optional[List[str]]:
     order_tokens = SECTION1_TURN_ORDER_OVERRIDES.get(preset_id, SECTION1_TURN_ORDER_DEFAULT)
     resolved = []
     for token in order_tokens:
-        resolved.append(detail_keys.get(token))
+        key = detail_keys.get(token)
+        if not key:
+            # Previously this could return None keys and cause comparisons to never match.
+            return None
+        resolved.append(key)
     return resolved
 
 
@@ -210,13 +276,16 @@ def _build_unit_detail_table(
     required_order: List[str],
     base_overrides: Dict[str, Dict[str, int]],
     target_key: Optional[str],
-) -> Optional[DetailTable]:
+    deadline: Optional[float],
+) -> Tuple[Optional[DetailTable], Optional[str]]:
     if not target_key:
-        return None
+        return None, "Target unit key was missing."
 
     effect_to_speed: Dict[int, Optional[int]] = {}
     start_speed = 0
     for effect in range(0, MAX_EFFECT + 1):
+        if deadline and time.perf_counter() > deadline:
+            return None, "Computation timed out while searching rune speeds."
         minimum = _find_minimum_rune_speed(
             detail_preset,
             required_order,
@@ -224,15 +293,16 @@ def _build_unit_detail_table(
             target_key,
             effect,
             start_speed,
+            deadline,
         )
         effect_to_speed[effect] = minimum
         if minimum is not None:
             start_speed = minimum
 
     if all(value is None for value in effect_to_speed.values()):
-        return None
+        return None, None
 
-    return DetailTable(ranges=_summarize_effect_ranges(effect_to_speed))
+    return DetailTable(ranges=_summarize_effect_ranges(effect_to_speed)), None
 
 
 def _find_minimum_rune_speed(
@@ -242,8 +312,11 @@ def _find_minimum_rune_speed(
     target_key: str,
     effect: int,
     start_speed: int,
+    deadline: Optional[float],
 ) -> Optional[int]:
     for rune_speed in range(start_speed, MAX_RUNE_SPEED + 1):
+        if deadline and time.perf_counter() > deadline:
+            return None
         overrides = dict(base_overrides)
         overrides[target_key] = {
             "rune_speed": rune_speed,

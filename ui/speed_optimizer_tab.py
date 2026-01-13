@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+import time
 
 import streamlit as st
 
-from domain.speed_optimizer_detail import build_section1_details
+from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS
+from domain.speed_optimizer_detail import (
+    PresetDetailResult,
+    build_section1_detail_cached,
+)
 
 DROPDOWN_OPTIONS = [19, 21, 24, 28, 33]
 PRESET_VALUES = {
@@ -32,6 +37,8 @@ def _initialize_speedopt_state() -> None:
         "speedopt_sec1_ran": False,
         "speedopt_sec1_payload": None,
         "speedopt_sec1_results": None,
+        "speedopt_sec1_debug_only_first": False,
+        "speedopt_sec1_max_runtime_s": 10.0,
         "speedopt_sec2_ran": False,
         "speedopt_sec2_payload": None,
         "speedopt_sec3_ran": False,
@@ -84,12 +91,25 @@ def _render_section_1() -> None:
                 "input_3": effective_input_3,
             }
             st.session_state.speedopt_sec1_payload = payload
-            st.session_state.speedopt_sec1_results = build_section1_details(
+            st.session_state.speedopt_sec1_results = _compute_section1_details(
                 parsed_input_1,
                 parsed_input_2,
                 parsed_input_3,
             )
             st.session_state.speedopt_sec1_ran = True
+
+    st.checkbox(
+        "Debug: only first preset",
+        key="speedopt_sec1_debug_only_first",
+        help="Limit calculations to the first preset to speed up debugging.",
+    )
+    st.number_input(
+        "Max runtime per preset (seconds)",
+        min_value=1.0,
+        max_value=60.0,
+        step=1.0,
+        key="speedopt_sec1_max_runtime_s",
+    )
 
     _render_section_1_details()
 
@@ -210,6 +230,13 @@ def _render_section_1_details() -> None:
             return
         for result in results:
             st.markdown(f"#### {result.preset_id}")
+            if result.timing:
+                st.caption(
+                    "Timing (s) — "
+                    f"e_fast: {result.timing.get('e_fast_s', 0):.2f}, "
+                    f"a1: {result.timing.get('a1_s', 0):.2f}, "
+                    f"a3: {result.timing.get('a3_s', 0):.2f}"
+                )
             if result.error:
                 st.warning(result.error)
                 continue
@@ -236,3 +263,52 @@ def _parse_optional_int(value: str, label: str) -> Optional[int]:
     except ValueError:
         st.warning(f"{label} must be an integer.")
         return None
+
+
+def _compute_section1_details(
+    input_1: Optional[int],
+    input_2: Optional[int],
+    input_3: Optional[int],
+) -> list[Any]:
+    preset_ids = list(ATB_SIMULATOR_PRESETS.keys())
+    if st.session_state.get("speedopt_sec1_debug_only_first") and preset_ids:
+        preset_ids = preset_ids[:1]
+
+    max_runtime_s = float(st.session_state.get("speedopt_sec1_max_runtime_s") or 10.0)
+    results: list[Any] = []
+    total = len(preset_ids)
+    if total == 0:
+        return results
+
+    with st.status("Computing Section 1 details...", expanded=True) as status:
+        progress = st.progress(0)
+        for index, preset_id in enumerate(preset_ids, start=1):
+            status.write(f"Processing {preset_id} ({index}/{total})")
+            start = time.perf_counter()
+            try:
+                result = build_section1_detail_cached(
+                    preset_id,
+                    input_1,
+                    input_2,
+                    input_3,
+                    max_runtime_s,
+                )
+            except ValueError as exc:
+                result = _build_error_result(preset_id, str(exc))
+            results.append(result)
+            elapsed = time.perf_counter() - start
+            status.write(f"Finished {preset_id} in {elapsed:.2f}s")
+            progress.progress(index / total)
+        status.update(state="complete")
+
+    return results
+
+
+def _build_error_result(preset_id: str, message: str):
+    return PresetDetailResult(
+        preset_id=preset_id,
+        a1_table=None,
+        a3_table=None,
+        error=message,
+        timing=None,
+    )
