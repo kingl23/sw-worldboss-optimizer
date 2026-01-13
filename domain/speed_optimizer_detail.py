@@ -76,17 +76,15 @@ def _build_preset_detail(
     start_time = time.perf_counter()
     deadline = start_time + max_runtime_s if max_runtime_s else None
 
-    base_overrides, enemy_speed_source = _build_section1_overrides(
-        allies,
-        enemies,
+    prefixed_allies, _ = prefix_monsters(allies, prefix="A")
+    prefixed_enemies, _ = prefix_monsters(enemies, prefix="E")
+    prefixed_overrides, enemy_speed_source, enemy_speed_effective = _build_section1_overrides(
+        prefixed_allies,
+        prefixed_enemies,
         input_1,
         input_2,
         input_3,
     )
-    prefixed_allies, ally_key_map = prefix_monsters(allies, prefix="A")
-    prefixed_enemies, enemy_key_map = prefix_monsters(enemies, prefix="E")
-
-    prefixed_overrides = _prefix_overrides(base_overrides, ally_key_map, enemy_key_map)
     debug_payload: Optional[Dict[str, Any]] = None
     if debug:
         debug_payload = {
@@ -94,8 +92,9 @@ def _build_preset_detail(
                 "preset_id": preset_id,
                 "input_1": input_1,
                 "input_2": input_2,
-                "input_3": input_3 if input_3 is not None else base_overrides.get(enemies[1].get("key"), {}).get("rune_speed"),
+                "input_3": input_3 if input_3 is not None else enemy_speed_effective,
                 "enemy_rune_speed_source": enemy_speed_source,
+                "enemy_rune_speed_effective": enemy_speed_effective,
             },
             "attempts": [],
             # Debug mode stores only a limited number of attempts to avoid heavy memory use.
@@ -122,6 +121,9 @@ def _build_preset_detail(
             timing={"e_fast_s": e_fast_time},
             debug=debug_payload,
         )
+
+    if debug_payload is not None:
+        debug_payload["input_summary"]["selected_enemy_key"] = e_fast_key
 
     detail_preset, detail_keys = _build_detail_preset(
         preset,
@@ -203,7 +205,7 @@ def _build_section1_overrides(
     input_1: Optional[int],
     input_2: Optional[int],
     input_3: Optional[int],
-) -> Tuple[Dict[str, Dict[str, int]], str]:
+) -> Tuple[Dict[str, Dict[str, int]], str, int]:
     overrides: Dict[str, Dict[str, int]] = {}
     a1_key = allies[0].get("key")
     if a1_key and input_2 is not None:
@@ -226,7 +228,7 @@ def _build_section1_overrides(
         # Enemy rune_speed falls back to input_1 when input_3 is empty.
         overrides[e2_key] = {"rune_speed": resolved_enemy_speed}
 
-    return overrides, enemy_speed_source
+    return overrides, enemy_speed_source, resolved_enemy_speed
 
 
 def _resolve_required_order(
@@ -242,20 +244,6 @@ def _resolve_required_order(
             return None
         resolved.append(key)
     return resolved
-
-
-def _prefix_overrides(
-    overrides: Dict[str, Dict[str, int]],
-    ally_key_map: Dict[str, str],
-    enemy_key_map: Dict[str, str],
-) -> Dict[str, Dict[str, int]]:
-    prefixed: Dict[str, Dict[str, int]] = {}
-    for key, values in overrides.items():
-        if key in ally_key_map:
-            prefixed[ally_key_map[key]] = values
-        elif key in enemy_key_map:
-            prefixed[enemy_key_map[key]] = values
-    return prefixed
 
 
 def _select_fastest_enemy(
