@@ -76,7 +76,13 @@ def _build_preset_detail(
     start_time = time.perf_counter()
     deadline = start_time + max_runtime_s if max_runtime_s else None
 
-    base_overrides = _build_section1_overrides(allies, enemies, input_1, input_2, input_3)
+    base_overrides, enemy_speed_source = _build_section1_overrides(
+        allies,
+        enemies,
+        input_1,
+        input_2,
+        input_3,
+    )
     prefixed_allies, ally_key_map = prefix_monsters(allies, prefix="A")
     prefixed_enemies, enemy_key_map = prefix_monsters(enemies, prefix="E")
 
@@ -89,6 +95,7 @@ def _build_preset_detail(
                 "input_1": input_1,
                 "input_2": input_2,
                 "input_3": input_3 if input_3 is not None else base_overrides.get(enemies[1].get("key"), {}).get("rune_speed"),
+                "enemy_rune_speed_source": enemy_speed_source,
             },
             "attempts": [],
             # Debug mode stores only a limited number of attempts to avoid heavy memory use.
@@ -196,7 +203,7 @@ def _build_section1_overrides(
     input_1: Optional[int],
     input_2: Optional[int],
     input_3: Optional[int],
-) -> Dict[str, Dict[str, int]]:
+) -> Tuple[Dict[str, Dict[str, int]], str]:
     overrides: Dict[str, Dict[str, int]] = {}
     a1_key = allies[0].get("key")
     if a1_key and input_2 is not None:
@@ -206,13 +213,20 @@ def _build_section1_overrides(
     if a2_key and input_1 is not None:
         overrides[a2_key] = {"rune_speed": input_1}
 
-    a2_rune_speed = input_1 if input_1 is not None else allies[1].get("rune_speed", 0)
     e2_key = enemies[1].get("key")
+    if input_3 is None and input_1 is None:
+        raise ValueError(
+            "Enemy rune_speed cannot be resolved (input_1 and input_3 are both empty)."
+        )
+    resolved_enemy_speed = input_3 if input_3 is not None else input_1
+    enemy_speed_source = "input_3" if input_3 is not None else "input_1"
+    if resolved_enemy_speed is None or resolved_enemy_speed <= 0:
+        raise ValueError("Enemy rune_speed must be greater than 0.")
     if e2_key:
-        enemy_speed = input_3 if input_3 is not None else a2_rune_speed
-        overrides[e2_key] = {"rune_speed": enemy_speed}
+        # Enemy rune_speed falls back to input_1 when input_3 is empty.
+        overrides[e2_key] = {"rune_speed": resolved_enemy_speed}
 
-    return overrides
+    return overrides, enemy_speed_source
 
 
 def _resolve_required_order(
