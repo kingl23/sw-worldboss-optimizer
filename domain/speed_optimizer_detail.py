@@ -29,34 +29,6 @@ class PresetDetailResult:
     timing: Optional[Dict[str, float]] = None
 
 
-def build_section1_details(
-    input_1: Optional[int],
-    input_2: Optional[int],
-    input_3: Optional[int],
-) -> List[PresetDetailResult]:
-    results: List[PresetDetailResult] = []
-    for preset_id in ATB_SIMULATOR_PRESETS.keys():
-        try:
-            preset = build_full_preset(preset_id)
-            result = _build_preset_detail(
-                preset_id,
-                preset,
-                input_1,
-                input_2,
-                input_3,
-                max_runtime_s=None,
-            )
-        except ValueError as exc:
-            result = PresetDetailResult(
-                preset_id=preset_id,
-                a1_table=None,
-                a3_table=None,
-                error=str(exc),
-            )
-        results.append(result)
-    return results
-
-
 @lru_cache(maxsize=128)
 def build_section1_detail_cached(
     preset_id: str,
@@ -94,11 +66,11 @@ def _build_preset_detail(
             error="Preset must contain at least 3 allies and 2 enemies.",
         )
 
-    _ = input_2
+    # Input 2 fixes a1's rune speed so only a3 is optimized.
     start_time = time.perf_counter()
     deadline = start_time + max_runtime_s if max_runtime_s else None
 
-    base_overrides = _build_section1_overrides(allies, enemies, input_1, input_3)
+    base_overrides = _build_section1_overrides(allies, enemies, input_1, input_2, input_3)
     prefixed_allies, ally_key_map = prefix_monsters(allies, prefix="A")
     prefixed_enemies, enemy_key_map = prefix_monsters(enemies, prefix="E")
 
@@ -136,16 +108,6 @@ def _build_preset_detail(
             timing={"e_fast_s": e_fast_time},
         )
 
-    a1_start = time.perf_counter()
-    a1_table, a1_error = _build_unit_detail_table(
-        detail_preset,
-        required_order,
-        prefixed_overrides,
-        target_key=detail_keys["a1"],
-        deadline=deadline,
-    )
-    a1_time = time.perf_counter() - a1_start
-
     a3_start = time.perf_counter()
     a3_table, a3_error = _build_unit_detail_table(
         detail_preset,
@@ -156,17 +118,16 @@ def _build_preset_detail(
     )
     a3_time = time.perf_counter() - a3_start
 
-    error_messages = [msg for msg in [a1_error, a3_error] if msg]
+    error_messages = [msg for msg in [a3_error] if msg]
     combined_error = "\n".join(error_messages) if error_messages else None
 
     return PresetDetailResult(
         preset_id=preset_id,
-        a1_table=a1_table,
+        a1_table=None,
         a3_table=a3_table,
         error=combined_error,
         timing={
             "e_fast_s": e_fast_time,
-            "a1_s": a1_time,
             "a3_s": a3_time,
         },
     )
@@ -176,9 +137,14 @@ def _build_section1_overrides(
     allies: List[Dict[str, Any]],
     enemies: List[Dict[str, Any]],
     input_1: Optional[int],
+    input_2: Optional[int],
     input_3: Optional[int],
 ) -> Dict[str, Dict[str, int]]:
     overrides: Dict[str, Dict[str, int]] = {}
+    a1_key = allies[0].get("key")
+    if a1_key and input_2 is not None:
+        overrides[a1_key] = {"rune_speed": input_2}
+
     a2_key = allies[1].get("key")
     if a2_key and input_1 is not None:
         overrides[a2_key] = {"rune_speed": input_1}

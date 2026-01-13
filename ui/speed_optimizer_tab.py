@@ -37,6 +37,7 @@ def _initialize_speedopt_state() -> None:
         "speedopt_sec1_ran": False,
         "speedopt_sec1_payload": None,
         "speedopt_sec1_results": None,
+        "speedopt_sec1_cache": {},
         "speedopt_sec1_debug_only_first": False,
         "speedopt_sec1_max_runtime_s": 10.0,
         "speedopt_sec2_ran": False,
@@ -234,20 +235,26 @@ def _render_section_1_details() -> None:
                 st.caption(
                     "Timing (s) — "
                     f"e_fast: {result.timing.get('e_fast_s', 0):.2f}, "
-                    f"a1: {result.timing.get('a1_s', 0):.2f}, "
                     f"a3: {result.timing.get('a3_s', 0):.2f}"
                 )
             if result.error:
                 st.warning(result.error)
                 continue
-            _render_unit_detail_table("A1 Detail", result.a1_table)
-            _render_unit_detail_table("A3 Detail", result.a3_table)
+            _render_unit_detail_table(
+                "A3 Detail",
+                result.a3_table,
+                empty_message="No feasible solution for a3 given a1 fixed by Input 2.",
+            )
 
 
-def _render_unit_detail_table(title: str, detail_table: Optional[Any]) -> None:
+def _render_unit_detail_table(
+    title: str,
+    detail_table: Optional[Any],
+    empty_message: str = "No feasible solution.",
+) -> None:
     st.markdown(f"**{title}**")
     if not detail_table or not detail_table.ranges:
-        st.caption("No feasible solution.")
+        st.caption(empty_message)
         return
     st.table(detail_table.ranges)
 
@@ -270,6 +277,11 @@ def _compute_section1_details(
     input_2: Optional[int],
     input_3: Optional[int],
 ) -> list[Any]:
+    cache_key = (input_1, input_2, input_3)
+    cached = st.session_state.speedopt_sec1_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     preset_ids = list(ATB_SIMULATOR_PRESETS.keys())
     if st.session_state.get("speedopt_sec1_debug_only_first") and preset_ids:
         preset_ids = preset_ids[:1]
@@ -301,6 +313,7 @@ def _compute_section1_details(
             progress.progress(index / total)
         status.update(state="complete")
 
+    st.session_state.speedopt_sec1_cache[cache_key] = results
     return results
 
 
