@@ -11,6 +11,7 @@ from domain.atb_simulator_utils import prefix_monsters
 
 MAX_RUNE_SPEED = 400
 MIN_RUNE_SPEED = 150
+COARSE_STEP = 10
 MAX_EFFECT = 50
 SECTION1_TURN_ORDER_DEFAULT = ["a2", "a1", "a3", "e_fast"]
 SECTION1_TURN_ORDER_OVERRIDES: Dict[str, List[str]] = {}
@@ -95,6 +96,7 @@ def _build_preset_detail(
             "truncated": False,
             "min_rune_speed": MIN_RUNE_SPEED,
             "max_rune_speed": MAX_RUNE_SPEED,
+            "effect_logs": [],
         }
     e_fast_start = time.perf_counter()
     e_fast_key = _select_fastest_enemy(
@@ -318,32 +320,70 @@ def _find_minimum_rune_speed(
 ) -> Optional[int]:
     # Speed Optimizer assumes rune speeds below 150 are not meaningful.
     start = max(start_speed, MIN_RUNE_SPEED)
+    effect_log = _init_effect_log(debug, effect, start)
+
+    feasible = None
     for rune_speed in range(start, MAX_RUNE_SPEED + 1):
         if deadline and time.perf_counter() > deadline:
+            _finalize_effect_log(debug, effect_log, feasible)
             return None
-        overrides = dict(base_overrides)
-        overrides[target_key] = {
-            "rune_speed": rune_speed,
-            "speedIncreasingEffect": effect,
-        }
-        matched, actual_order, turn_events = _matches_required_order(
+        matched = _simulate_attempt(
             detail_preset,
-            overrides,
+            base_overrides,
             required_order,
-            debug=debug,
-        )
-        _record_debug_attempt(
-            debug,
+            target_key,
             effect,
             rune_speed,
-            required_order,
-            matched,
-            actual_order,
-            turn_events,
+            debug,
+            phase="scan",
         )
         if matched:
-            return rune_speed
-    return None
+            feasible = rune_speed
+            _log_effect_step(effect_log, "first_feasible", rune_speed)
+            break
+
+    if feasible is None:
+        _finalize_effect_log(debug, effect_log, None)
+        return None
+
+    while feasible - COARSE_STEP >= MIN_RUNE_SPEED:
+        candidate = feasible - COARSE_STEP
+        matched = _simulate_attempt(
+            detail_preset,
+            base_overrides,
+            required_order,
+            target_key,
+            effect,
+            candidate,
+            debug,
+            phase="coarse",
+        )
+        _log_effect_step(effect_log, "coarse_attempts", {"speed": candidate, "matched": matched})
+        if matched:
+            feasible = candidate
+        else:
+            break
+
+    while feasible - 1 >= MIN_RUNE_SPEED:
+        candidate = feasible - 1
+        matched = _simulate_attempt(
+            detail_preset,
+            base_overrides,
+            required_order,
+            target_key,
+            effect,
+            candidate,
+            debug,
+            phase="refine",
+        )
+        _log_effect_step(effect_log, "refine_attempts", {"speed": candidate, "matched": matched})
+        if matched:
+            feasible = candidate
+        else:
+            break
+
+    _finalize_effect_log(debug, effect_log, feasible)
+    return feasible
 
 
 def _matches_required_order(
@@ -410,6 +450,7 @@ def _record_debug_attempt(
     matched: bool,
     actual_order: List[str],
     turn_events: List[Dict[str, Any]],
+    phase: str,
 ) -> None:
     if debug is None:
         return
@@ -423,6 +464,7 @@ def _record_debug_attempt(
     attempts.append({
         "effect": effect,
         "rune_speed": rune_speed,
+        "phase": phase,
         "matched": matched,
         "required_order": required_order,
         "actual_order": actual_order,
@@ -455,4 +497,80 @@ def _build_debug_unit_summary(
     return {
         "required_order": required_order,
         "units": summary,
+        "parity_note": (
+            "All units (allies/enemies) use the same ATB tick formula; "
+            "differences come from allyEffects/enemyEffects and skills."
+        ),
     }
+
+
+def _simulate_attempt(
+    detail_preset: Dict[str, Any],
+    base_overrides: Dict[str, Dict[str, int]],
+    required_order: List[str],
+    target_key: str,
+    effect: int,
+    rune_speed: int,
+    debug: Optional[Dict[str, Any]],
+    phase: str,
+) -> bool:
+    overrides = dict(base_overrides)
+    overrides[target_key] = {
+        "rune_speed": rune_speed,
+        "speedIncreasingEffect": effect,
+    }
+    matched, actual_order, turn_events = _matches_required_order(
+        detail_preset,
+        overrides,
+        required_order,
+        debug=debug,
+    )
+    _record_debug_attempt(
+        debug,
+        effect,
+        rune_speed,
+        required_order,
+        matched,
+        actual_order,
+        turn_events,
+        phase=phase,
+    )
+    return matched
+
+
+def _init_effect_log(
+    debug: Optional[Dict[str, Any]],
+    effect: int,
+    start_speed: int,
+) -> Optional[Dict[str, Any]]:
+    if debug is None:
+        return None
+    effect_log = {
+        "effect": effect,
+        "start_speed": start_speed,
+        "first_feasible": None,
+        "coarse_attempts": [],
+        "refine_attempts": [],
+        "final_min": None,
+    }
+    return effect_log
+
+
+def _log_effect_step(effect_log: Optional[Dict[str, Any]], field: str, value: Any) -> None:
+    if effect_log is None:
+        return
+    if field in ("coarse_attempts", "refine_attempts"):
+        effect_log[field].append(value)
+    else:
+        effect_log[field] = value
+
+
+def _finalize_effect_log(
+    debug: Optional[Dict[str, Any]],
+    effect_log: Optional[Dict[str, Any]],
+    final_min: Optional[int],
+) -> None:
+    if debug is None or effect_log is None:
+        return
+    effect_log["final_min"] = final_min
+    debug["effect_logs"].append(effect_log)

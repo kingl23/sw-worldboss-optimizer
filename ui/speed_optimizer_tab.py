@@ -342,13 +342,19 @@ def _render_debug_output(debug_payload: Dict[str, Any]) -> None:
     st.markdown("**Debug Output**")
     st.json(debug_payload.get("input_summary", {}))
     st.json(debug_payload.get("selected_units", {}))
+    st.caption(
+        "Search bounds — "
+        f"min rune speed: {debug_payload.get('min_rune_speed')}, "
+        f"max rune speed: {debug_payload.get('max_rune_speed')}"
+    )
     attempts = debug_payload.get("attempts", [])
     if attempts:
         st.caption("Simulation attempts (limited for performance).")
         for attempt in attempts:
             title = (
                 f"Effect {attempt.get('effect')} | Rune Speed {attempt.get('rune_speed')} | "
-                f"{'MATCH' if attempt.get('matched') else 'FAIL'}"
+                f"{'MATCH' if attempt.get('matched') else 'FAIL'} | "
+                f"{attempt.get('phase')}"
             )
             with st.expander(title):
                 st.markdown(
@@ -356,5 +362,11 @@ def _render_debug_output(debug_payload: Dict[str, Any]) -> None:
                     f"Actual: {attempt.get('actual_order')}"
                 )
                 st.json(attempt.get("turn_events", []))
+    effect_logs = debug_payload.get("effect_logs", [])
+    if effect_logs:
+        st.caption("Effect search logs (debug, limited).")
+        for effect_log in effect_logs:
+            with st.expander(f"Effect {effect_log.get('effect')} search"):
+                st.json(effect_log)
     if debug_payload.get("truncated"):
         st.info("Debug output truncated after the first 25 attempts.")
