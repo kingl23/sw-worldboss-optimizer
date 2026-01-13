@@ -65,77 +65,77 @@ _DEFAULT_EFFECTS = {
 ATB_SIMULATOR_PRESETS = {
     "Preset A": {
         "allies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset B": {
         "allies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset C": {
         "allies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset D": {
         "allies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset E": {
         "allies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset F": {
         "allies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset G": {
         "allies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["swift_support", "damage_dealer", "enemy_target"],
+            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
