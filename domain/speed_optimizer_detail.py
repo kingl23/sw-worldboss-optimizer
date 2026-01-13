@@ -10,6 +10,7 @@ from domain.atb_simulator import simulate_with_turn_log
 from domain.atb_simulator_utils import prefix_monsters
 
 MAX_RUNE_SPEED = 400
+MIN_RUNE_SPEED = 150
 MAX_EFFECT = 50
 SECTION1_TURN_ORDER_DEFAULT = ["a2", "a1", "a3", "e_fast"]
 SECTION1_TURN_ORDER_OVERRIDES: Dict[str, List[str]] = {}
@@ -92,6 +93,8 @@ def _build_preset_detail(
             # Debug mode stores only a limited number of attempts to avoid heavy memory use.
             "attempt_limit": 25,
             "truncated": False,
+            "min_rune_speed": MIN_RUNE_SPEED,
+            "max_rune_speed": MAX_RUNE_SPEED,
         }
     e_fast_start = time.perf_counter()
     e_fast_key = _select_fastest_enemy(
@@ -279,7 +282,7 @@ def _build_unit_detail_table(
         return None, "Target unit key was missing."
 
     effect_to_speed: Dict[int, Optional[int]] = {}
-    start_speed = 0
+    start_speed = MIN_RUNE_SPEED
     for effect in range(0, MAX_EFFECT + 1):
         if deadline and time.perf_counter() > deadline:
             return None, "Computation timed out while searching rune speeds."
@@ -313,7 +316,9 @@ def _find_minimum_rune_speed(
     deadline: Optional[float],
     debug: Optional[Dict[str, Any]],
 ) -> Optional[int]:
-    for rune_speed in range(start_speed, MAX_RUNE_SPEED + 1):
+    # Speed Optimizer assumes rune speeds below 150 are not meaningful.
+    start = max(start_speed, MIN_RUNE_SPEED)
+    for rune_speed in range(start, MAX_RUNE_SPEED + 1):
         if deadline and time.perf_counter() > deadline:
             return None
         overrides = dict(base_overrides)
