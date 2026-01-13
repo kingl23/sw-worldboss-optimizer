@@ -1,19 +1,19 @@
 import textwrap
 import streamlit as st
 import pandas as pd
-from supabase import create_client
 from ui.auth import require_access_or_stop
 from ui.table_utils import apply_dataframe_style
 
 from data.siege_trend import build_cumulative_trend_df
 from ui.siege_trend_chart import render_cumulative_trend_chart
+from services.supabase_client import get_supabase_client
 
 
 # -------------------------
 # Supabase helpers
 # -------------------------
 def sb():
-    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
+    return get_supabase_client()
 
 
 def make_def_key(a: str, b: str, c: str) -> str:

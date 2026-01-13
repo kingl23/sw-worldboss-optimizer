@@ -94,7 +94,7 @@ Open the local URL printed in the terminal.
 Some tabs require an access key.
 
 - Input location: **left sidebar**
-- Policy definition: `st.secrets["ACCESS_POLICY"]`
+- Policy definition: `st.secrets.get("ACCESS_POLICY", {})`
 - Example: `"my-secret-key" = ["world_boss", "siege_battle"]`
 
 ## ⚠️ Disclaimer

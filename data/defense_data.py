@@ -4,17 +4,15 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
 import streamlit as st
 import pandas as pd
-from supabase import create_client
+
+from services.supabase_client import get_supabase_client
 
 
 # -------------------------
 # Supabase
 # -------------------------
 def sb():
-    return create_client(
-        st.secrets["SUPABASE_URL"],
-        st.secrets["SUPABASE_ANON_KEY"],
-    )
+    return get_supabase_client()
 
 
 # -------------------------
