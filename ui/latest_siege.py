@@ -295,17 +295,12 @@ def render_latest_siege_tab() -> None:
         )
 
         rune_check_offense = set(
-            recs[recs["win_rate"] >= 95.0]["offense"].fillna("").tolist()
+            recs[recs["win_rate"] >= 93.0]["offense"].fillna("").tolist()
         )
 
         opinions: list[str] = []
         if get_defense_log_count(def_key) <= NEW_DEFENSE_DECK_MAX_LOGS:
             opinions.append("NEW 방덱")
-
-        # if not recs_display.empty:
-        #     top_offense = set(recs_display["offense"].fillna("").tolist())
-        #     if offense in top_offense:
-        #         opinions.append("룬아티 스펙 확인")
 
         if offense in rune_check_offense:
             opinions.append("룬아티 스펙 확인")
