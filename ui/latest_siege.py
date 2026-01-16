@@ -276,9 +276,11 @@ def render_latest_siege_tab() -> None:
           }
           .result-stack {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 6px;
             justify-content: flex-end;
+            align-items: center;
+            white-space: nowrap;
           }
         </style>
         """,
@@ -301,13 +303,11 @@ def render_latest_siege_tab() -> None:
                 opinions.append("룬아티 스펙 확인")
 
         with st.container():
-            col_left, col_mid, col_right, col_result = st.columns([1.3, 3.2, 1.6, 0.8])
+            col_left, col_mid, col_result = st.columns([1.2, 4.0, 1.8])
             col_left.markdown(f"**{row.get('wizard', '')}**")
             col_mid.markdown(
-                f"공덱: **{offense}** vs 방덱: **{defense}**"
-            )
-            col_right.markdown(
-                f"<div class='summary-muted'>{row.get('opp_guild', '')} / {row.get('opp_wizard', '')}</div>",
+                f"공덱: **{offense}** vs 방덱: **{defense}**  \n"
+                f"<span class='summary-muted'>{row.get('opp_guild', '')} / {row.get('opp_wizard', '')}</span>",
                 unsafe_allow_html=True,
             )
             badges_html = _build_opinion_badges_html(opinions)
@@ -320,11 +320,11 @@ def render_latest_siege_tab() -> None:
 
             with st.expander("Recommended Offense", expanded=False):
                 if recs.empty:
-                    st.info("No matchup data found for this defense deck.")
+                    st.caption("No matchup data found for this defense deck.")
                     continue
 
                 if recs_display.empty:
-                    st.write("90% 이상 추천 공덱 없음")
+                    st.caption("90% 이상 추천 공덱 없음")
                     continue
 
                 display = recs_display[["offense", "win_rate"]].copy()
