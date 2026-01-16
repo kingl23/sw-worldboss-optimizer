@@ -115,14 +115,22 @@ def get_defense_log_count(def_key: str) -> int:
 
 
 @st.cache_data(ttl=120)
-def get_recommended_offense(def_key: str, limit: int = 10) -> pd.DataFrame:
+def get_recommended_offense(def_key: str) -> pd.DataFrame:
     raw = get_matchups(def_key, limit=200)
     normalized = _normalize_matchups(raw, limit=200)
     if normalized.empty:
         return normalized
 
-    normalized = normalized.sort_values(["win_rate", "total"], ascending=[False, False])
-    return normalized.head(int(limit)).reset_index(drop=True)
+    top10_by_total = normalized.sort_values(["total"], ascending=[False]).head(10)
+    top10_by_total = top10_by_total.sort_values(["win_rate", "total"], ascending=[False, False])
+    return top10_by_total.head(5).reset_index(drop=True)
+
+
+def _render_opinion_badges(opinions: list[str]) -> None:
+    if not opinions:
+        return
+    badges = " ".join([f"<span class='opinion-badge'>{op}</span>" for op in opinions])
+    st.markdown(badges, unsafe_allow_html=True)
 
 
 def render_latest_siege_tab() -> None:
@@ -154,62 +162,72 @@ def render_latest_siege_tab() -> None:
         st.info("No loss logs found for this match.")
         return
 
-    st.markdown("소환사 | 공덱(3마리) | 방덱(3마리) | 상대길드 | 상대소환사 | 결과")
+    st.markdown(
+        """
+        <style>
+          .opinion-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            font-weight: 600;
+            font-size: 12px;
+            margin-right: 6px;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown("**소환사 | 공덱(3마리) | 방덱(3마리) | 상대길드 | 상대소환사 | 결과**")
 
     for row in logs.to_dict(orient="records"):
         offense = _fmt_team(row, "deck1_1", "deck1_2", "deck1_3")
         defense = _fmt_team(row, "deck2_1", "deck2_2", "deck2_3")
-
-        st.markdown(
-            f"{row.get('wizard', '')} | {offense} | {defense} | "
-            f"{row.get('opp_guild', '')} | {row.get('opp_wizard', '')} | {row.get('result', '')}"
+        expander_title = (
+            f"{row.get('wizard', '')} | {offense} -> {defense} | "
+            f"{row.get('opp_guild', '')}/{row.get('opp_wizard', '')} | {row.get('result', '')}"
         )
+        with st.expander(expander_title, expanded=True):
+            cols = st.columns([1.4, 2.2, 2.2, 1.6, 1.6, 0.8])
+            cols[0].write(row.get("wizard", ""))
+            cols[1].write(offense)
+            cols[2].write(defense)
+            cols[3].write(row.get("opp_guild", ""))
+            cols[4].write(row.get("opp_wizard", ""))
+            cols[5].write(row.get("result", ""))
 
-        def_key = make_def_key(row.get("deck2_1", ""), row.get("deck2_2", ""), row.get("deck2_3", ""))
-        recs = get_recommended_offense(def_key, limit=10)
+            def_key = make_def_key(row.get("deck2_1", ""), row.get("deck2_2", ""), row.get("deck2_3", ""))
+            recs = get_recommended_offense(def_key)
 
-        opinions: list[str] = []
-        if get_defense_log_count(def_key) <= 10:
-            opinions.append("NEW 방덱")
+            opinions: list[str] = []
+            if get_defense_log_count(def_key) <= 10:
+                opinions.append("NEW 방덱")
 
-        if not recs.empty:
-            top_offense = set(recs["offense"].fillna("").tolist())
-            if offense in top_offense:
-                opinions.append("룬아티 스펙 확인")
+            if not recs.empty:
+                top_offense = set(recs["offense"].fillna("").tolist())
+                if offense in top_offense:
+                    opinions.append("룬아티 스펙 확인")
 
-        for opinion in opinions:
-            st.write(opinion)
+            _render_opinion_badges(opinions)
 
-        st.markdown("Recommended Offense Decks")
+            st.markdown("Recommended Offense Decks")
 
-        if recs.empty:
-            st.info("No matchup data found for this defense deck.")
-            continue
+            if recs.empty:
+                st.info("No matchup data found for this defense deck.")
+                continue
 
-        display = recs[["offense", "win", "lose", "total", "win_rate"]].copy()
-        display = display.rename(
-            columns={
-                "offense": "공덱",
-                "win": "Win",
-                "lose": "Lose",
-                "total": "Total",
-                "win_rate": "Win Rate",
-            }
-        )
-        display["Win"] = pd.to_numeric(display["Win"], errors="coerce").fillna(0).astype(int)
-        display["Lose"] = pd.to_numeric(display["Lose"], errors="coerce").fillna(0).astype(int)
-        display["Total"] = pd.to_numeric(display["Total"], errors="coerce").fillna(0).astype(int)
-        display["Win Rate"] = pd.to_numeric(display["Win Rate"], errors="coerce").fillna(0.0)
+            display = recs[["offense", "win_rate"]].copy()
+            display = display.rename(columns={"offense": "공덱(3마리)", "win_rate": "승률"})
+            display["승률"] = pd.to_numeric(display["승률"], errors="coerce").fillna(0.0)
 
-        st.dataframe(
-            display,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "공덱": st.column_config.TextColumn("공덱", width="large"),
-                "Win": st.column_config.NumberColumn("Win", format="%d", width="small"),
-                "Lose": st.column_config.NumberColumn("Lose", format="%d", width="small"),
-                "Total": st.column_config.NumberColumn("Total", format="%d", width="small"),
-                "Win Rate": st.column_config.NumberColumn("Win Rate", format="%.1f%%", width="small"),
-            },
-        )
+            st.dataframe(
+                display,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "공덱(3마리)": st.column_config.TextColumn("공덱(3마리)", width="large"),
+                    "승률": st.column_config.NumberColumn("승률", format="%.1f%%", width="small"),
+                },
+            )
+        st.divider()
