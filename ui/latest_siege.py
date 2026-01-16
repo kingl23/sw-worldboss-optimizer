@@ -184,16 +184,17 @@ def get_defense_log_count(def_key: str) -> int:
         f"and(deck2_1.eq.{_q(a)},deck2_2.eq.{_q(b)},deck2_3.eq.{_q(c)})"
         for a, b, c in def_perms
     ]
-
+    
     res = (
         sb()
         .table("siege_logs")
-        .select("log_id")
+        .select("*")
         .or_(",".join(or_clauses))
-        .limit(11)
+        .limit(NEW_DEFENSE_DECK_MAX_LOGS + 1)
         .execute()
     )
     return len(res.data or [])
+
 
 
 @st.cache_data(ttl=120)
