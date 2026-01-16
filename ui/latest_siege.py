@@ -33,26 +33,40 @@ def _fmt_team(r, a: str, b: str, c: str) -> str:
 
 @st.cache_data(ttl=300)
 def get_match_options() -> list[MatchOption]:
-    res = (
-        sb()
-        .table("siege_logs")
-        .select("match_id, ts, updated_at, opp_guild")
-        .execute()
-    )
-    df = pd.DataFrame(res.data or [])
+    batch_size = 1000
+    offset = 0
+    rows: list[dict] = []
+    while True:
+        res = (
+            sb()
+            .table("siege_logs")
+            .select("match_id, ts, updated_at, opp_guild")
+            .range(offset, offset + batch_size - 1)
+            .execute()
+        )
+        batch = res.data or []
+        rows.extend(batch)
+        if len(batch) < batch_size:
+            break
+        offset += batch_size
+
+    df = pd.DataFrame(rows)
     if df.empty or "match_id" not in df.columns:
         return []
 
-    df["ts_dt"] = pd.to_datetime(df.get("ts"), errors="coerce")
-    df["updated_dt"] = pd.to_datetime(df.get("updated_at"), errors="coerce")
-    df["sort_dt"] = df["ts_dt"].fillna(df["updated_dt"])
+    df["ts_dt"] = pd.to_datetime(df.get("ts"), errors="coerce", utc=True)
+    df["updated_dt"] = pd.to_datetime(df.get("updated_at"), errors="coerce", utc=True)
 
     options: list[MatchOption] = []
     for match_id, group in df.groupby("match_id"):
-        sort_dt = group["sort_dt"].min()
+        ts_min = group["ts_dt"].dropna().min()
+        if pd.isna(ts_min):
+            sort_dt = group["updated_dt"].dropna().min()
+        else:
+            sort_dt = ts_min
         date_str = "Unknown"
         if pd.notna(sort_dt):
-            date_str = sort_dt.strftime("%Y%m%d")
+            date_str = sort_dt.tz_convert("Asia/Seoul").strftime("%Y%m%d")
 
         guilds = sorted({g for g in group.get("opp_guild", []) if g})
         if guilds:
@@ -149,6 +163,17 @@ def render_latest_siege_tab() -> None:
         format_func=lambda mid: labels.get(mid, mid),
         key="latest_siege_match",
     )
+    st.caption(f"Matches found: {len(match_ids)}")
+
+    with st.expander("Debug", expanded=False):
+        preview = [
+            f"{labels.get(mid, mid)} ({mid})"
+            for mid in match_ids[:5]
+        ]
+        if preview:
+            st.write("\n".join(preview))
+        else:
+            st.write("No matches available.")
 
     if not selected_match:
         st.info("Select a match.")
@@ -179,55 +204,60 @@ def render_latest_siege_tab() -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.markdown("**소환사 | 공덱(3마리) | 방덱(3마리) | 상대길드 | 상대소환사 | 결과**")
-
     for row in logs.to_dict(orient="records"):
         offense = _fmt_team(row, "deck1_1", "deck1_2", "deck1_3")
         defense = _fmt_team(row, "deck2_1", "deck2_2", "deck2_3")
         expander_title = (
-            f"{row.get('wizard', '')} | {offense} -> {defense} | "
-            f"{row.get('opp_guild', '')}/{row.get('opp_wizard', '')} | {row.get('result', '')}"
+            f"{row.get('wizard', '')} | {row.get('result', '')} | "
+            f"{row.get('opp_guild', '')}/{row.get('opp_wizard', '')}"
         )
-        with st.expander(expander_title, expanded=True):
-            cols = st.columns([1.4, 2.2, 2.2, 1.6, 1.6, 0.8])
-            cols[0].write(row.get("wizard", ""))
-            cols[1].write(offense)
-            cols[2].write(defense)
-            cols[3].write(row.get("opp_guild", ""))
-            cols[4].write(row.get("opp_wizard", ""))
-            cols[5].write(row.get("result", ""))
+        with st.container():
+            with st.expander(expander_title, expanded=True):
+                st.markdown(
+                    f"**{row.get('wizard', '')} | {row.get('result', '')} | "
+                    f"{row.get('opp_guild', '')}/{row.get('opp_wizard', '')}**"
+                )
+                st.markdown(f"공덱: {offense}")
+                st.markdown(f"방덱: {defense}")
+                st.divider()
 
-            def_key = make_def_key(row.get("deck2_1", ""), row.get("deck2_2", ""), row.get("deck2_3", ""))
-            recs = get_recommended_offense(def_key)
+                def_key = make_def_key(row.get("deck2_1", ""), row.get("deck2_2", ""), row.get("deck2_3", ""))
+                recs = get_recommended_offense(def_key)
+                recs_display = recs[recs["win_rate"] >= 90.0] if not recs.empty else recs
 
-            opinions: list[str] = []
-            if get_defense_log_count(def_key) <= 10:
-                opinions.append("NEW 방덱")
+                opinions: list[str] = []
+                if get_defense_log_count(def_key) <= 10:
+                    opinions.append("NEW 방덱")
 
-            if not recs.empty:
-                top_offense = set(recs["offense"].fillna("").tolist())
-                if offense in top_offense:
-                    opinions.append("룬아티 스펙 확인")
+                if not recs_display.empty:
+                    top_offense = set(recs_display["offense"].fillna("").tolist())
+                    if offense in top_offense:
+                        opinions.append("룬아티 스펙 확인")
 
-            _render_opinion_badges(opinions)
+                _render_opinion_badges(opinions)
+                st.divider()
 
-            st.markdown("Recommended Offense Decks")
+                st.markdown("Recommended Offense Decks")
 
-            if recs.empty:
-                st.info("No matchup data found for this defense deck.")
-                continue
+                if recs.empty:
+                    st.info("No matchup data found for this defense deck.")
+                    continue
 
-            display = recs[["offense", "win_rate"]].copy()
-            display = display.rename(columns={"offense": "공덱(3마리)", "win_rate": "승률"})
-            display["승률"] = pd.to_numeric(display["승률"], errors="coerce").fillna(0.0)
+                if recs_display.empty:
+                    st.write("90% 이상 추천 공덱 없음")
+                    continue
 
-            st.dataframe(
-                display,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "공덱(3마리)": st.column_config.TextColumn("공덱(3마리)", width="large"),
-                    "승률": st.column_config.NumberColumn("승률", format="%.1f%%", width="small"),
-                },
-            )
-        st.divider()
+                display = recs_display[["offense", "win_rate"]].copy()
+                display = display.rename(columns={"offense": "공덱(3마리)", "win_rate": "승률"})
+                display["승률"] = pd.to_numeric(display["승률"], errors="coerce").fillna(0.0)
+
+                st.dataframe(
+                    display,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "공덱(3마리)": st.column_config.TextColumn("공덱(3마리)", width="large"),
+                        "승률": st.column_config.NumberColumn("승률", format="%.1f%%", width="small"),
+                    },
+                )
+            st.divider()
