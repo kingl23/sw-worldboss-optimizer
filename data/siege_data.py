@@ -1,7 +1,8 @@
 # data/siege_data.py
 import pandas as pd
 import streamlit as st
-from supabase import create_client
+
+from services.supabase_client import get_supabase_client
 
 
 def _or_val(v: str) -> str:
@@ -11,10 +12,7 @@ def _or_val(v: str) -> str:
 
 
 def sb():
-    return create_client(
-        st.secrets["SUPABASE_URL"],
-        st.secrets["SUPABASE_ANON_KEY"]
-    )
+    return get_supabase_client()
 
 
 @st.cache_data(ttl=300)
@@ -144,4 +142,3 @@ def get_offense_stats_by_defense(def1: str, def2: str, def3: str, limit: int = 5
     agg["Summary"] = agg["wins"].astype(int).astype(str) + "W-" + agg["losses"].astype(int).astype(str) + "L"
 
     return agg[["Unit #1", "Unit #2", "Unit #3", "wins", "losses", "Win Rate", "Summary", "total"]]
-

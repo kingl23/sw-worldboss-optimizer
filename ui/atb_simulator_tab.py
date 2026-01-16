@@ -12,6 +12,7 @@ from config.atb_simulator_presets import (
     build_monsters_for_keys,
 )
 from domain.atb_simulator import simulate_with_turn_log
+from domain.atb_simulator_utils import prefix_monsters
 
 
 def render_atb_simulator_tab() -> None:
@@ -85,8 +86,8 @@ This tab runs a Summoners War style ATB tick simulation.
         "When using per-monster key targets in skills, note that the UI prefixes keys per side."
     )
 
-    prefixed_allies, ally_key_map = _prefix_monsters(ally_monsters, prefix="A")
-    prefixed_enemies, enemy_key_map = _prefix_monsters(enemy_monsters, prefix="E")
+    prefixed_allies, ally_key_map = prefix_monsters(ally_monsters, prefix="A")
+    prefixed_enemies, enemy_key_map = prefix_monsters(enemy_monsters, prefix="E")
 
     overrides: Dict[str, Dict[str, Any]] = {}
     for key, values in ally_overrides.items():
@@ -168,42 +169,3 @@ def _render_monster_overrides(
         }
     return overrides
 
-
-def _prefix_monsters(
-    monsters: List[Dict[str, Any]],
-    prefix: str,
-) -> tuple[list[Dict[str, Any]], Dict[str, str]]:
-    key_map: Dict[str, str] = {}
-    for monster in monsters:
-        original_key = monster.get("key")
-        if original_key:
-            key_map[original_key] = f"{prefix}|{original_key}"
-
-    prefixed = []
-    for monster in monsters:
-        original_key = monster.get("key")
-        prefixed_monster = copy.deepcopy(monster)
-        if original_key and original_key in key_map:
-            prefixed_monster["base_key"] = original_key
-            prefixed_monster["key"] = key_map[original_key]
-        prefixed_monster["skills"] = _prefix_skill_targets(
-            prefixed_monster.get("skills", []),
-            key_map,
-        )
-        prefixed.append(prefixed_monster)
-
-    return prefixed, key_map
-
-
-def _prefix_skill_targets(
-    skills: List[Dict[str, Any]],
-    key_map: Dict[str, str],
-) -> List[Dict[str, Any]]:
-    updated = []
-    for skill in skills:
-        new_skill = copy.deepcopy(skill)
-        target = new_skill.get("target")
-        if target in key_map:
-            new_skill["target"] = key_map[target]
-        updated.append(new_skill)
-    return updated

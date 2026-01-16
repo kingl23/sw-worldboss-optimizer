@@ -1,8 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+import time
 
 import streamlit as st
+import pandas as pd
+
+from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS
+from domain.speed_optimizer_detail import (
+    PresetDetailResult,
+    build_section1_detail_cached,
+)
 
 DROPDOWN_OPTIONS = [19, 21, 24, 28, 33]
 PRESET_VALUES = {
@@ -29,6 +37,11 @@ def _initialize_speedopt_state() -> None:
     defaults = {
         "speedopt_sec1_ran": False,
         "speedopt_sec1_payload": None,
+        "speedopt_sec1_results": None,
+        "speedopt_sec1_cache": {},
+        "speedopt_sec1_debug_only_first": False,
+        "speedopt_sec1_debug_mode": False,
+        "speedopt_sec1_max_runtime_s": 10.0,
         "speedopt_sec2_ran": False,
         "speedopt_sec2_payload": None,
         "speedopt_sec3_ran": False,
@@ -65,6 +78,15 @@ def _render_section_1() -> None:
             input_1 = st.session_state.speedopt_sec1_in1
             input_2 = st.session_state.speedopt_sec1_in2
             input_3 = st.session_state.speedopt_sec1_in3
+            parsed_input_1 = _parse_optional_int(input_1, label="Input 1")
+            parsed_input_2 = _parse_optional_int(input_2, label="Input 2")
+            parsed_input_3 = _parse_optional_int(input_3, label="Input 3")
+            if parsed_input_1 is None and input_1.strip():
+                st.stop()
+            if parsed_input_2 is None and input_2.strip():
+                st.stop()
+            if parsed_input_3 is None and input_3.strip():
+                st.stop()
             effective_input_3 = input_3 or input_1
             payload = {
                 "input_1": input_1,
@@ -72,9 +94,32 @@ def _render_section_1() -> None:
                 "input_3": effective_input_3,
             }
             st.session_state.speedopt_sec1_payload = payload
+            st.session_state.speedopt_sec1_results = _compute_section1_details(
+                parsed_input_1,
+                parsed_input_2,
+                parsed_input_3,
+            )
             st.session_state.speedopt_sec1_ran = True
 
-    _render_details("speedopt_sec1")
+    st.checkbox(
+        "Debug: only first preset",
+        key="speedopt_sec1_debug_only_first",
+        help="Limit calculations to the first preset to speed up debugging.",
+    )
+    st.checkbox(
+        "Debug Mode (show ATB turn details)",
+        key="speedopt_sec1_debug_mode",
+        help="Show detailed ATB turn logs (limited attempts for performance).",
+    )
+    st.number_input(
+        "Max runtime per preset (seconds)",
+        min_value=1.0,
+        max_value=60.0,
+        step=1.0,
+        key="speedopt_sec1_max_runtime_s",
+    )
+
+    _render_section_1_details()
 
 
 def _render_section_2() -> None:
@@ -181,3 +226,213 @@ def _run_button_col(label: str = "Run", key: str | None = None, spacer_px: int =
         unsafe_allow_html=True,
     )
     return st.button(label, key=key)
+
+
+def _render_section_1_details() -> None:
+    with st.expander("Details", expanded=bool(st.session_state.get("speedopt_sec1_ran"))):
+        if not st.session_state.get("speedopt_sec1_ran"):
+            return
+        results = st.session_state.get("speedopt_sec1_results") or []
+        if not results:
+            st.info("No results yet.")
+            return
+        for result in results:
+            st.markdown(f"#### {result.preset_id}")
+            if result.timing:
+                st.caption(
+                    "Timing (s) — "
+                    f"e_fast: {result.timing.get('e_fast_s', 0):.2f}, "
+                    f"a3: {result.timing.get('a3_s', 0):.2f}"
+                )
+            if result.error:
+                st.warning(result.error)
+            if result.debug:
+                _render_debug_output(result.debug)
+            if result.error:
+                continue
+            _render_unit_detail_table(
+                "A3 Detail",
+                result.a3_table,
+                empty_message="No feasible solution for a3 given a1 fixed by Input 2.",
+            )
+
+
+def _render_unit_detail_table(
+    title: str,
+    detail_table: Optional[Any],
+    empty_message: str = "No feasible solution.",
+) -> None:
+    st.markdown(f"**{title}**")
+    if not detail_table or not detail_table.ranges:
+        st.caption(empty_message)
+        return
+    st.table(detail_table.ranges)
+
+
+def _parse_optional_int(value: str, label: str) -> Optional[int]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    try:
+        return int(stripped)
+    except ValueError:
+        st.warning(f"{label} must be an integer.")
+        return None
+
+
+def _compute_section1_details(
+    input_1: Optional[int],
+    input_2: Optional[int],
+    input_3: Optional[int],
+) -> list[Any]:
+    debug_mode = bool(st.session_state.get("speedopt_sec1_debug_mode"))
+    cache_key = (input_1, input_2, input_3, debug_mode)
+    cached = st.session_state.speedopt_sec1_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    preset_ids = list(ATB_SIMULATOR_PRESETS.keys())
+    if (st.session_state.get("speedopt_sec1_debug_only_first") or debug_mode) and preset_ids:
+        preset_ids = preset_ids[:1]
+
+    max_runtime_s = float(st.session_state.get("speedopt_sec1_max_runtime_s") or 10.0)
+    results: list[Any] = []
+    total = len(preset_ids)
+    if total == 0:
+        return results
+
+    with st.status("Computing Section 1 details...", expanded=True) as status:
+        progress = st.progress(0)
+        for index, preset_id in enumerate(preset_ids, start=1):
+            status.write(f"Processing {preset_id} ({index}/{total})")
+            start = time.perf_counter()
+            try:
+                result = build_section1_detail_cached(
+                    preset_id,
+                    input_1,
+                    input_2,
+                    input_3,
+                    max_runtime_s,
+                    debug_mode,
+                )
+            except ValueError as exc:
+                result = _build_error_result(preset_id, str(exc))
+            results.append(result)
+            elapsed = time.perf_counter() - start
+            status.write(f"Finished {preset_id} in {elapsed:.2f}s")
+            progress.progress(index / total)
+        status.update(state="complete")
+
+    st.session_state.speedopt_sec1_cache[cache_key] = results
+    return results
+
+
+def _build_error_result(preset_id: str, message: str):
+    return PresetDetailResult(
+        preset_id=preset_id,
+        a1_table=None,
+        a3_table=None,
+        error=message,
+        timing=None,
+    )
+
+
+def _render_debug_output(debug_payload: Dict[str, Any]) -> None:
+    st.markdown("**Debug Output**")
+    st.json(debug_payload.get("input_summary", {}))
+    _render_debug_unit_summary(debug_payload)
+    st.caption(
+        "Search bounds — "
+        f"min rune speed: {debug_payload.get('min_rune_speed')}, "
+        f"max rune speed: {debug_payload.get('max_rune_speed')}"
+    )
+    _render_tick_timeline(debug_payload)
+    attempts = debug_payload.get("attempts", [])
+    if attempts:
+        st.caption("Simulation attempts (limited for performance).")
+        for attempt in attempts:
+            title = (
+                f"Effect {attempt.get('effect')} | Rune Speed {attempt.get('rune_speed')} | "
+                f"{'MATCH' if attempt.get('matched') else 'FAIL'} | "
+                f"{attempt.get('phase')}"
+            )
+            with st.expander(title):
+                st.markdown(
+                    f"Required: {attempt.get('required_order')}  \n"
+                    f"Actual: {attempt.get('actual_order')}"
+                )
+                st.json(attempt.get("turn_events", []))
+    effect_logs = debug_payload.get("effect_logs", [])
+    if effect_logs:
+        st.caption("Effect search logs (debug, limited).")
+        for effect_log in effect_logs:
+            with st.expander(f"Effect {effect_log.get('effect')} search"):
+                st.json(effect_log)
+    if debug_payload.get("truncated"):
+        st.info("Debug output truncated after the first 25 attempts.")
+
+
+def _render_debug_unit_summary(debug_payload: Dict[str, Any]) -> None:
+    unit_order = debug_payload.get("unit_order", {})
+    units = (debug_payload.get("selected_units") or {}).get("units", {})
+    rows = []
+    for label in ["a2", "a1", "a3", "e"]:
+        key = unit_order.get(label)
+        if not key or key not in units:
+            continue
+        row = {"unit": label, "key": key}
+        row.update(units[key])
+        rows.append(row)
+    if rows:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
+def _render_tick_timeline(debug_payload: Dict[str, Any]) -> None:
+    unit_order = debug_payload.get("unit_order", {})
+    snapshots = debug_payload.get("tick_snapshots", [])
+    if not snapshots or not unit_order:
+        return
+    tick_limit = debug_payload.get("tick_limit", 30)
+    turn_events = debug_payload.get("baseline_turn_events", [])
+    turn_map = {}
+    for event in turn_events:
+        key = event.get("key")
+        tick = event.get("tick")
+        turn_number = event.get("turn_number")
+        if key is not None and tick is not None and turn_number is not None:
+            turn_map[(key, tick)] = turn_number
+
+    snapshot_map = {}
+    for snap in snapshots:
+        key = snap.get("key")
+        tick = snap.get("tick")
+        if key is None or tick is None:
+            continue
+        snapshot_map[(key, tick)] = snap
+
+    columns = ["Unit"] + [f"Tick {tick}" for tick in range(0, tick_limit + 1)]
+    rows = []
+    for label in ["a2", "a1", "a3", "e"]:
+        key = unit_order.get(label)
+        row = {"Unit": label}
+        for tick in range(0, tick_limit + 1):
+            snap = snapshot_map.get((key, tick))
+            value = ""
+            if snap:
+                atb = snap.get("attack_bar")
+                value = f"{atb:.1f}" if isinstance(atb, (int, float)) else str(atb)
+                if snap.get("has_speed_buff"):
+                    value += " +SPD"
+                if snap.get("has_slow"):
+                    value += " SLOW"
+                turn_number = turn_map.get((key, tick))
+                if turn_number:
+                    value += f" (TURN #{turn_number})"
+            row[f"Tick {tick}"] = value
+        rows.append(row)
+
+    st.markdown("**Debug: Tick Timeline**")
+    st.dataframe(pd.DataFrame(rows, columns=columns), use_container_width=True, hide_index=True)
+    st.caption("TURN #k indicates the tick where the unit acted.")
