@@ -13,7 +13,7 @@ from ui.search_offense_deck import get_matchups, make_def_key, _normalize_matchu
 class MatchOption:
     match_id: str
     label: str
-    sort_key: pd.Timestamp | None
+    sort_key: tuple[int, int, int, int] | None
 
 
 def sb():
@@ -106,7 +106,17 @@ def get_match_options() -> list[MatchOption]:
     options: list[MatchOption] = []
     for match_id, group in df.groupby("match_id"):
         label_prefix = _match_label_from_week_encoding(match_id, match_order_map)
+        sort_key = None
         sort_dt = None
+        parts = _parse_match_id_parts(match_id)
+        if parts:
+            yyyy, mm, ww, _ = parts
+            match_order = match_order_map.get(str(match_id), 0)
+            order_int = 2 if match_order == 1 else 1
+            try:
+                sort_key = (int(yyyy), int(mm), int(ww), order_int)
+            except ValueError:
+                sort_key = None
         if not label_prefix:
             ts_min = group["ts_dt"].dropna().min()
             if pd.isna(ts_min):
@@ -115,6 +125,13 @@ def get_match_options() -> list[MatchOption]:
                 sort_dt = ts_min
             if pd.notna(sort_dt):
                 label_prefix = sort_dt.tz_convert("Asia/Seoul").strftime("%Y%m%d")
+                if not sort_key:
+                    sort_key = (
+                        sort_dt.year,
+                        sort_dt.month,
+                        sort_dt.day,
+                        0,
+                    )
         if not label_prefix:
             label_prefix = "Unknown"
 
@@ -124,9 +141,9 @@ def get_match_options() -> list[MatchOption]:
         else:
             label = label_prefix
 
-        options.append(MatchOption(match_id=str(match_id), label=label, sort_key=sort_dt))
+        options.append(MatchOption(match_id=str(match_id), label=label, sort_key=sort_key))
 
-    options.sort(key=lambda opt: opt.sort_key or pd.Timestamp.min, reverse=True)
+    options.sort(key=lambda opt: opt.sort_key or (-1, -1, -1, -1), reverse=True)
     return options
 
 
@@ -213,16 +230,6 @@ def render_latest_siege_tab() -> None:
         key="latest_siege_match",
     )
     st.caption(f"Matches found: {len(match_ids)}")
-
-    with st.expander("Debug", expanded=False):
-        preview = [
-            f"{labels.get(mid, mid)} ({mid})"
-            for mid in match_ids[:10]
-        ]
-        if preview:
-            st.write("\n".join(preview))
-        else:
-            st.write("No matches available.")
 
     if not selected_match:
         st.info("Select a match.")
