@@ -286,7 +286,14 @@ def render_latest_siege_tab() -> None:
         defense = _fmt_team(row, "deck2_1", "deck2_2", "deck2_3")
         def_key = make_def_key(row.get("deck2_1", ""), row.get("deck2_2", ""), row.get("deck2_3", ""))
         recs = get_recommended_offense(def_key)
-        recs_display = recs[recs["win_rate"] >= 90.0] if not recs.empty else recs
+        recs_display = (
+            recs[recs["win_rate"] >= 90.0]
+            .sort_values(["total"], ascending=False)
+            .head(5)
+            if not recs.empty
+            else recs
+        )
+
 
         opinions: list[str] = []
         if get_defense_log_count(def_key) <= NEW_DEFENSE_DECK_MAX_LOGS:
