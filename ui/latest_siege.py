@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
@@ -31,11 +32,45 @@ def _fmt_team(r, a: str, b: str, c: str) -> str:
     return " / ".join(parts)
 
 
-def _match_date_from_id(match_id: str | int) -> str | None:
+def _parse_match_id_parts(match_id: str | int) -> tuple[str, str, str, str] | None:
     match_str = str(match_id or "")
-    if len(match_str) >= 8 and match_str[:8].isdigit():
-        return match_str[:8]
-    return None
+    if len(match_str) < 8 or not match_str[:8].isdigit():
+        return None
+    yyyy = match_str[0:4]
+    mm = match_str[4:6]
+    ww = match_str[6:8]
+    suffix = match_str[8:] or "0"
+    if not (yyyy.isdigit() and mm.isdigit() and ww.isdigit()):
+        return None
+    return yyyy, mm, ww, suffix
+
+
+def _first_monday_of_month(year: int, month: int) -> date:
+    first_day = date(year, month, 1)
+    delta = (7 - first_day.weekday()) % 7
+    return first_day + timedelta(days=delta)
+
+
+def _match_date_from_week_encoding(
+    match_id: str | int,
+    match_order_map: dict[str, int],
+) -> str | None:
+    parts = _parse_match_id_parts(match_id)
+    if not parts:
+        return None
+    yyyy, mm, ww, _ = parts
+    try:
+        year = int(yyyy)
+        month = int(mm)
+        week_index = int(ww)
+    except ValueError:
+        return None
+    if week_index < 1:
+        return None
+    week_monday = _first_monday_of_month(year, month) + timedelta(days=(week_index - 1) * 7)
+    match_order = match_order_map.get(str(match_id), 0)
+    match_day = week_monday + timedelta(days=1 if match_order == 0 else 4)
+    return match_day.strftime("%Y%m%d")
 
 
 @st.cache_data(ttl=300)
@@ -64,9 +99,23 @@ def get_match_options() -> list[MatchOption]:
     df["ts_dt"] = pd.to_datetime(df.get("ts"), errors="coerce", utc=True)
     df["updated_dt"] = pd.to_datetime(df.get("updated_at"), errors="coerce", utc=True)
 
+    match_order_map: dict[str, int] = {}
+    df["match_parts"] = df["match_id"].apply(_parse_match_id_parts)
+    valid_parts = df[df["match_parts"].notna()].copy()
+    if not valid_parts.empty:
+        valid_parts["year_month_week"] = valid_parts["match_parts"].apply(lambda p: (p[0], p[1], p[2]))
+        valid_parts["suffix_num"] = valid_parts["match_parts"].apply(
+            lambda p: int(p[3]) if str(p[3]).isdigit() else 0
+        )
+        for _, group in valid_parts.groupby("year_month_week"):
+            ids = group[["match_id", "suffix_num"]].drop_duplicates()
+            ordered = ids.sort_values("suffix_num", ascending=True)["match_id"].tolist()
+            for idx, mid in enumerate(ordered):
+                match_order_map[str(mid)] = 0 if idx == 0 else 1
+
     options: list[MatchOption] = []
     for match_id, group in df.groupby("match_id"):
-        date_str = _match_date_from_id(match_id)
+        date_str = _match_date_from_week_encoding(match_id, match_order_map)
         sort_dt = None
         if date_str:
             sort_dt = pd.to_datetime(date_str, format="%Y%m%d", errors="coerce", utc=True)
@@ -153,11 +202,10 @@ def get_recommended_offense(def_key: str) -> pd.DataFrame:
     return top10_by_total.head(5).reset_index(drop=True)
 
 
-def _render_opinion_badges(opinions: list[str]) -> None:
+def _build_opinion_badges_html(opinions: list[str]) -> str:
     if not opinions:
-        return
-    badges = " ".join([f"<span class='opinion-badge'>{op}</span>" for op in opinions])
-    st.markdown(badges, unsafe_allow_html=True)
+        return ""
+    return " ".join([f"<span class='opinion-badge'>{op}</span>" for op in opinions])
 
 
 def render_latest_siege_tab() -> None:
@@ -226,6 +274,12 @@ def render_latest_siege_tab() -> None:
             color: rgba(250, 250, 250, 0.7);
             font-size: 13px;
           }
+          .result-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: flex-end;
+          }
         </style>
         """,
         unsafe_allow_html=True,
@@ -233,41 +287,38 @@ def render_latest_siege_tab() -> None:
     for row in logs.to_dict(orient="records"):
         offense = _fmt_team(row, "deck1_1", "deck1_2", "deck1_3")
         defense = _fmt_team(row, "deck2_1", "deck2_2", "deck2_3")
+        def_key = make_def_key(row.get("deck2_1", ""), row.get("deck2_2", ""), row.get("deck2_3", ""))
+        recs = get_recommended_offense(def_key)
+        recs_display = recs[recs["win_rate"] >= 90.0] if not recs.empty else recs
+
+        opinions: list[str] = []
+        if get_defense_log_count(def_key) <= 10:
+            opinions.append("NEW 방덱")
+
+        if not recs_display.empty:
+            top_offense = set(recs_display["offense"].fillna("").tolist())
+            if offense in top_offense:
+                opinions.append("룬아티 스펙 확인")
+
         with st.container():
             col_left, col_mid, col_right, col_result = st.columns([1.3, 3.2, 1.6, 0.8])
             col_left.markdown(f"**{row.get('wizard', '')}**")
             col_mid.markdown(
-                f"공덱: **{offense}**  \n"
-                f"방덱: **{defense}**"
+                f"공덱: **{offense}** vs 방덱: **{defense}**"
             )
             col_right.markdown(
                 f"<div class='summary-muted'>{row.get('opp_guild', '')} / {row.get('opp_wizard', '')}</div>",
                 unsafe_allow_html=True,
             )
+            badges_html = _build_opinion_badges_html(opinions)
             col_result.markdown(
-                f"<span class='result-badge'>{row.get('result', '')}</span>",
+                f"<div class='result-stack'>"
+                f"<span class='result-badge'>{row.get('result', '')}</span>{badges_html}"
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
-            with st.expander("Detail", expanded=False):
-                def_key = make_def_key(row.get("deck2_1", ""), row.get("deck2_2", ""), row.get("deck2_3", ""))
-                recs = get_recommended_offense(def_key)
-                recs_display = recs[recs["win_rate"] >= 90.0] if not recs.empty else recs
-
-                opinions: list[str] = []
-                if get_defense_log_count(def_key) <= 10:
-                    opinions.append("NEW 방덱")
-
-                if not recs_display.empty:
-                    top_offense = set(recs_display["offense"].fillna("").tolist())
-                    if offense in top_offense:
-                        opinions.append("룬아티 스펙 확인")
-
-                _render_opinion_badges(opinions)
-                st.divider()
-
-                st.markdown("Recommended Offense Decks")
-
+            with st.expander("Recommended Offense", expanded=False):
                 if recs.empty:
                     st.info("No matchup data found for this defense deck.")
                     continue
