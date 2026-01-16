@@ -7,3 +7,5 @@ WIZARD_NAMES = [
     "망아지", "베이스", "조커깍는밥줘", "행운의확률", "코끼리",
     "Revent", "상어-", "눈꽃o", "의지",
 ]
+
+NEW_DEFENSE_DECK_MAX_LOGS = 10

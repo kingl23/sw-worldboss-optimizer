@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import pandas as pd
 import streamlit as st
 
+from config.settings import NEW_DEFENSE_DECK_MAX_LOGS
 from services.supabase_client import get_supabase_client
 from ui.auth import require_access_or_stop
 from ui.search_offense_deck import get_matchups, make_def_key, _normalize_matchups
@@ -287,7 +288,7 @@ def render_latest_siege_tab() -> None:
         recs_display = recs[recs["win_rate"] >= 90.0] if not recs.empty else recs
 
         opinions: list[str] = []
-        if get_defense_log_count(def_key) <= 10:
+        if get_defense_log_count(def_key) <= NEW_DEFENSE_DECK_MAX_LOGS:
             opinions.append("NEW 방덱")
 
         if not recs_display.empty:
