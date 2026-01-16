@@ -63,6 +63,10 @@ def _match_label_from_week_encoding(
     return f"{year}년 {month}월 {week_index}주차 {order_label}"
 
 
+def _format_ts(value: pd.Timestamp) -> str:
+    return value.isoformat()
+
+
 @st.cache_data(ttl=300)
 def get_match_options() -> list[MatchOption]:
     batch_size = 1000
@@ -172,15 +176,45 @@ def get_match_lose_logs(match_id: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=120)
-def get_defense_log_count(def_key: str) -> int:
+def get_match_start_ts(match_id: str) -> pd.Timestamp | None:
+    res = (
+        sb()
+        .table("siege_logs")
+        .select("ts, updated_at")
+        .eq("match_id", match_id)
+        .execute()
+    )
+    df = pd.DataFrame(res.data or [])
+    if df.empty:
+        return None
+    ts_series = pd.to_datetime(df.get("ts"), errors="coerce", utc=True)
+    ts_min = ts_series.dropna().min()
+    if pd.notna(ts_min):
+        return ts_min
+    updated_series = pd.to_datetime(df.get("updated_at"), errors="coerce", utc=True)
+    updated_min = updated_series.dropna().min()
+    return updated_min if pd.notna(updated_min) else None
+
+
+@st.cache_data(ttl=120)
+def get_defense_log_count_before(def_key: str, match_start_ts: pd.Timestamp | None) -> int:
+    if match_start_ts is None:
+        return 0
     parts = [p for p in (def_key or "").split("|") if p]
     if len(parts) < 3:
         return 0
     d1, d2, d3 = parts[0], parts[1], parts[2]
+    cutoff = _format_ts(match_start_ts)
 
     def_perms = [(d1, d2, d3), (d1, d3, d2)]
+    time_filter = f"or(ts.lt.{_q(cutoff)},and(ts.is.null,updated_at.lt.{_q(cutoff)}))"
     or_clauses = [
-        f"and(deck2_1.eq.{_q(a)},deck2_2.eq.{_q(b)},deck2_3.eq.{_q(c)})"
+        (
+            "and("
+            f"deck2_1.eq.{_q(a)},deck2_2.eq.{_q(b)},deck2_3.eq.{_q(c)},"
+            f"{time_filter}"
+            ")"
+        )
         for a, b, c in def_perms
     ]
 
@@ -203,8 +237,7 @@ def get_recommended_offense(def_key: str) -> pd.DataFrame:
         return normalized
 
     top10_by_total = normalized.sort_values(["total"], ascending=[False]).head(10)
-    top10_by_total = top10_by_total.sort_values(["win_rate", "total"], ascending=[False, False])
-    return top10_by_total.head(5).reset_index(drop=True)
+    return top10_by_total.reset_index(drop=True)
 
 
 def _build_opinion_badges_html(opinions: list[str]) -> str:
@@ -242,6 +275,7 @@ def render_latest_siege_tab() -> None:
     if logs.empty:
         st.info("No loss logs found for this match.")
         return
+    match_start_ts = get_match_start_ts(selected_match)
 
     st.markdown(
         """
@@ -289,7 +323,7 @@ def render_latest_siege_tab() -> None:
         recs_display = recs[recs["win_rate"] >= 90.0] if not recs.empty else recs
 
         opinions: list[str] = []
-        if get_defense_log_count(def_key) <= 10:
+        if get_defense_log_count_before(def_key, match_start_ts) <= 10:
             opinions.append("NEW 방덱")
 
         if not recs_display.empty:
