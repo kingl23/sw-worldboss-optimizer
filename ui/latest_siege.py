@@ -31,6 +31,13 @@ def _fmt_team(r, a: str, b: str, c: str) -> str:
     return " / ".join(parts)
 
 
+def _match_date_from_id(match_id: str | int) -> str | None:
+    match_str = str(match_id or "")
+    if len(match_str) >= 8 and match_str[:8].isdigit():
+        return match_str[:8]
+    return None
+
+
 @st.cache_data(ttl=300)
 def get_match_options() -> list[MatchOption]:
     batch_size = 1000
@@ -59,14 +66,20 @@ def get_match_options() -> list[MatchOption]:
 
     options: list[MatchOption] = []
     for match_id, group in df.groupby("match_id"):
-        ts_min = group["ts_dt"].dropna().min()
-        if pd.isna(ts_min):
-            sort_dt = group["updated_dt"].dropna().min()
-        else:
-            sort_dt = ts_min
-        date_str = "Unknown"
-        if pd.notna(sort_dt):
-            date_str = sort_dt.tz_convert("Asia/Seoul").strftime("%Y%m%d")
+        date_str = _match_date_from_id(match_id)
+        sort_dt = None
+        if date_str:
+            sort_dt = pd.to_datetime(date_str, format="%Y%m%d", errors="coerce", utc=True)
+        if not date_str:
+            ts_min = group["ts_dt"].dropna().min()
+            if pd.isna(ts_min):
+                sort_dt = group["updated_dt"].dropna().min()
+            else:
+                sort_dt = ts_min
+            if pd.notna(sort_dt):
+                date_str = sort_dt.tz_convert("Asia/Seoul").strftime("%Y%m%d")
+        if not date_str:
+            date_str = "Unknown"
 
         guilds = sorted({g for g in group.get("opp_guild", []) if g})
         if guilds:
@@ -168,7 +181,7 @@ def render_latest_siege_tab() -> None:
     with st.expander("Debug", expanded=False):
         preview = [
             f"{labels.get(mid, mid)} ({mid})"
-            for mid in match_ids[:5]
+            for mid in match_ids[:10]
         ]
         if preview:
             st.write("\n".join(preview))
@@ -200,6 +213,19 @@ def render_latest_siege_tab() -> None:
             font-size: 12px;
             margin-right: 6px;
           }
+          .result-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(255, 99, 71, 0.15);
+            border: 1px solid rgba(255, 99, 71, 0.4);
+            font-weight: 600;
+            font-size: 12px;
+          }
+          .summary-muted {
+            color: rgba(250, 250, 250, 0.7);
+            font-size: 13px;
+          }
         </style>
         """,
         unsafe_allow_html=True,
@@ -207,20 +233,23 @@ def render_latest_siege_tab() -> None:
     for row in logs.to_dict(orient="records"):
         offense = _fmt_team(row, "deck1_1", "deck1_2", "deck1_3")
         defense = _fmt_team(row, "deck2_1", "deck2_2", "deck2_3")
-        expander_title = (
-            f"{row.get('wizard', '')} | {row.get('result', '')} | "
-            f"{row.get('opp_guild', '')}/{row.get('opp_wizard', '')}"
-        )
         with st.container():
-            with st.expander(expander_title, expanded=True):
-                st.markdown(
-                    f"**{row.get('wizard', '')} | {row.get('result', '')} | "
-                    f"{row.get('opp_guild', '')}/{row.get('opp_wizard', '')}**"
-                )
-                st.markdown(f"공덱: {offense}")
-                st.markdown(f"방덱: {defense}")
-                st.divider()
+            col_left, col_mid, col_right, col_result = st.columns([1.3, 3.2, 1.6, 0.8])
+            col_left.markdown(f"**{row.get('wizard', '')}**")
+            col_mid.markdown(
+                f"공덱: **{offense}**  \n"
+                f"방덱: **{defense}**"
+            )
+            col_right.markdown(
+                f"<div class='summary-muted'>{row.get('opp_guild', '')} / {row.get('opp_wizard', '')}</div>",
+                unsafe_allow_html=True,
+            )
+            col_result.markdown(
+                f"<span class='result-badge'>{row.get('result', '')}</span>",
+                unsafe_allow_html=True,
+            )
 
+            with st.expander("Detail", expanded=False):
                 def_key = make_def_key(row.get("deck2_1", ""), row.get("deck2_2", ""), row.get("deck2_3", ""))
                 recs = get_recommended_offense(def_key)
                 recs_display = recs[recs["win_rate"] >= 90.0] if not recs.empty else recs
