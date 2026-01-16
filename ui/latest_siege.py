@@ -341,7 +341,7 @@ def render_latest_siege_tab() -> None:
                         use_container_width=True,
                         hide_index=True,
                         column_config={
-                            "공덱(3마리)": st.column_config.TextColumn("공덱(3마리)", width="large"),
+                            "공덱(3마리)": st.column_config.TextColumn("공덱(3마리)", width="small"),
                             "승률": st.column_config.NumberColumn("승률", format="%.1f%%", width="small"),
                         },
                     )
