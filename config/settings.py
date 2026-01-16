@@ -8,4 +8,4 @@ WIZARD_NAMES = [
     "Revent", "상어-", "눈꽃o", "의지",
 ]
 
-NEW_DEFENSE_DECK_MAX_LOGS = 10
+NEW_DEFENSE_DECK_MAX_LOGS = 20
