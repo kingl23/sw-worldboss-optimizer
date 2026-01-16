@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
@@ -45,13 +44,7 @@ def _parse_match_id_parts(match_id: str | int) -> tuple[str, str, str, str] | No
     return yyyy, mm, ww, suffix
 
 
-def _first_monday_of_month(year: int, month: int) -> date:
-    first_day = date(year, month, 1)
-    delta = (7 - first_day.weekday()) % 7
-    return first_day + timedelta(days=delta)
-
-
-def _match_date_from_week_encoding(
+def _match_label_from_week_encoding(
     match_id: str | int,
     match_order_map: dict[str, int],
 ) -> str | None:
@@ -65,12 +58,9 @@ def _match_date_from_week_encoding(
         week_index = int(ww)
     except ValueError:
         return None
-    if week_index < 1:
-        return None
-    week_monday = _first_monday_of_month(year, month) + timedelta(days=(week_index - 1) * 7)
     match_order = match_order_map.get(str(match_id), 0)
-    match_day = week_monday + timedelta(days=1 if match_order == 0 else 4)
-    return match_day.strftime("%Y%m%d")
+    order_label = "1차" if match_order == 0 else "2차"
+    return f"{year}년 {month}월 {week_index}주차 {order_label}"
 
 
 @st.cache_data(ttl=300)
@@ -115,26 +105,24 @@ def get_match_options() -> list[MatchOption]:
 
     options: list[MatchOption] = []
     for match_id, group in df.groupby("match_id"):
-        date_str = _match_date_from_week_encoding(match_id, match_order_map)
+        label_prefix = _match_label_from_week_encoding(match_id, match_order_map)
         sort_dt = None
-        if date_str:
-            sort_dt = pd.to_datetime(date_str, format="%Y%m%d", errors="coerce", utc=True)
-        if not date_str:
+        if not label_prefix:
             ts_min = group["ts_dt"].dropna().min()
             if pd.isna(ts_min):
                 sort_dt = group["updated_dt"].dropna().min()
             else:
                 sort_dt = ts_min
             if pd.notna(sort_dt):
-                date_str = sort_dt.tz_convert("Asia/Seoul").strftime("%Y%m%d")
-        if not date_str:
-            date_str = "Unknown"
+                label_prefix = sort_dt.tz_convert("Asia/Seoul").strftime("%Y%m%d")
+        if not label_prefix:
+            label_prefix = "Unknown"
 
         guilds = sorted({g for g in group.get("opp_guild", []) if g})
         if guilds:
-            label = f"{date_str} vs {','.join(guilds)}"
+            label = f"{label_prefix} vs {','.join(guilds)}"
         else:
-            label = date_str
+            label = label_prefix
 
         options.append(MatchOption(match_id=str(match_id), label=label, sort_key=sort_dt))
 
@@ -321,23 +309,20 @@ def render_latest_siege_tab() -> None:
             with st.expander("Recommended Offense", expanded=False):
                 if recs.empty:
                     st.caption("No matchup data found for this defense deck.")
-                    continue
-
-                if recs_display.empty:
+                elif recs_display.empty:
                     st.caption("90% 이상 추천 공덱 없음")
-                    continue
+                else:
+                    display = recs_display[["offense", "win_rate"]].copy()
+                    display = display.rename(columns={"offense": "공덱(3마리)", "win_rate": "승률"})
+                    display["승률"] = pd.to_numeric(display["승률"], errors="coerce").fillna(0.0)
 
-                display = recs_display[["offense", "win_rate"]].copy()
-                display = display.rename(columns={"offense": "공덱(3마리)", "win_rate": "승률"})
-                display["승률"] = pd.to_numeric(display["승률"], errors="coerce").fillna(0.0)
-
-                st.dataframe(
-                    display,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "공덱(3마리)": st.column_config.TextColumn("공덱(3마리)", width="large"),
-                        "승률": st.column_config.NumberColumn("승률", format="%.1f%%", width="small"),
-                    },
-                )
+                    st.dataframe(
+                        display,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "공덱(3마리)": st.column_config.TextColumn("공덱(3마리)", width="large"),
+                            "승률": st.column_config.NumberColumn("승률", format="%.1f%%", width="small"),
+                        },
+                    )
             st.divider()
