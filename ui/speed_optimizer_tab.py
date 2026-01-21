@@ -22,6 +22,23 @@ PRESET_VALUES = {
 def render_speed_optimizer_tab(state: Dict[str, Any], monster_names: Dict[int, str]) -> None:
     _initialize_speedopt_state()
 
+    st.markdown(
+        """
+        <style>
+          .speedopt-run {
+            display: flex;
+            align-items: center;
+            height: 3rem;
+          }
+          .speedopt-run button {
+            min-height: 3rem;
+            height: 3rem;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.subheader("Speed Optimizer")
 
     _render_section_1()
@@ -62,44 +79,47 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
-    row = st.columns([1, 1, 1, 0.5, 0.6])
+    row = st.columns([1, 1, 1, 0.5])
     with row[0]:
         st.text_input("Input 1", key="speedopt_sec1_in1")
     with row[1]:
         st.text_input("Input 2", key="speedopt_sec1_in2")
     with row[2]:
         st.text_input("Input 3", key="speedopt_sec1_in3")
-    progress_slot = row[4].empty()
     with row[3]:
-        if _run_button_col(key="speedopt_sec1_run", spacer_px=28):
-            progress_bar = progress_slot.progress(0)
-            input_1 = st.session_state.speedopt_sec1_in1
-            input_2 = st.session_state.speedopt_sec1_in2
-            input_3 = st.session_state.speedopt_sec1_in3
-            parsed_input_1 = _parse_optional_int(input_1, label="Input 1")
-            parsed_input_2 = _parse_optional_int(input_2, label="Input 2")
-            parsed_input_3 = _parse_optional_int(input_3, label="Input 3")
-            if parsed_input_1 is None and input_1.strip():
-                st.stop()
-            if parsed_input_2 is None and input_2.strip():
-                st.stop()
-            if parsed_input_3 is None and input_3.strip():
-                st.stop()
-            effective_input_3 = input_3 or input_1
-            payload = {
-                "input_1": input_1,
-                "input_2": input_2,
-                "input_3": effective_input_3,
-            }
-            st.session_state.speedopt_sec1_payload = payload
-            st.session_state.speedopt_sec1_results = _compute_section1_details(
-                parsed_input_1,
-                parsed_input_2,
-                parsed_input_3,
-                progress_callback=lambda value: progress_bar.progress(value),
-            )
-            progress_bar.progress(1.0)
-            st.session_state.speedopt_sec1_ran = True
+        run_clicked = _run_button_col(key="speedopt_sec1_run")
+
+    progress_slot = st.empty()
+
+    if run_clicked:
+        input_1 = st.session_state.speedopt_sec1_in1
+        input_2 = st.session_state.speedopt_sec1_in2
+        input_3 = st.session_state.speedopt_sec1_in3
+        parsed_input_1 = _parse_optional_int(input_1, label="Input 1")
+        parsed_input_2 = _parse_optional_int(input_2, label="Input 2")
+        parsed_input_3 = _parse_optional_int(input_3, label="Input 3")
+        if parsed_input_1 is None and input_1.strip():
+            st.stop()
+        if parsed_input_2 is None and input_2.strip():
+            st.stop()
+        if parsed_input_3 is None and input_3.strip():
+            st.stop()
+        effective_input_3 = input_3 or input_1
+        payload = {
+            "input_1": input_1,
+            "input_2": input_2,
+            "input_3": effective_input_3,
+        }
+        st.session_state.speedopt_sec1_payload = payload
+        progress_bar = _render_progress_bar(progress_slot)
+        st.session_state.speedopt_sec1_results = _compute_section1_details(
+            parsed_input_1,
+            parsed_input_2,
+            parsed_input_3,
+            progress_callback=lambda value: progress_bar.progress(value),
+        )
+        progress_bar.progress(1.0)
+        st.session_state.speedopt_sec1_ran = True
 
     _render_section_1_details()
 
@@ -107,7 +127,7 @@ def _render_section_1() -> None:
 
 def _render_section_2() -> None:
     st.markdown("### Section 2")
-    row = st.columns([1, 1, 1, 0.5, 0.6])
+    row = st.columns([1, 1, 1, 0.5])
     with row[0]:
         st.text_input("Input 1", key="speedopt_sec2_in1")
     with row[1]:
@@ -121,37 +141,35 @@ def _render_section_2() -> None:
             placeholder="Select value",
         )
     with row[3]:
-        st.empty()
-    with row[4]:
-        st.empty()
+        run_clicked = _run_button_col(key="speedopt_sec2_run")
 
-    row_secondary = st.columns([1, 1, 1, 0.5, 0.6])
+    row_secondary = st.columns([1, 1, 1, 0.5])
     with row_secondary[0]:
         st.number_input("Input 4", key="speedopt_sec2_in4", step=1)
     with row_secondary[1]:
-        st.empty()
-    with row_secondary[2]:
         st.number_input("Input 5", key="speedopt_sec2_in5", step=1)
-    with row_secondary[3]:
-        if _run_button_col(key="speedopt_sec2_run", spacer_px=34):
-            payload = {
-                "input_1": st.session_state.speedopt_sec2_in1,
-                "input_2": st.session_state.speedopt_sec2_in2,
-                "input_3": st.session_state.speedopt_sec2_in3,
-                "input_4": st.session_state.speedopt_sec2_in4,
-                "input_5": st.session_state.speedopt_sec2_in5,
-            }
-            st.session_state.speedopt_sec2_payload = payload
-            st.session_state.speedopt_sec2_ran = True
-    with row_secondary[4]:
+    with row_secondary[2]:
         st.empty()
+    with row_secondary[3]:
+        st.empty()
+
+    if run_clicked:
+        payload = {
+            "input_1": st.session_state.speedopt_sec2_in1,
+            "input_2": st.session_state.speedopt_sec2_in2,
+            "input_3": st.session_state.speedopt_sec2_in3,
+            "input_4": st.session_state.speedopt_sec2_in4,
+            "input_5": st.session_state.speedopt_sec2_in5,
+        }
+        st.session_state.speedopt_sec2_payload = payload
+        st.session_state.speedopt_sec2_ran = True
 
     _render_details("speedopt_sec2")
 
 
 def _render_section_3() -> None:
     st.markdown("### Section 3")
-    row = st.columns([1, 1, 1, 0.5, 0.6])
+    row = st.columns([1, 1, 1, 0.5])
     with row[0]:
         st.selectbox(
             "Preset",
@@ -170,29 +188,27 @@ def _render_section_3() -> None:
     with row[2]:
         st.number_input("Input 3", key="speedopt_sec3_in3", step=1)
     with row[3]:
-        st.empty()
-    with row[4]:
-        st.empty()
+        run_clicked = _run_button_col(key="speedopt_sec3_run")
 
-    row_secondary = st.columns([1, 1, 1, 0.5, 0.6])
+    row_secondary = st.columns([1, 1, 1, 0.5])
     with row_secondary[0]:
-        st.empty()
+        st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
     with row_secondary[1]:
         st.empty()
     with row_secondary[2]:
-        st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
-    with row_secondary[3]:
-        if _run_button_col(key="speedopt_sec3_run", spacer_px=34):
-            payload = {
-                "preset": st.session_state.speedopt_sec3_preset,
-                "input_2": st.session_state.speedopt_sec3_in2,
-                "input_3": st.session_state.speedopt_sec3_in3,
-                "input_4": st.session_state.speedopt_sec3_in4,
-            }
-            st.session_state.speedopt_sec3_payload = payload
-            st.session_state.speedopt_sec3_ran = True
-    with row_secondary[4]:
         st.empty()
+    with row_secondary[3]:
+        st.empty()
+
+    if run_clicked:
+        payload = {
+            "preset": st.session_state.speedopt_sec3_preset,
+            "input_2": st.session_state.speedopt_sec3_in2,
+            "input_3": st.session_state.speedopt_sec3_in3,
+            "input_4": st.session_state.speedopt_sec3_in4,
+        }
+        st.session_state.speedopt_sec3_payload = payload
+        st.session_state.speedopt_sec3_ran = True
 
     _render_details("speedopt_sec3")
 
@@ -216,12 +232,17 @@ def _resolve_dropdown_index(state_key: str) -> int | None:
     return None
 
 
-def _run_button_col(label: str = "Run", key: str | None = None, spacer_px: int = 28) -> bool:
-    st.markdown(
-        f"<div style='height: {spacer_px}px'></div>",
-        unsafe_allow_html=True,
-    )
-    return st.button(label, key=key)
+def _run_button_col(label: str = "Run", key: str | None = None) -> bool:
+    st.markdown("<div class='speedopt-run'>", unsafe_allow_html=True)
+    clicked = st.button(label, key=key)
+    st.markdown("</div>", unsafe_allow_html=True)
+    return clicked
+
+
+def _render_progress_bar(container: st.delta_generator.DeltaGenerator) -> st.delta_generator.DeltaGenerator:
+    container.markdown("<div style='height: 6px'></div>", unsafe_allow_html=True)
+    progress_row = container.columns([3.5])
+    return progress_row[0].progress(0)
 
 
 def _render_details(prefix: str) -> None:
