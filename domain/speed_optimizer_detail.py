@@ -9,7 +9,7 @@ from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS, build_full_prese
 from domain.atb_simulator import simulate_with_turn_log
 from domain.atb_simulator_utils import prefix_monsters
 
-MAX_RUNE_SPEED = 400
+MAX_RUNE_SPEED = 250
 MIN_RUNE_SPEED = 150
 COARSE_STEP = 10
 MAX_EFFECT = 50
@@ -687,14 +687,14 @@ def _find_minimum_rune_speed(
     deadline: Optional[float],
     debug: Optional[Dict[str, Any]],
 ) -> Optional[int]:
-    # Speed Optimizer assumes rune speeds below 150 are not meaningful.
     start = max(start_speed, MIN_RUNE_SPEED)
     effect_log = _init_effect_log(debug, effect, start)
 
-    feasible = None
-    for rune_speed in range(start, MAX_RUNE_SPEED + 1):
+    coarse_start = start if start % COARSE_STEP == 0 else start + (COARSE_STEP - start % COARSE_STEP)
+    coarse_feasible = None
+    for rune_speed in range(coarse_start, MAX_RUNE_SPEED + 1, COARSE_STEP):
         if deadline and time.perf_counter() > deadline:
-            _finalize_effect_log(debug, effect_log, feasible)
+            _finalize_effect_log(debug, effect_log, None)
             return None
         matched = _simulate_attempt(
             detail_preset,
@@ -704,37 +704,49 @@ def _find_minimum_rune_speed(
             effect,
             rune_speed,
             debug,
-            phase="scan",
+            phase="coarse",
         )
+        _log_effect_step(effect_log, "coarse_attempts", {"speed": rune_speed, "matched": matched})
         if matched:
-            feasible = rune_speed
-            _log_effect_step(effect_log, "first_feasible", rune_speed)
+            coarse_feasible = rune_speed
+            _log_effect_step(effect_log, "coarse_first_feasible", rune_speed)
             break
 
-    if feasible is None:
+    if coarse_feasible is None:
         _finalize_effect_log(debug, effect_log, None)
         return None
 
-    while feasible - COARSE_STEP >= MIN_RUNE_SPEED:
-        candidate = feasible - COARSE_STEP
+    bucket_low = max(MIN_RUNE_SPEED, coarse_feasible - COARSE_STEP)
+    refine_start = max(start, bucket_low)
+    refined = None
+    for rune_speed in range(refine_start, coarse_feasible + 1):
+        if deadline and time.perf_counter() > deadline:
+            _finalize_effect_log(debug, effect_log, None)
+            return None
         matched = _simulate_attempt(
             detail_preset,
             base_overrides,
             required_order,
             target_key,
             effect,
-            candidate,
+            rune_speed,
             debug,
-            phase="coarse",
+            phase="refine",
         )
-        _log_effect_step(effect_log, "coarse_attempts", {"speed": candidate, "matched": matched})
+        _log_effect_step(effect_log, "refine_attempts", {"speed": rune_speed, "matched": matched})
         if matched:
-            feasible = candidate
-        else:
+            refined = rune_speed
             break
 
-    while feasible - 1 >= MIN_RUNE_SPEED:
-        candidate = feasible - 1
+    if refined is None:
+        _finalize_effect_log(debug, effect_log, None)
+        return None
+
+    while refined > MIN_RUNE_SPEED:
+        candidate = refined - 1
+        if deadline and time.perf_counter() > deadline:
+            _finalize_effect_log(debug, effect_log, None)
+            return None
         matched = _simulate_attempt(
             detail_preset,
             base_overrides,
@@ -747,12 +759,12 @@ def _find_minimum_rune_speed(
         )
         _log_effect_step(effect_log, "refine_attempts", {"speed": candidate, "matched": matched})
         if matched:
-            feasible = candidate
+            refined = candidate
         else:
             break
 
-    _finalize_effect_log(debug, effect_log, feasible)
-    return feasible
+    _finalize_effect_log(debug, effect_log, refined)
+    return refined
 
 
 def _matches_required_order(
