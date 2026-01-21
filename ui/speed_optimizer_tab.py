@@ -269,14 +269,22 @@ def _render_section_1_details() -> None:
             return
         for result in results:
             st.markdown(f"#### {result.preset_id}")
+            if result.calc_type:
+                st.caption(f"Mode: {result.calc_type}")
             if result.error:
                 st.warning(result.error)
-                continue
-            _render_unit_detail_table(
-                "A3 Detail",
-                result.a3_table,
-                empty_message="No feasible solution for a3 given a1 fixed by Input 2.",
-            )
+            if result.a2_table:
+                _render_unit_detail_table(
+                    "A2 Minimum Rune Speed by Effect",
+                    result.a2_table,
+                    empty_message="No feasible solution for a2 given the current inputs.",
+                )
+            if result.a3_table:
+                _render_unit_detail_table(
+                    "A3 Minimum Rune Speed by Effect",
+                    result.a3_table,
+                    empty_message="No feasible solution for a3 given a1 fixed by Input 2.",
+                )
 
 
 def _render_unit_detail_table(
@@ -351,6 +359,7 @@ def _build_error_result(preset_id: str, message: str):
     return PresetDetailResult(
         preset_id=preset_id,
         a1_table=None,
+        a2_table=None,
         a3_table=None,
         error=message,
         timing=None,

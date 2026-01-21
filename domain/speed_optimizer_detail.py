@@ -15,6 +15,17 @@ COARSE_STEP = 10
 MAX_EFFECT = 50
 SECTION1_TURN_ORDER_DEFAULT = ["a2", "a1", "a3", "e_fast"]
 SECTION1_TURN_ORDER_OVERRIDES: Dict[str, List[str]] = {}
+_SECTION1_CALC_PATTERN = ["A", "B", "C", "B", "C", "B", "C"]
+_SECTION1_PRESET_ORDER = list(ATB_SIMULATOR_PRESETS.keys())
+_SECTION1_CALC_TYPE_MAP: Dict[str, str] = {
+    preset_id: _SECTION1_CALC_PATTERN[idx]
+    for idx, preset_id in enumerate(_SECTION1_PRESET_ORDER)
+    if idx < len(_SECTION1_CALC_PATTERN)
+}
+
+
+def _resolve_calc_type(preset_id: str) -> str:
+    return _SECTION1_CALC_TYPE_MAP.get(preset_id, "C")
 
 
 @dataclass
@@ -26,10 +37,12 @@ class DetailTable:
 class PresetDetailResult:
     preset_id: str
     a1_table: Optional[DetailTable]
+    a2_table: Optional[DetailTable]
     a3_table: Optional[DetailTable]
     error: Optional[str] = None
     timing: Optional[Dict[str, float]] = None
     debug: Optional[Dict[str, Any]] = None
+    calc_type: Optional[str] = None
 
 
 @lru_cache(maxsize=128)
@@ -42,7 +55,28 @@ def build_section1_detail_cached(
     debug: bool,
 ) -> PresetDetailResult:
     preset = build_full_preset(preset_id)
-    return _build_preset_detail(
+    calc_type = _resolve_calc_type(preset_id)
+    if calc_type == "A":
+        return _build_preset_detail_type_a(
+            preset_id,
+            preset,
+            input_1,
+            input_2,
+            input_3,
+            max_runtime_s=max_runtime_s,
+            debug=debug,
+        )
+    if calc_type == "B":
+        return _build_preset_detail_type_b(
+            preset_id,
+            preset,
+            input_1,
+            input_2,
+            input_3,
+            max_runtime_s=max_runtime_s,
+            debug=debug,
+        )
+    return _build_preset_detail_type_c(
         preset_id,
         preset,
         input_1,
@@ -53,7 +87,7 @@ def build_section1_detail_cached(
     )
 
 
-def _build_preset_detail(
+def _build_preset_detail_type_c(
     preset_id: str,
     preset: Dict[str, Any],
     input_1: Optional[int],
@@ -68,8 +102,10 @@ def _build_preset_detail(
         return PresetDetailResult(
             preset_id=preset_id,
             a1_table=None,
+            a2_table=None,
             a3_table=None,
             error="Preset must contain at least 3 allies and 2 enemies.",
+            calc_type="C",
         )
 
     # Input 2 fixes a1's rune speed so only a3 is optimized.
@@ -84,6 +120,7 @@ def _build_preset_detail(
         input_1,
         input_2,
         input_3,
+        allow_enemy_fallback=True,
     )
     debug_payload: Optional[Dict[str, Any]] = None
     if debug:
@@ -95,6 +132,7 @@ def _build_preset_detail(
                 "input_3": input_3 if input_3 is not None else enemy_speed_effective,
                 "enemy_rune_speed_source": enemy_speed_source,
                 "enemy_rune_speed_effective": enemy_speed_effective,
+                "calc_type": "C",
             },
             "attempts": [],
             # Debug mode stores only a limited number of attempts to avoid heavy memory use.
@@ -116,13 +154,16 @@ def _build_preset_detail(
         return PresetDetailResult(
             preset_id=preset_id,
             a1_table=None,
+            a2_table=None,
             a3_table=None,
             error="No enemy took a turn in the simulation.",
             timing={"e_fast_s": e_fast_time},
             debug=debug_payload,
+            calc_type="C",
         )
 
     if debug_payload is not None:
+        debug_payload["calc_type"] = "C"
         debug_payload["input_summary"]["selected_enemy_key"] = e_fast_key
 
     detail_preset, detail_keys = _build_detail_preset(
@@ -136,10 +177,12 @@ def _build_preset_detail(
         return PresetDetailResult(
             preset_id=preset_id,
             a1_table=None,
+            a2_table=None,
             a3_table=None,
             error="Invalid required turn order mapping for this preset.",
             timing={"e_fast_s": e_fast_time},
             debug=debug_payload,
+            calc_type="C",
         )
 
     if debug_payload is not None:
@@ -189,6 +232,7 @@ def _build_preset_detail(
     return PresetDetailResult(
         preset_id=preset_id,
         a1_table=None,
+        a2_table=None,
         a3_table=a3_table,
         error=combined_error,
         timing={
@@ -196,6 +240,304 @@ def _build_preset_detail(
             "a3_s": a3_time,
         },
         debug=debug_payload,
+        calc_type="C",
+    )
+
+
+def _build_preset_detail_type_a(
+    preset_id: str,
+    preset: Dict[str, Any],
+    input_1: Optional[int],
+    input_2: Optional[int],
+    input_3: Optional[int],
+    max_runtime_s: Optional[float],
+    debug: bool,
+) -> PresetDetailResult:
+    allies = preset.get("allies", [])
+    enemies = preset.get("enemies", [])
+    if len(allies) < 3 or len(enemies) < 2:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a2_table=None,
+            a3_table=None,
+            error="Preset must contain at least 3 allies and 2 enemies.",
+            calc_type="A",
+        )
+
+    start_time = time.perf_counter()
+    deadline = start_time + max_runtime_s if max_runtime_s else None
+
+    prefixed_allies, _ = prefix_monsters(allies, prefix="A")
+    prefixed_enemies, _ = prefix_monsters(enemies, prefix="E")
+    prefixed_overrides, enemy_speed_source, enemy_speed_effective = _build_section1_overrides(
+        prefixed_allies,
+        prefixed_enemies,
+        input_1,
+        input_2,
+        input_3,
+        allow_enemy_fallback=False,
+    )
+    debug_payload: Optional[Dict[str, Any]] = None
+    if debug:
+        debug_payload = {
+            "input_summary": {
+                "preset_id": preset_id,
+                "input_1": input_1,
+                "input_2": input_2,
+                "input_3": input_3,
+                "enemy_rune_speed_source": enemy_speed_source,
+                "enemy_rune_speed_effective": enemy_speed_effective,
+                "calc_type": "A",
+            },
+            "attempts": [],
+            "attempt_limit": 25,
+            "truncated": False,
+            "min_rune_speed": MIN_RUNE_SPEED,
+            "max_rune_speed": MAX_RUNE_SPEED,
+            "effect_logs": [],
+        }
+
+    e_fast_start = time.perf_counter()
+    e_fast_key = _select_fastest_enemy(
+        preset,
+        prefixed_allies,
+        prefixed_enemies,
+        prefixed_overrides,
+    )
+    e_fast_time = time.perf_counter() - e_fast_start
+    if not e_fast_key:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a2_table=None,
+            a3_table=None,
+            error="No enemy took a turn in the simulation.",
+            timing={"e_fast_s": e_fast_time},
+            debug=debug_payload,
+            calc_type="A",
+        )
+
+    detail_preset, detail_keys = _build_detail_preset(
+        preset,
+        prefixed_allies,
+        prefixed_enemies,
+        e_fast_key,
+    )
+    required_order = _resolve_required_order(preset_id, detail_keys)
+    if required_order is None:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a2_table=None,
+            a3_table=None,
+            error="Invalid required turn order mapping for this preset.",
+            timing={"e_fast_s": e_fast_time},
+            debug=debug_payload,
+            calc_type="A",
+        )
+
+    a2_start = time.perf_counter()
+    a2_table, a2_error = _build_unit_detail_table(
+        detail_preset,
+        required_order,
+        prefixed_overrides,
+        target_key=detail_keys["a2"],
+        deadline=deadline,
+        debug=debug_payload,
+    )
+    a2_time = time.perf_counter() - a2_start
+
+    error_messages = [msg for msg in [a2_error] if msg]
+    combined_error = "\n".join(error_messages) if error_messages else None
+
+    return PresetDetailResult(
+        preset_id=preset_id,
+        a1_table=None,
+        a2_table=a2_table,
+        a3_table=None,
+        error=combined_error,
+        timing={
+            "e_fast_s": e_fast_time,
+            "a2_s": a2_time,
+        },
+        debug=debug_payload,
+        calc_type="A",
+    )
+
+
+def _build_preset_detail_type_b(
+    preset_id: str,
+    preset: Dict[str, Any],
+    input_1: Optional[int],
+    input_2: Optional[int],
+    input_3: Optional[int],
+    max_runtime_s: Optional[float],
+    debug: bool,
+) -> PresetDetailResult:
+    allies = preset.get("allies", [])
+    enemies = preset.get("enemies", [])
+    if len(allies) < 3 or len(enemies) < 2:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a2_table=None,
+            a3_table=None,
+            error="Preset must contain at least 3 allies and 2 enemies.",
+            calc_type="B",
+        )
+
+    start_time = time.perf_counter()
+    deadline = start_time + max_runtime_s if max_runtime_s else None
+
+    prefixed_allies, _ = prefix_monsters(allies, prefix="A")
+    prefixed_enemies, _ = prefix_monsters(enemies, prefix="E")
+    prefixed_overrides, enemy_speed_source, enemy_speed_effective = _build_section1_overrides(
+        prefixed_allies,
+        prefixed_enemies,
+        input_1,
+        input_2,
+        input_3,
+        allow_enemy_fallback=False,
+    )
+    debug_payload: Optional[Dict[str, Any]] = None
+    if debug:
+        debug_payload = {
+            "input_summary": {
+                "preset_id": preset_id,
+                "input_1": input_1,
+                "input_2": input_2,
+                "input_3": input_3,
+                "enemy_rune_speed_source": enemy_speed_source,
+                "enemy_rune_speed_effective": enemy_speed_effective,
+                "calc_type": "B",
+            },
+            "attempts": [],
+            "attempt_limit": 25,
+            "truncated": False,
+            "min_rune_speed": MIN_RUNE_SPEED,
+            "max_rune_speed": MAX_RUNE_SPEED,
+            "effect_logs": [],
+        }
+
+    e_fast_start = time.perf_counter()
+    e_fast_key = _select_fastest_enemy(
+        preset,
+        prefixed_allies,
+        prefixed_enemies,
+        prefixed_overrides,
+    )
+    e_fast_time = time.perf_counter() - e_fast_start
+    if not e_fast_key:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a2_table=None,
+            a3_table=None,
+            error="No enemy took a turn in the simulation.",
+            timing={"e_fast_s": e_fast_time},
+            debug=debug_payload,
+            calc_type="B",
+        )
+
+    detail_preset, detail_keys = _build_detail_preset(
+        preset,
+        prefixed_allies,
+        prefixed_enemies,
+        e_fast_key,
+    )
+    required_order = _resolve_required_order(preset_id, detail_keys)
+    if required_order is None:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a2_table=None,
+            a3_table=None,
+            error="Invalid required turn order mapping for this preset.",
+            timing={"e_fast_s": e_fast_time},
+            debug=debug_payload,
+            calc_type="B",
+        )
+
+    a2_start = time.perf_counter()
+    a2_table, a2_error = _build_unit_detail_table(
+        detail_preset,
+        required_order,
+        prefixed_overrides,
+        target_key=detail_keys["a2"],
+        deadline=deadline,
+        debug=debug_payload,
+    )
+    a2_time = time.perf_counter() - a2_start
+    if a2_error:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a2_table=a2_table,
+            a3_table=None,
+            error=a2_error,
+            timing={"e_fast_s": e_fast_time, "a2_s": a2_time},
+            debug=debug_payload,
+            calc_type="B",
+        )
+
+    a2_min0 = _find_minimum_rune_speed(
+        detail_preset,
+        required_order,
+        prefixed_overrides,
+        detail_keys["a2"],
+        effect=0,
+        start_speed=MIN_RUNE_SPEED,
+        deadline=deadline,
+        debug=debug_payload,
+    )
+    if debug_payload is not None:
+        debug_payload["a2_min0"] = a2_min0
+
+    if a2_min0 is None:
+        return PresetDetailResult(
+            preset_id=preset_id,
+            a1_table=None,
+            a2_table=a2_table,
+            a3_table=None,
+            error="Unable to find minimum rune speed for a2 at effect 0.",
+            timing={"e_fast_s": e_fast_time, "a2_s": a2_time},
+            debug=debug_payload,
+            calc_type="B",
+        )
+
+    fixed_overrides = dict(prefixed_overrides)
+    fixed_overrides[detail_keys["a2"]] = {
+        "rune_speed": a2_min0,
+        "speedIncreasingEffect": 0,
+    }
+    a3_start = time.perf_counter()
+    a3_table, a3_error = _build_unit_detail_table(
+        detail_preset,
+        required_order,
+        fixed_overrides,
+        target_key=detail_keys["a3"],
+        deadline=deadline,
+        debug=debug_payload,
+    )
+    a3_time = time.perf_counter() - a3_start
+
+    error_messages = [msg for msg in [a2_error, a3_error] if msg]
+    combined_error = "\n".join(error_messages) if error_messages else None
+
+    return PresetDetailResult(
+        preset_id=preset_id,
+        a1_table=None,
+        a2_table=a2_table,
+        a3_table=a3_table,
+        error=combined_error,
+        timing={
+            "e_fast_s": e_fast_time,
+            "a2_s": a2_time,
+            "a3_s": a3_time,
+        },
+        debug=debug_payload,
+        calc_type="B",
     )
 
 
@@ -205,6 +547,7 @@ def _build_section1_overrides(
     input_1: Optional[int],
     input_2: Optional[int],
     input_3: Optional[int],
+    allow_enemy_fallback: bool,
 ) -> Tuple[Dict[str, Dict[str, int]], str, int]:
     overrides: Dict[str, Dict[str, int]] = {}
     a1_key = allies[0].get("key")
@@ -216,6 +559,8 @@ def _build_section1_overrides(
         overrides[a2_key] = {"rune_speed": input_1}
 
     e2_key = enemies[1].get("key")
+    if input_3 is None and not allow_enemy_fallback:
+        raise ValueError("Enemy rune_speed cannot be resolved (input_3 is empty).")
     if input_3 is None and input_1 is None:
         raise ValueError(
             "Enemy rune_speed cannot be resolved (input_1 and input_3 are both empty)."
