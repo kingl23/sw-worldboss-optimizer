@@ -62,7 +62,7 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
-    row = st.columns([1, 1, 1, 0.5, 1.5])
+    row = st.columns([1, 1, 1, 0.5, 0.6])
     with row[0]:
         st.text_input("Input 1", key="speedopt_sec1_in1")
     with row[1]:
@@ -101,11 +101,13 @@ def _render_section_1() -> None:
             progress_bar.progress(1.0)
             st.session_state.speedopt_sec1_ran = True
 
+    _render_section_1_details()
+
 
 
 def _render_section_2() -> None:
     st.markdown("### Section 2")
-    row = st.columns([1, 1, 1, 0.5, 1.5])
+    row = st.columns([1, 1, 1, 0.5, 0.6])
     with row[0]:
         st.text_input("Input 1", key="speedopt_sec2_in1")
     with row[1]:
@@ -119,6 +121,18 @@ def _render_section_2() -> None:
             placeholder="Select value",
         )
     with row[3]:
+        st.empty()
+    with row[4]:
+        st.empty()
+
+    row_secondary = st.columns([1, 1, 1, 0.5, 0.6])
+    with row_secondary[0]:
+        st.number_input("Input 4", key="speedopt_sec2_in4", step=1)
+    with row_secondary[1]:
+        st.empty()
+    with row_secondary[2]:
+        st.number_input("Input 5", key="speedopt_sec2_in5", step=1)
+    with row_secondary[3]:
         if _run_button_col(key="speedopt_sec2_run", spacer_px=34):
             payload = {
                 "input_1": st.session_state.speedopt_sec2_in1,
@@ -129,21 +143,15 @@ def _render_section_2() -> None:
             }
             st.session_state.speedopt_sec2_payload = payload
             st.session_state.speedopt_sec2_ran = True
-    with row[4]:
-        st.empty()
-
-    row_secondary = st.columns([1, 1, 1, 0.5, 1.5])
-    with row_secondary[0]:
-        st.number_input("Input 4", key="speedopt_sec2_in4", step=1)
-    with row_secondary[1]:
-        st.number_input("Input 5", key="speedopt_sec2_in5", step=1)
     with row_secondary[4]:
         st.empty()
+
+    _render_details("speedopt_sec2")
 
 
 def _render_section_3() -> None:
     st.markdown("### Section 3")
-    row = st.columns([1, 1, 1, 0.5, 1.5])
+    row = st.columns([1, 1, 1, 0.5, 0.6])
     with row[0]:
         st.selectbox(
             "Preset",
@@ -162,6 +170,18 @@ def _render_section_3() -> None:
     with row[2]:
         st.number_input("Input 3", key="speedopt_sec3_in3", step=1)
     with row[3]:
+        st.empty()
+    with row[4]:
+        st.empty()
+
+    row_secondary = st.columns([1, 1, 1, 0.5, 0.6])
+    with row_secondary[0]:
+        st.empty()
+    with row_secondary[1]:
+        st.empty()
+    with row_secondary[2]:
+        st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
+    with row_secondary[3]:
         if _run_button_col(key="speedopt_sec3_run", spacer_px=34):
             payload = {
                 "preset": st.session_state.speedopt_sec3_preset,
@@ -171,14 +191,10 @@ def _render_section_3() -> None:
             }
             st.session_state.speedopt_sec3_payload = payload
             st.session_state.speedopt_sec3_ran = True
-    with row[4]:
-        st.empty()
-
-    row_secondary = st.columns([1, 1, 1, 0.5, 1.5])
-    with row_secondary[0]:
-        st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
     with row_secondary[4]:
         st.empty()
+
+    _render_details("speedopt_sec3")
 
 
 def _apply_preset_values() -> None:
@@ -206,6 +222,52 @@ def _run_button_col(label: str = "Run", key: str | None = None, spacer_px: int =
         unsafe_allow_html=True,
     )
     return st.button(label, key=key)
+
+
+def _render_details(prefix: str) -> None:
+    ran_key = f"{prefix}_ran"
+    payload_key = f"{prefix}_payload"
+    with st.expander("Details", expanded=bool(st.session_state.get(ran_key))):
+        if not st.session_state.get(ran_key):
+            return
+        payload = st.session_state.get(payload_key) or {}
+        if not payload:
+            st.info("No results yet.")
+            return
+        rows = [{"Field": key, "Value": value} for key, value in payload.items()]
+        st.table(rows)
+
+
+def _render_section_1_details() -> None:
+    with st.expander("Details", expanded=bool(st.session_state.get("speedopt_sec1_ran"))):
+        if not st.session_state.get("speedopt_sec1_ran"):
+            return
+        results = st.session_state.get("speedopt_sec1_results") or []
+        if not results:
+            st.info("No results yet.")
+            return
+        for result in results:
+            st.markdown(f"#### {result.preset_id}")
+            if result.error:
+                st.warning(result.error)
+                continue
+            _render_unit_detail_table(
+                "A3 Detail",
+                result.a3_table,
+                empty_message="No feasible solution for a3 given a1 fixed by Input 2.",
+            )
+
+
+def _render_unit_detail_table(
+    title: str,
+    detail_table: Optional[Any],
+    empty_message: str = "No feasible solution.",
+) -> None:
+    st.markdown(f"**{title}**")
+    if not detail_table or not detail_table.ranges:
+        st.caption(empty_message)
+        return
+    st.table(detail_table.ranges)
 
 
 def _parse_optional_int(value: str, label: str) -> Optional[int]:
