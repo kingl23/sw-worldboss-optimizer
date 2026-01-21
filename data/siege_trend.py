@@ -2,6 +2,8 @@
 import math
 import pandas as pd
 
+from utils.deck_utils import make_deck_key
+
 MAX_POINTS = 500
 TOP_N_OFFENSE = 7
 
@@ -11,15 +13,7 @@ def _norm(v) -> str:
 
 
 def make_off_key(a, b, c) -> str:
-    A = _norm(a)
-    B = _norm(b)
-    C = _norm(c)
-    if not A:
-        return ""
-    rest = sorted([x for x in [B, C] if x])
-    if len(rest) != 2:
-        return ""
-    return "|".join([A] + rest)
+    return make_deck_key(_norm(a), _norm(b), _norm(c))
 
 
 def build_cumulative_trend_df(siege_df: pd.DataFrame) -> pd.DataFrame:
