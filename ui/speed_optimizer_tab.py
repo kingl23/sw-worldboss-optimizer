@@ -79,7 +79,7 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
-    row = st.columns([1, 1, 1, 0.5])
+    row = st.columns([1, 1, 1, 1, 1, 0.6])
     with row[0]:
         st.text_input("Input 1", key="speedopt_sec1_in1")
     with row[1]:
@@ -87,6 +87,8 @@ def _render_section_1() -> None:
     with row[2]:
         st.text_input("Input 3", key="speedopt_sec1_in3")
     with row[3]:
+        st.empty()
+    with row[4]:
         run_clicked = _run_button_col(key="speedopt_sec1_run")
 
     progress_slot = st.empty()
@@ -127,7 +129,7 @@ def _render_section_1() -> None:
 
 def _render_section_2() -> None:
     st.markdown("### Section 2")
-    row = st.columns([1, 1, 1, 0.5])
+    row = st.columns([1, 1, 1, 1, 1, 1, 0.6])
     with row[0]:
         st.text_input("Input 1", key="speedopt_sec2_in1")
     with row[1]:
@@ -141,17 +143,13 @@ def _render_section_2() -> None:
             placeholder="Select value",
         )
     with row[3]:
-        run_clicked = _run_button_col(key="speedopt_sec2_run")
-
-    row_secondary = st.columns([1, 1, 1, 0.5])
-    with row_secondary[0]:
         st.number_input("Input 4", key="speedopt_sec2_in4", step=1)
-    with row_secondary[1]:
+    with row[4]:
         st.number_input("Input 5", key="speedopt_sec2_in5", step=1)
-    with row_secondary[2]:
+    with row[5]:
         st.empty()
-    with row_secondary[3]:
-        st.empty()
+    with row[6]:
+        run_clicked = _run_button_col(key="speedopt_sec2_run")
 
     if run_clicked:
         payload = {
@@ -169,7 +167,7 @@ def _render_section_2() -> None:
 
 def _render_section_3() -> None:
     st.markdown("### Section 3")
-    row = st.columns([1, 1, 1, 0.5])
+    row = st.columns([1, 1, 1, 1, 0.6])
     with row[0]:
         st.selectbox(
             "Preset",
@@ -188,17 +186,11 @@ def _render_section_3() -> None:
     with row[2]:
         st.number_input("Input 3", key="speedopt_sec3_in3", step=1)
     with row[3]:
-        run_clicked = _run_button_col(key="speedopt_sec3_run")
-
-    row_secondary = st.columns([1, 1, 1, 0.5])
-    with row_secondary[0]:
         st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
-    with row_secondary[1]:
+    with row[4]:
         st.empty()
-    with row_secondary[2]:
-        st.empty()
-    with row_secondary[3]:
-        st.empty()
+    with row[5]:
+        run_clicked = _run_button_col(key="speedopt_sec3_run")
 
     if run_clicked:
         payload = {
