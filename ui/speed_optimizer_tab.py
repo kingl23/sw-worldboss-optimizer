@@ -79,8 +79,8 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
-    cols = st.columns([1, 1, 1, 1, 1, 0.6])
-    input_cols = cols[:3]
+    cols = st.columns([1, 1, 1, 1, 0.6])
+    input_cols = cols[:-2]
     spacer_col = cols[-2]
     run_col = cols[-1]
     with input_cols[0]:
@@ -131,7 +131,7 @@ def _render_section_1() -> None:
 def _render_section_2() -> None:
     st.markdown("### Section 2")
     cols = st.columns([1, 1, 1, 1, 1, 1, 0.6])
-    input_cols = cols[:5]
+    input_cols = cols[:-2]
     spacer_col = cols[-2]
     run_col = cols[-1]
     with input_cols[0]:
@@ -171,8 +171,8 @@ def _render_section_2() -> None:
 
 def _render_section_3() -> None:
     st.markdown("### Section 3")
-    cols = st.columns([1, 1, 1, 1, 0.6])
-    input_cols = cols[:4]
+    cols = st.columns([1, 1, 1, 1, 1, 0.6])
+    input_cols = cols[:-2]
     spacer_col = cols[-2]
     run_col = cols[-1]
     with input_cols[0]:
