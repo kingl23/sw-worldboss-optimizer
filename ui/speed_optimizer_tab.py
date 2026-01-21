@@ -79,16 +79,17 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
-    row = st.columns([1, 1, 1, 1, 1, 0.6])
-    with row[0]:
+    cols = st.columns([1, 1, 1, 1, 1, 0.6])
+    input_cols = cols[:3]
+    spacer_col = cols[-2]
+    run_col = cols[-1]
+    with input_cols[0]:
         st.text_input("Input 1", key="speedopt_sec1_in1")
-    with row[1]:
+    with input_cols[1]:
         st.text_input("Input 2", key="speedopt_sec1_in2")
-    with row[2]:
+    with input_cols[2]:
         st.text_input("Input 3", key="speedopt_sec1_in3")
-    with row[3]:
-        st.empty()
-    with row[4]:
+    with spacer_col:
         run_clicked = _run_button_col(key="speedopt_sec1_run")
 
     progress_slot = st.empty()
@@ -129,12 +130,15 @@ def _render_section_1() -> None:
 
 def _render_section_2() -> None:
     st.markdown("### Section 2")
-    row = st.columns([1, 1, 1, 1, 1, 1, 0.6])
-    with row[0]:
+    cols = st.columns([1, 1, 1, 1, 1, 1, 0.6])
+    input_cols = cols[:5]
+    spacer_col = cols[-2]
+    run_col = cols[-1]
+    with input_cols[0]:
         st.text_input("Input 1", key="speedopt_sec2_in1")
-    with row[1]:
+    with input_cols[1]:
         st.text_input("Input 2", key="speedopt_sec2_in2")
-    with row[2]:
+    with input_cols[2]:
         st.selectbox(
             "Input 3",
             options=DROPDOWN_OPTIONS,
@@ -142,13 +146,13 @@ def _render_section_2() -> None:
             index=_resolve_dropdown_index("speedopt_sec2_in3"),
             placeholder="Select value",
         )
-    with row[3]:
+    with input_cols[3]:
         st.number_input("Input 4", key="speedopt_sec2_in4", step=1)
-    with row[4]:
+    with input_cols[4]:
         st.number_input("Input 5", key="speedopt_sec2_in5", step=1)
-    with row[5]:
+    with spacer_col:
         st.empty()
-    with row[6]:
+    with run_col:
         run_clicked = _run_button_col(key="speedopt_sec2_run")
 
     if run_clicked:
@@ -167,15 +171,18 @@ def _render_section_2() -> None:
 
 def _render_section_3() -> None:
     st.markdown("### Section 3")
-    row = st.columns([1, 1, 1, 1, 0.6])
-    with row[0]:
+    cols = st.columns([1, 1, 1, 1, 0.6])
+    input_cols = cols[:4]
+    spacer_col = cols[-2]
+    run_col = cols[-1]
+    with input_cols[0]:
         st.selectbox(
             "Preset",
             options=list(PRESET_VALUES.keys()),
             key="speedopt_sec3_preset",
             on_change=_apply_preset_values,
         )
-    with row[1]:
+    with input_cols[1]:
         st.selectbox(
             "Input 2",
             options=DROPDOWN_OPTIONS,
@@ -183,13 +190,13 @@ def _render_section_3() -> None:
             index=_resolve_dropdown_index("speedopt_sec3_in2"),
             placeholder="Select value",
         )
-    with row[2]:
+    with input_cols[2]:
         st.number_input("Input 3", key="speedopt_sec3_in3", step=1)
-    with row[3]:
+    with input_cols[3]:
         st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
-    with row[4]:
+    with spacer_col:
         st.empty()
-    with row[5]:
+    with run_col:
         run_clicked = _run_button_col(key="speedopt_sec3_run")
 
     if run_clicked:
