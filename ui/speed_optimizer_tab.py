@@ -64,6 +64,7 @@ def _initialize_speedopt_state() -> None:
         "speedopt_sec2_in4": 0,
         "speedopt_sec2_in5": 0,
         "speedopt_sec3_preset": "Manual",
+        "speedopt_sec3_prev_preset": "Manual",
         "speedopt_sec3_in2": None,
         "speedopt_sec3_in3": 0,
         "speedopt_sec3_in4": 0,
@@ -172,6 +173,7 @@ def _render_section_2() -> None:
 def _render_section_3() -> None:
     st.markdown("### Section 3")
     _render_control_labels([1, 1, 1, 1], ["Preset", "Input 2", "Input 3", "Input 4"])
+    _apply_preset_if_changed()
     with st.form("speedopt_sec3_form", clear_on_submit=False):
         input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1])
         with input_cols[0]:
@@ -179,7 +181,6 @@ def _render_section_3() -> None:
                 "Preset",
                 options=list(PRESET_VALUES.keys()),
                 key="speedopt_sec3_preset",
-                on_change=_apply_preset_values,
                 label_visibility="collapsed",
             )
         with input_cols[1]:
@@ -223,6 +224,15 @@ def _apply_preset_values() -> None:
         st.session_state.speedopt_sec3_in2 = preset_v2
     st.session_state.speedopt_sec3_in3 = preset.get("v3", 0)
     st.session_state.speedopt_sec3_in4 = preset.get("v4", 0)
+
+
+def _apply_preset_if_changed() -> None:
+    current = st.session_state.get("speedopt_sec3_preset")
+    previous = st.session_state.get("speedopt_sec3_prev_preset")
+    if current == previous:
+        return
+    st.session_state.speedopt_sec3_prev_preset = current
+    _apply_preset_values()
 
 
 def _resolve_dropdown_index(state_key: str) -> int | None:
