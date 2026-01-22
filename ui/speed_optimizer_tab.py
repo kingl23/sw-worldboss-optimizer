@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional
 
-import pandas as pd
 import streamlit as st
+import pandas as pd
 
 from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS
 from domain.speed_optimizer_detail import (
@@ -75,13 +75,14 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
+    _render_control_labels([1, 1, 1], ["Input 1", "Input 2", "Input 3"])
     input_cols, spacer_col, run_col = _section_columns([1, 1, 1])
     with input_cols[0]:
-        st.text_input("Input 1", key="speedopt_sec1_in1")
+        st.text_input("Input 1", key="speedopt_sec1_in1", label_visibility="collapsed")
     with input_cols[1]:
-        st.text_input("Input 2", key="speedopt_sec1_in2")
+        st.text_input("Input 2", key="speedopt_sec1_in2", label_visibility="collapsed")
     with input_cols[2]:
-        st.text_input("Input 3", key="speedopt_sec1_in3")
+        st.text_input("Input 3", key="speedopt_sec1_in3", label_visibility="collapsed")
     with spacer_col:
         st.empty()
     with run_col:
@@ -125,11 +126,15 @@ def _render_section_1() -> None:
 
 def _render_section_2() -> None:
     st.markdown("### Section 2")
+    _render_control_labels(
+        [1, 1, 1, 1, 1],
+        ["Input 1", "Input 2", "Input 3", "Input 4", "Input 5"],
+    )
     input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1, 1])
     with input_cols[0]:
-        st.text_input("Input 1", key="speedopt_sec2_in1")
+        st.text_input("Input 1", key="speedopt_sec2_in1", label_visibility="collapsed")
     with input_cols[1]:
-        st.text_input("Input 2", key="speedopt_sec2_in2")
+        st.text_input("Input 2", key="speedopt_sec2_in2", label_visibility="collapsed")
     with input_cols[2]:
         st.selectbox(
             "Input 3",
@@ -137,11 +142,12 @@ def _render_section_2() -> None:
             key="speedopt_sec2_in3",
             index=_resolve_dropdown_index("speedopt_sec2_in3"),
             placeholder="Select value",
+            label_visibility="collapsed",
         )
     with input_cols[3]:
-        st.number_input("Input 4", key="speedopt_sec2_in4", step=1)
+        st.number_input("Input 4", key="speedopt_sec2_in4", step=1, label_visibility="collapsed")
     with input_cols[4]:
-        st.number_input("Input 5", key="speedopt_sec2_in5", step=1)
+        st.number_input("Input 5", key="speedopt_sec2_in5", step=1, label_visibility="collapsed")
     with spacer_col:
         st.empty()
     with run_col:
@@ -163,6 +169,7 @@ def _render_section_2() -> None:
 
 def _render_section_3() -> None:
     st.markdown("### Section 3")
+    _render_control_labels([1, 1, 1, 1], ["Preset", "Input 2", "Input 3", "Input 4"])
     input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1])
     with input_cols[0]:
         st.selectbox(
@@ -170,6 +177,7 @@ def _render_section_3() -> None:
             options=list(PRESET_VALUES.keys()),
             key="speedopt_sec3_preset",
             on_change=_apply_preset_values,
+            label_visibility="collapsed",
         )
     with input_cols[1]:
         st.selectbox(
@@ -178,11 +186,12 @@ def _render_section_3() -> None:
             key="speedopt_sec3_in2",
             index=_resolve_dropdown_index("speedopt_sec3_in2"),
             placeholder="Select value",
+            label_visibility="collapsed",
         )
     with input_cols[2]:
-        st.number_input("Input 3", key="speedopt_sec3_in3", step=1)
+        st.number_input("Input 3", key="speedopt_sec3_in3", step=1, label_visibility="collapsed")
     with input_cols[3]:
-        st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
+        st.number_input("Input 4", key="speedopt_sec3_in4", step=1, label_visibility="collapsed")
     with spacer_col:
         st.empty()
     with run_col:
@@ -221,7 +230,6 @@ def _resolve_dropdown_index(state_key: str) -> int | None:
 
 
 def _run_button_col(label: str = "Run", key: str | None = None) -> bool:
-    st.markdown("###### &nbsp;", unsafe_allow_html=True)
     st.markdown("<div class='speedopt-run'>", unsafe_allow_html=True)
     clicked = st.button(label, key=key)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -289,16 +297,19 @@ def _render_unit_detail_table(
     effect_ranges = [str(row.get("Effect Range", "")).strip() for row in ranges]
     speeds = [row.get("Rune Speed") for row in ranges]
     columns = [effect_range for effect_range in effect_ranges if effect_range]
+    speed_values = [speed for effect_range, speed in zip(effect_ranges, speeds) if effect_range]
     table_df = pd.DataFrame(
-        [columns, [speed for effect_range, speed in zip(effect_ranges, speeds) if effect_range]],
-        index=["effect", "speed"],
-        columns=columns,
+        [
+            ["effect", *columns],
+            ["speed", *speed_values],
+        ],
+        columns=["metric", *columns],
     )
     st.dataframe(
         table_df,
         use_container_width=False,
-        hide_index=False,
-        height=140,
+        hide_index=True,
+        height=150,
     )
 
 
@@ -306,6 +317,17 @@ def _section_columns(input_weights: list[float]) -> tuple[list[st.delta_generato
     weights = [*input_weights, 1, 0.6]
     cols = st.columns(weights)
     return cols[: len(input_weights)], cols[-2], cols[-1]
+
+
+def _render_control_labels(weights: list[float], labels: list[str]) -> None:
+    input_cols, spacer_col, run_col = _section_columns(weights)
+    for col, label in zip(input_cols, labels):
+        with col:
+            st.caption(label)
+    with spacer_col:
+        st.empty()
+    with run_col:
+        st.caption("")
 
 
 def _parse_optional_int(value: str, label: str) -> Optional[int]:
