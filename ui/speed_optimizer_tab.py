@@ -29,10 +29,6 @@ def render_speed_optimizer_tab(state: Dict[str, Any], monster_names: Dict[int, s
           .speedopt-run {
             display: flex;
             align-items: center;
-            flex-direction: column;
-          }
-          .speedopt-run button {
-            width: 100%;
           }
         </style>
         """,
@@ -225,7 +221,7 @@ def _resolve_dropdown_index(state_key: str) -> int | None:
 
 
 def _run_button_col(label: str = "Run", key: str | None = None) -> bool:
-    st.markdown("##### &nbsp;", unsafe_allow_html=True)
+    st.markdown("###### &nbsp;", unsafe_allow_html=True)
     st.markdown("<div class='speedopt-run'>", unsafe_allow_html=True)
     clicked = st.button(label, key=key)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -289,37 +285,20 @@ def _render_unit_detail_table(
     if not detail_table or not detail_table.ranges:
         st.caption(empty_message)
         return
-    effect_rows: list[dict[str, int | None]] = []
-    for row in detail_table.ranges:
-        effect_range = str(row.get("Effect Range", "")).strip()
-        speed_raw = row.get("Rune Speed")
-        speed = None if speed_raw in (None, "No solution") else int(speed_raw)
-        if "~" in effect_range:
-            start_str, end_str = effect_range.split("~", maxsplit=1)
-            try:
-                start = int(start_str)
-                end = int(end_str)
-            except ValueError:
-                continue
-            for effect in range(start, end + 1):
-                effect_rows.append({"effect": effect, "speed": speed})
-        else:
-            try:
-                effect = int(effect_range)
-            except ValueError:
-                continue
-            effect_rows.append({"effect": effect, "speed": speed})
-
-    df = pd.DataFrame(effect_rows, columns=["effect", "speed"])
+    ranges = detail_table.ranges
+    effect_ranges = [str(row.get("Effect Range", "")).strip() for row in ranges]
+    speeds = [row.get("Rune Speed") for row in ranges]
+    columns = [effect_range for effect_range in effect_ranges if effect_range]
+    table_df = pd.DataFrame(
+        [columns, [speed for effect_range, speed in zip(effect_ranges, speeds) if effect_range]],
+        index=["effect", "speed"],
+        columns=columns,
+    )
     st.dataframe(
-        df,
+        table_df,
         use_container_width=False,
-        hide_index=True,
-        height=200,
-        column_config={
-            "effect": st.column_config.NumberColumn("effect", format="%d", width="small"),
-            "speed": st.column_config.NumberColumn("speed", format="%d", width="small"),
-        },
+        hide_index=False,
+        height=140,
     )
 
 
