@@ -295,7 +295,8 @@ def _render_unit_detail_table(
     table_df = pd.DataFrame(
         [["effect", *display_ranges], ["speed", *speed_values]],
     )
-    st.table(table_df)
+    html = table_df.to_html(index=False, header=False, escape=False)
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def _section_columns(input_weights: list[float]) -> tuple[list[st.delta_generator.DeltaGenerator], st.delta_generator.DeltaGenerator, st.delta_generator.DeltaGenerator]:
