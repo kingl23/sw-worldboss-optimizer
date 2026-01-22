@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional
 
+import pandas as pd
 import streamlit as st
 
 from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS
@@ -28,11 +29,10 @@ def render_speed_optimizer_tab(state: Dict[str, Any], monster_names: Dict[int, s
           .speedopt-run {
             display: flex;
             align-items: center;
-            height: 3rem;
+            flex-direction: column;
           }
           .speedopt-run button {
-            min-height: 3rem;
-            height: 3rem;
+            width: 100%;
           }
         </style>
         """,
@@ -225,6 +225,7 @@ def _resolve_dropdown_index(state_key: str) -> int | None:
 
 
 def _run_button_col(label: str = "Run", key: str | None = None) -> bool:
+    st.markdown("##### &nbsp;", unsafe_allow_html=True)
     st.markdown("<div class='speedopt-run'>", unsafe_allow_html=True)
     clicked = st.button(label, key=key)
     st.markdown("</div>", unsafe_allow_html=True)
@@ -288,7 +289,38 @@ def _render_unit_detail_table(
     if not detail_table or not detail_table.ranges:
         st.caption(empty_message)
         return
-    st.dataframe(detail_table.ranges, use_container_width=True, hide_index=True, height=240)
+    effect_rows: list[dict[str, int | None]] = []
+    for row in detail_table.ranges:
+        effect_range = str(row.get("Effect Range", "")).strip()
+        speed_raw = row.get("Rune Speed")
+        speed = None if speed_raw in (None, "No solution") else int(speed_raw)
+        if "~" in effect_range:
+            start_str, end_str = effect_range.split("~", maxsplit=1)
+            try:
+                start = int(start_str)
+                end = int(end_str)
+            except ValueError:
+                continue
+            for effect in range(start, end + 1):
+                effect_rows.append({"effect": effect, "speed": speed})
+        else:
+            try:
+                effect = int(effect_range)
+            except ValueError:
+                continue
+            effect_rows.append({"effect": effect, "speed": speed})
+
+    df = pd.DataFrame(effect_rows, columns=["effect", "speed"])
+    st.dataframe(
+        df,
+        use_container_width=False,
+        hide_index=True,
+        height=200,
+        column_config={
+            "effect": st.column_config.NumberColumn("effect", format="%d", width="small"),
+            "speed": st.column_config.NumberColumn("speed", format="%d", width="small"),
+        },
+    )
 
 
 def _section_columns(input_weights: list[float]) -> tuple[list[st.delta_generator.DeltaGenerator], st.delta_generator.DeltaGenerator, st.delta_generator.DeltaGenerator]:
