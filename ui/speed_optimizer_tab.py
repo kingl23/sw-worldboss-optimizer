@@ -305,15 +305,26 @@ def _render_unit_detail_table(
     speed_values = [speed for effect_range, speed in zip(effect_ranges, speeds) if effect_range]
     display_ranges = [effect_range for effect_range in effect_ranges if effect_range]
     table_df = pd.DataFrame(
-        [display_ranges, speed_values],
-        index=["effect", "speed"],
+        [["effect", *display_ranges], ["speed", *speed_values]],
     )
+    st.markdown(
+        """
+        <style>
+          .speedopt-effect-table [data-testid="stDataFrame"] thead {
+            display: none;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="speedopt-effect-table">', unsafe_allow_html=True)
     st.dataframe(
         table_df,
         use_container_width=False,
-        hide_index=False,
+        hide_index=True,
         height=140,
     )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _section_columns(input_weights: list[float]) -> tuple[list[st.delta_generator.DeltaGenerator], st.delta_generator.DeltaGenerator, st.delta_generator.DeltaGenerator]:
