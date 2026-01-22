@@ -302,12 +302,11 @@ def _render_unit_detail_table(
     ranges = detail_table.ranges
     effect_ranges = [str(row.get("Effect Range", "")).strip() for row in ranges]
     speeds = [row.get("Rune Speed") for row in ranges]
-    columns = [effect_range for effect_range in effect_ranges if effect_range]
     speed_values = [speed for effect_range, speed in zip(effect_ranges, speeds) if effect_range]
+    display_ranges = [effect_range for effect_range in effect_ranges if effect_range]
     table_df = pd.DataFrame(
-        [columns, speed_values],
+        [display_ranges, speed_values],
         index=["effect", "speed"],
-        columns=columns,
     )
     st.dataframe(
         table_df,
