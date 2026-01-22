@@ -79,10 +79,7 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
-    cols = st.columns([1, 1, 1, 1, 0.6])
-    input_cols = cols[:-2]
-    spacer_col = cols[-2]
-    run_col = cols[-1]
+    input_cols, spacer_col, run_col = _section_columns([1, 1, 1])
     with input_cols[0]:
         st.text_input("Input 1", key="speedopt_sec1_in1")
     with input_cols[1]:
@@ -90,6 +87,8 @@ def _render_section_1() -> None:
     with input_cols[2]:
         st.text_input("Input 3", key="speedopt_sec1_in3")
     with spacer_col:
+        st.empty()
+    with run_col:
         run_clicked = _run_button_col(key="speedopt_sec1_run")
 
     progress_slot = st.empty()
@@ -130,10 +129,7 @@ def _render_section_1() -> None:
 
 def _render_section_2() -> None:
     st.markdown("### Section 2")
-    cols = st.columns([1, 1, 1, 1, 1, 1, 0.6])
-    input_cols = cols[:-2]
-    spacer_col = cols[-2]
-    run_col = cols[-1]
+    input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1, 1])
     with input_cols[0]:
         st.text_input("Input 1", key="speedopt_sec2_in1")
     with input_cols[1]:
@@ -171,10 +167,7 @@ def _render_section_2() -> None:
 
 def _render_section_3() -> None:
     st.markdown("### Section 3")
-    cols = st.columns([1, 1, 1, 1, 1, 0.6])
-    input_cols = cols[:-2]
-    spacer_col = cols[-2]
-    run_col = cols[-1]
+    input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1])
     with input_cols[0]:
         st.selectbox(
             "Preset",
@@ -255,7 +248,7 @@ def _render_details(prefix: str) -> None:
             st.info("No results yet.")
             return
         rows = [{"Field": key, "Value": value} for key, value in payload.items()]
-        st.table(rows)
+        st.dataframe(rows, use_container_width=True, hide_index=True, height=180)
 
 
 def _render_section_1_details() -> None:
@@ -295,7 +288,13 @@ def _render_unit_detail_table(
     if not detail_table or not detail_table.ranges:
         st.caption(empty_message)
         return
-    st.table(detail_table.ranges)
+    st.dataframe(detail_table.ranges, use_container_width=True, hide_index=True, height=240)
+
+
+def _section_columns(input_weights: list[float]) -> tuple[list[st.delta_generator.DeltaGenerator], st.delta_generator.DeltaGenerator, st.delta_generator.DeltaGenerator]:
+    weights = [*input_weights, 1, 0.6]
+    cols = st.columns(weights)
+    return cols[: len(input_weights)], cols[-2], cols[-1]
 
 
 def _parse_optional_int(value: str, label: str) -> Optional[int]:
