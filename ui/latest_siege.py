@@ -8,6 +8,7 @@ from config.settings import NEW_DEFENSE_DECK_MAX_LOGS
 from services.supabase_client import get_supabase_client
 from ui.auth import require_access_or_stop
 from ui.search_offense_deck import get_matchups, make_def_key, _normalize_matchups
+from utils.deck_utils import format_deck_label
 
 
 @dataclass(frozen=True)
@@ -27,9 +28,7 @@ def _q(value: str) -> str:
 
 
 def _fmt_team(r, a: str, b: str, c: str) -> str:
-    parts = [r.get(a, ""), r.get(b, ""), r.get(c, "")]
-    parts = [p for p in parts if p]
-    return " / ".join(parts)
+    return format_deck_label([r.get(a, ""), r.get(b, ""), r.get(c, "")])
 
 
 def _parse_match_id_parts(match_id: str | int) -> tuple[str, str, str, str] | None:
@@ -328,7 +327,7 @@ def render_latest_siege_tab() -> None:
                     st.caption("90% 이상 추천 공덱 없음")
                 else:
                     display = recs_display[["offense", "win_rate"]].copy()
-                    display = display.rename(columns={"offense": "공덱(3마리)", "win_rate": "승률"})
+                    display = display.rename(columns={"offense": "공덱(1~3마리)", "win_rate": "승률"})
                     display["승률"] = pd.to_numeric(display["승률"], errors="coerce").fillna(0.0)
 
                     st.dataframe(
@@ -336,7 +335,7 @@ def render_latest_siege_tab() -> None:
                         use_container_width=True,
                         hide_index=True,
                         column_config={
-                            "공덱(3마리)": st.column_config.TextColumn("공덱(3마리)", width="small"),
+                            "공덱(1~3마리)": st.column_config.TextColumn("공덱(1~3마리)", width="small"),
                             "승률": st.column_config.NumberColumn("승률", format="%.1f%%", width="small"),
                         },
                     )

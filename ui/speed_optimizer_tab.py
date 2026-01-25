@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-import time
+from typing import Any, Callable, Dict, Optional
 
 import streamlit as st
 import pandas as pd
@@ -39,8 +38,6 @@ def _initialize_speedopt_state() -> None:
         "speedopt_sec1_payload": None,
         "speedopt_sec1_results": None,
         "speedopt_sec1_cache": {},
-        "speedopt_sec1_debug_only_first": False,
-        "speedopt_sec1_debug_mode": False,
         "speedopt_sec1_max_runtime_s": 10.0,
         "speedopt_sec2_ran": False,
         "speedopt_sec2_payload": None,
@@ -55,6 +52,7 @@ def _initialize_speedopt_state() -> None:
         "speedopt_sec2_in4": 0,
         "speedopt_sec2_in5": 0,
         "speedopt_sec3_preset": "Manual",
+        "speedopt_sec3_prev_preset": "Manual",
         "speedopt_sec3_in2": None,
         "speedopt_sec3_in3": 0,
         "speedopt_sec3_in4": 0,
@@ -66,128 +64,140 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
-    row = st.columns([1, 1, 1, 0.5])
-    with row[0]:
-        st.text_input("Input 1", key="speedopt_sec1_in1")
-    with row[1]:
-        st.text_input("Input 2", key="speedopt_sec1_in2")
-    with row[2]:
-        st.text_input("Input 3", key="speedopt_sec1_in3")
-    with row[3]:
-        if _run_button_col(key="speedopt_sec1_run", spacer_px=28):
-            input_1 = st.session_state.speedopt_sec1_in1
-            input_2 = st.session_state.speedopt_sec1_in2
-            input_3 = st.session_state.speedopt_sec1_in3
-            parsed_input_1 = _parse_optional_int(input_1, label="Input 1")
-            parsed_input_2 = _parse_optional_int(input_2, label="Input 2")
-            parsed_input_3 = _parse_optional_int(input_3, label="Input 3")
-            if parsed_input_1 is None and input_1.strip():
-                st.stop()
-            if parsed_input_2 is None and input_2.strip():
-                st.stop()
-            if parsed_input_3 is None and input_3.strip():
-                st.stop()
-            effective_input_3 = input_3 or input_1
-            payload = {
-                "input_1": input_1,
-                "input_2": input_2,
-                "input_3": effective_input_3,
-            }
-            st.session_state.speedopt_sec1_payload = payload
-            st.session_state.speedopt_sec1_results = _compute_section1_details(
-                parsed_input_1,
-                parsed_input_2,
-                parsed_input_3,
-            )
-            st.session_state.speedopt_sec1_ran = True
+    _render_control_labels([1, 1, 1], ["Input 1", "Input 2", "Input 3"])
+    with st.form("speedopt_sec1_form", clear_on_submit=False):
+        input_cols, spacer_col, run_col = _section_columns([1, 1, 1])
+        with input_cols[0]:
+            st.text_input("Input 1", key="speedopt_sec1_in1", label_visibility="collapsed")
+        with input_cols[1]:
+            st.text_input("Input 2", key="speedopt_sec1_in2", label_visibility="collapsed")
+        with input_cols[2]:
+            st.text_input("Input 3", key="speedopt_sec1_in3", label_visibility="collapsed")
+        with spacer_col:
+            st.empty()
+        with run_col:
+            run_clicked = st.form_submit_button("Run", key="speedopt_sec1_run")
 
-    st.checkbox(
-        "Debug: only first preset",
-        key="speedopt_sec1_debug_only_first",
-        help="Limit calculations to the first preset to speed up debugging.",
-    )
-    st.checkbox(
-        "Debug Mode (show ATB turn details)",
-        key="speedopt_sec1_debug_mode",
-        help="Show detailed ATB turn logs (limited attempts for performance).",
-    )
-    st.number_input(
-        "Max runtime per preset (seconds)",
-        min_value=1.0,
-        max_value=60.0,
-        step=1.0,
-        key="speedopt_sec1_max_runtime_s",
-    )
+    progress_slot = st.empty()
+
+    if run_clicked:
+        input_1 = st.session_state.speedopt_sec1_in1
+        input_2 = st.session_state.speedopt_sec1_in2
+        input_3 = st.session_state.speedopt_sec1_in3
+        parsed_input_1 = _parse_optional_int(input_1, label="Input 1")
+        parsed_input_2 = _parse_optional_int(input_2, label="Input 2")
+        parsed_input_3 = _parse_optional_int(input_3, label="Input 3")
+        if parsed_input_1 is None and input_1.strip():
+            st.stop()
+        if parsed_input_2 is None and input_2.strip():
+            st.stop()
+        if parsed_input_3 is None and input_3.strip():
+            st.stop()
+        effective_input_3 = input_3 or input_1
+        payload = {
+            "input_1": input_1,
+            "input_2": input_2,
+            "input_3": effective_input_3,
+        }
+        st.session_state.speedopt_sec1_payload = payload
+        progress_bar = _render_progress_bar(progress_slot)
+        st.session_state.speedopt_sec1_results = _compute_section1_details(
+            parsed_input_1,
+            parsed_input_2,
+            parsed_input_3,
+            progress_callback=lambda value: progress_bar.progress(value),
+        )
+        progress_bar.progress(1.0)
+        st.session_state.speedopt_sec1_ran = True
 
     _render_section_1_details()
 
 
+
 def _render_section_2() -> None:
     st.markdown("### Section 2")
-    row = st.columns([1, 1, 1, 1, 1, 0.5])
-    with row[0]:
-        st.text_input("Input 1", key="speedopt_sec2_in1")
-    with row[1]:
-        st.text_input("Input 2", key="speedopt_sec2_in2")
-    with row[2]:
-        st.selectbox(
-            "Input 3",
-            options=DROPDOWN_OPTIONS,
-            key="speedopt_sec2_in3",
-            index=_resolve_dropdown_index("speedopt_sec2_in3"),
-            placeholder="Select value",
-        )
-    with row[3]:
-        st.number_input("Input 4", key="speedopt_sec2_in4", step=1)
-    with row[4]:
-        st.number_input("Input 5", key="speedopt_sec2_in5", step=1)
-    with row[5]:
-        if _run_button_col(key="speedopt_sec2_run", spacer_px=34):
-            payload = {
-                "input_1": st.session_state.speedopt_sec2_in1,
-                "input_2": st.session_state.speedopt_sec2_in2,
-                "input_3": st.session_state.speedopt_sec2_in3,
-                "input_4": st.session_state.speedopt_sec2_in4,
-                "input_5": st.session_state.speedopt_sec2_in5,
-            }
-            st.session_state.speedopt_sec2_payload = payload
-            st.session_state.speedopt_sec2_ran = True
+    _render_control_labels(
+        [1, 1, 1, 1, 1],
+        ["Input 1", "Input 2", "Input 3", "Input 4", "Input 5"],
+    )
+    with st.form("speedopt_sec2_form", clear_on_submit=False):
+        input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1, 1])
+        with input_cols[0]:
+            st.text_input("Input 1", key="speedopt_sec2_in1", label_visibility="collapsed")
+        with input_cols[1]:
+            st.text_input("Input 2", key="speedopt_sec2_in2", label_visibility="collapsed")
+        with input_cols[2]:
+            st.selectbox(
+                "Input 3",
+                options=DROPDOWN_OPTIONS,
+                key="speedopt_sec2_in3",
+                index=_resolve_dropdown_index("speedopt_sec2_in3"),
+                placeholder="Select value",
+                label_visibility="collapsed",
+            )
+        with input_cols[3]:
+            st.number_input("Input 4", key="speedopt_sec2_in4", step=1, label_visibility="collapsed")
+        with input_cols[4]:
+            st.number_input("Input 5", key="speedopt_sec2_in5", step=1, label_visibility="collapsed")
+        with spacer_col:
+            st.empty()
+        with run_col:
+            run_clicked = st.form_submit_button("Run", key="speedopt_sec2_run")
+
+    if run_clicked:
+        payload = {
+            "input_1": st.session_state.speedopt_sec2_in1,
+            "input_2": st.session_state.speedopt_sec2_in2,
+            "input_3": st.session_state.speedopt_sec2_in3,
+            "input_4": st.session_state.speedopt_sec2_in4,
+            "input_5": st.session_state.speedopt_sec2_in5,
+        }
+        st.session_state.speedopt_sec2_payload = payload
+        st.session_state.speedopt_sec2_ran = True
 
     _render_details("speedopt_sec2")
 
 
 def _render_section_3() -> None:
     st.markdown("### Section 3")
-    row = st.columns([1.2, 1, 1, 1, 0.5])
-    with row[0]:
-        st.selectbox(
-            "Preset",
-            options=list(PRESET_VALUES.keys()),
-            key="speedopt_sec3_preset",
-            on_change=_apply_preset_values,
-        )
-    with row[1]:
-        st.selectbox(
-            "Input 2",
-            options=DROPDOWN_OPTIONS,
-            key="speedopt_sec3_in2",
-            index=_resolve_dropdown_index("speedopt_sec3_in2"),
-            placeholder="Select value",
-        )
-    with row[2]:
-        st.number_input("Input 3", key="speedopt_sec3_in3", step=1)
-    with row[3]:
-        st.number_input("Input 4", key="speedopt_sec3_in4", step=1)
-    with row[4]:
-        if _run_button_col(key="speedopt_sec3_run", spacer_px=34):
-            payload = {
-                "preset": st.session_state.speedopt_sec3_preset,
-                "input_2": st.session_state.speedopt_sec3_in2,
-                "input_3": st.session_state.speedopt_sec3_in3,
-                "input_4": st.session_state.speedopt_sec3_in4,
-            }
-            st.session_state.speedopt_sec3_payload = payload
-            st.session_state.speedopt_sec3_ran = True
+    _render_control_labels([1, 1, 1, 1], ["Preset", "Input 2", "Input 3", "Input 4"])
+    _apply_preset_if_changed()
+    with st.form("speedopt_sec3_form", clear_on_submit=False):
+        input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1])
+        with input_cols[0]:
+            st.selectbox(
+                "Preset",
+                options=list(PRESET_VALUES.keys()),
+                key="speedopt_sec3_preset",
+                label_visibility="collapsed",
+            )
+        with input_cols[1]:
+            st.selectbox(
+                "Input 2",
+                options=DROPDOWN_OPTIONS,
+                key="speedopt_sec3_in2",
+                index=_resolve_dropdown_index("speedopt_sec3_in2"),
+                placeholder="Select value",
+                label_visibility="collapsed",
+            )
+        with input_cols[2]:
+            st.number_input("Input 3", key="speedopt_sec3_in3", step=1, label_visibility="collapsed")
+        with input_cols[3]:
+            st.number_input("Input 4", key="speedopt_sec3_in4", step=1, label_visibility="collapsed")
+        with spacer_col:
+            st.empty()
+        with run_col:
+            run_clicked = st.form_submit_button("Run", key="speedopt_sec3_run")
+
+    if run_clicked:
+        payload = {
+            "preset": st.session_state.speedopt_sec3_preset,
+            "input_2": st.session_state.speedopt_sec3_in2,
+            "input_3": st.session_state.speedopt_sec3_in3,
+            "input_4": st.session_state.speedopt_sec3_in4,
+        }
+        st.session_state.speedopt_sec3_payload = payload
+        st.session_state.speedopt_sec3_ran = True
 
     _render_details("speedopt_sec3")
 
@@ -204,6 +214,15 @@ def _apply_preset_values() -> None:
     st.session_state.speedopt_sec3_in4 = preset.get("v4", 0)
 
 
+def _apply_preset_if_changed() -> None:
+    current = st.session_state.get("speedopt_sec3_preset")
+    previous = st.session_state.get("speedopt_sec3_prev_preset")
+    if current == previous:
+        return
+    st.session_state.speedopt_sec3_prev_preset = current
+    _apply_preset_values()
+
+
 def _resolve_dropdown_index(state_key: str) -> int | None:
     current_value = st.session_state.get(state_key)
     if current_value in DROPDOWN_OPTIONS:
@@ -211,21 +230,24 @@ def _resolve_dropdown_index(state_key: str) -> int | None:
     return None
 
 
+def _render_progress_bar(container: st.delta_generator.DeltaGenerator) -> st.delta_generator.DeltaGenerator:
+    container.markdown("<div style='height: 6px'></div>", unsafe_allow_html=True)
+    progress_row = container.columns([3.5])
+    return progress_row[0].progress(0)
+
+
 def _render_details(prefix: str) -> None:
     ran_key = f"{prefix}_ran"
     payload_key = f"{prefix}_payload"
     with st.expander("Details", expanded=bool(st.session_state.get(ran_key))):
-        if st.session_state.get(ran_key):
-            st.markdown("TODO: details")
-            st.json(st.session_state.get(payload_key) or {})
-
-
-def _run_button_col(label: str = "Run", key: str | None = None, spacer_px: int = 28) -> bool:
-    st.markdown(
-        f"<div style='height: {spacer_px}px'></div>",
-        unsafe_allow_html=True,
-    )
-    return st.button(label, key=key)
+        if not st.session_state.get(ran_key):
+            return
+        payload = st.session_state.get(payload_key) or {}
+        if not payload:
+            st.info("No results yet.")
+            return
+        rows = [{"Field": key, "Value": value} for key, value in payload.items()]
+        st.dataframe(rows, use_container_width=True, hide_index=True, height=180)
 
 
 def _render_section_1_details() -> None:
@@ -238,23 +260,22 @@ def _render_section_1_details() -> None:
             return
         for result in results:
             st.markdown(f"#### {result.preset_id}")
-            if result.timing:
-                st.caption(
-                    "Timing (s) — "
-                    f"e_fast: {result.timing.get('e_fast_s', 0):.2f}, "
-                    f"a3: {result.timing.get('a3_s', 0):.2f}"
-                )
+            if result.calc_type:
+                st.caption(f"Mode: {result.calc_type}")
             if result.error:
                 st.warning(result.error)
-            if result.debug:
-                _render_debug_output(result.debug)
-            if result.error:
-                continue
-            _render_unit_detail_table(
-                "A3 Detail",
-                result.a3_table,
-                empty_message="No feasible solution for a3 given a1 fixed by Input 2.",
-            )
+            if result.a2_table:
+                _render_unit_detail_table(
+                    "A2 Minimum Rune Speed by Effect",
+                    result.a2_table,
+                    empty_message="No feasible solution for a2 given the current inputs.",
+                )
+            if result.a3_table:
+                _render_unit_detail_table(
+                    "A3 Minimum Rune Speed by Effect",
+                    result.a3_table,
+                    empty_message="No feasible solution for a3 given a1 fixed by Input 2.",
+                )
 
 
 def _render_unit_detail_table(
@@ -266,7 +287,33 @@ def _render_unit_detail_table(
     if not detail_table or not detail_table.ranges:
         st.caption(empty_message)
         return
-    st.table(detail_table.ranges)
+    ranges = detail_table.ranges
+    effect_ranges = [str(row.get("Effect Range", "")).strip() for row in ranges]
+    speeds = [row.get("Rune Speed") for row in ranges]
+    speed_values = [speed for effect_range, speed in zip(effect_ranges, speeds) if effect_range]
+    display_ranges = [effect_range for effect_range in effect_ranges if effect_range]
+    table_df = pd.DataFrame(
+        [["effect", *display_ranges], ["speed", *speed_values]],
+    )
+    html = table_df.to_html(index=False, header=False, escape=False)
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def _section_columns(input_weights: list[float]) -> tuple[list[st.delta_generator.DeltaGenerator], st.delta_generator.DeltaGenerator, st.delta_generator.DeltaGenerator]:
+    weights = [*input_weights, 1, 0.6]
+    cols = st.columns(weights)
+    return cols[: len(input_weights)], cols[-2], cols[-1]
+
+
+def _render_control_labels(weights: list[float], labels: list[str]) -> None:
+    input_cols, spacer_col, run_col = _section_columns(weights)
+    for col, label in zip(input_cols, labels):
+        with col:
+            st.caption(label)
+    with spacer_col:
+        st.empty()
+    with run_col:
+        st.caption("")
 
 
 def _parse_optional_int(value: str, label: str) -> Optional[int]:
@@ -286,44 +333,40 @@ def _compute_section1_details(
     input_1: Optional[int],
     input_2: Optional[int],
     input_3: Optional[int],
+    progress_callback: Callable[[float], None] | None = None,
 ) -> list[Any]:
-    debug_mode = bool(st.session_state.get("speedopt_sec1_debug_mode"))
+    debug_mode = False
     cache_key = (input_1, input_2, input_3, debug_mode)
     cached = st.session_state.speedopt_sec1_cache.get(cache_key)
     if cached is not None:
+        if progress_callback:
+            progress_callback(1.0)
         return cached
 
     preset_ids = list(ATB_SIMULATOR_PRESETS.keys())
-    if (st.session_state.get("speedopt_sec1_debug_only_first") or debug_mode) and preset_ids:
-        preset_ids = preset_ids[:1]
-
     max_runtime_s = float(st.session_state.get("speedopt_sec1_max_runtime_s") or 10.0)
     results: list[Any] = []
     total = len(preset_ids)
     if total == 0:
         return results
 
-    with st.status("Computing Section 1 details...", expanded=True) as status:
-        progress = st.progress(0)
-        for index, preset_id in enumerate(preset_ids, start=1):
-            status.write(f"Processing {preset_id} ({index}/{total})")
-            start = time.perf_counter()
-            try:
-                result = build_section1_detail_cached(
-                    preset_id,
-                    input_1,
-                    input_2,
-                    input_3,
-                    max_runtime_s,
-                    debug_mode,
-                )
-            except ValueError as exc:
-                result = _build_error_result(preset_id, str(exc))
-            results.append(result)
-            elapsed = time.perf_counter() - start
-            status.write(f"Finished {preset_id} in {elapsed:.2f}s")
-            progress.progress(index / total)
-        status.update(state="complete")
+    if progress_callback:
+        progress_callback(0.0)
+    for index, preset_id in enumerate(preset_ids, start=1):
+        try:
+            result = build_section1_detail_cached(
+                preset_id,
+                input_1,
+                input_2,
+                input_3,
+                max_runtime_s,
+                debug_mode,
+            )
+        except ValueError as exc:
+            result = _build_error_result(preset_id, str(exc))
+        results.append(result)
+        if progress_callback:
+            progress_callback(index / total)
 
     st.session_state.speedopt_sec1_cache[cache_key] = results
     return results
@@ -333,106 +376,8 @@ def _build_error_result(preset_id: str, message: str):
     return PresetDetailResult(
         preset_id=preset_id,
         a1_table=None,
+        a2_table=None,
         a3_table=None,
         error=message,
         timing=None,
     )
-
-
-def _render_debug_output(debug_payload: Dict[str, Any]) -> None:
-    st.markdown("**Debug Output**")
-    st.json(debug_payload.get("input_summary", {}))
-    _render_debug_unit_summary(debug_payload)
-    st.caption(
-        "Search bounds — "
-        f"min rune speed: {debug_payload.get('min_rune_speed')}, "
-        f"max rune speed: {debug_payload.get('max_rune_speed')}"
-    )
-    _render_tick_timeline(debug_payload)
-    attempts = debug_payload.get("attempts", [])
-    if attempts:
-        st.caption("Simulation attempts (limited for performance).")
-        for attempt in attempts:
-            title = (
-                f"Effect {attempt.get('effect')} | Rune Speed {attempt.get('rune_speed')} | "
-                f"{'MATCH' if attempt.get('matched') else 'FAIL'} | "
-                f"{attempt.get('phase')}"
-            )
-            with st.expander(title):
-                st.markdown(
-                    f"Required: {attempt.get('required_order')}  \n"
-                    f"Actual: {attempt.get('actual_order')}"
-                )
-                st.json(attempt.get("turn_events", []))
-    effect_logs = debug_payload.get("effect_logs", [])
-    if effect_logs:
-        st.caption("Effect search logs (debug, limited).")
-        for effect_log in effect_logs:
-            with st.expander(f"Effect {effect_log.get('effect')} search"):
-                st.json(effect_log)
-    if debug_payload.get("truncated"):
-        st.info("Debug output truncated after the first 25 attempts.")
-
-
-def _render_debug_unit_summary(debug_payload: Dict[str, Any]) -> None:
-    unit_order = debug_payload.get("unit_order", {})
-    units = (debug_payload.get("selected_units") or {}).get("units", {})
-    rows = []
-    for label in ["a2", "a1", "a3", "e"]:
-        key = unit_order.get(label)
-        if not key or key not in units:
-            continue
-        row = {"unit": label, "key": key}
-        row.update(units[key])
-        rows.append(row)
-    if rows:
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-
-
-def _render_tick_timeline(debug_payload: Dict[str, Any]) -> None:
-    unit_order = debug_payload.get("unit_order", {})
-    snapshots = debug_payload.get("tick_snapshots", [])
-    if not snapshots or not unit_order:
-        return
-    tick_limit = debug_payload.get("tick_limit", 30)
-    turn_events = debug_payload.get("baseline_turn_events", [])
-    turn_map = {}
-    for event in turn_events:
-        key = event.get("key")
-        tick = event.get("tick")
-        turn_number = event.get("turn_number")
-        if key is not None and tick is not None and turn_number is not None:
-            turn_map[(key, tick)] = turn_number
-
-    snapshot_map = {}
-    for snap in snapshots:
-        key = snap.get("key")
-        tick = snap.get("tick")
-        if key is None or tick is None:
-            continue
-        snapshot_map[(key, tick)] = snap
-
-    columns = ["Unit"] + [f"Tick {tick}" for tick in range(0, tick_limit + 1)]
-    rows = []
-    for label in ["a2", "a1", "a3", "e"]:
-        key = unit_order.get(label)
-        row = {"Unit": label}
-        for tick in range(0, tick_limit + 1):
-            snap = snapshot_map.get((key, tick))
-            value = ""
-            if snap:
-                atb = snap.get("attack_bar")
-                value = f"{atb:.1f}" if isinstance(atb, (int, float)) else str(atb)
-                if snap.get("has_speed_buff"):
-                    value += " +SPD"
-                if snap.get("has_slow"):
-                    value += " SLOW"
-                turn_number = turn_map.get((key, tick))
-                if turn_number:
-                    value += f" (TURN #{turn_number})"
-            row[f"Tick {tick}"] = value
-        rows.append(row)
-
-    st.markdown("**Debug: Tick Timeline**")
-    st.dataframe(pd.DataFrame(rows, columns=columns), use_container_width=True, hide_index=True)
-    st.caption("TURN #k indicates the tick where the unit acted.")

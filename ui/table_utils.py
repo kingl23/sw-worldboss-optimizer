@@ -3,6 +3,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from utils.deck_utils import format_deck_label
+
 
 def apply_dataframe_style() -> None:
     if st.session_state.get("_table_style_applied"):
@@ -24,9 +26,13 @@ def apply_dataframe_style() -> None:
     st.session_state["_table_style_applied"] = True
 
 
-def build_deck_column(df: pd.DataFrame, columns: list[str]) -> pd.Series:
+def build_deck_column(
+    df: pd.DataFrame,
+    columns: list[str],
+    placeholder: str = "-",
+) -> pd.Series:
     return df[columns].fillna("").apply(
-        lambda row: " / ".join([str(value) for value in row if str(value)]),
+        lambda row: format_deck_label(row.tolist(), placeholder=placeholder),
         axis=1,
     )
 

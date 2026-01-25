@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from services.supabase_client import get_supabase_client
+from utils.deck_utils import make_deck_key, split_deck_key
 
 
 FOUR_STAR_BASES = {39, 35, 29, 26, 22, 16, 13, 9, 3}
@@ -16,15 +17,7 @@ def _clean_name(value: str) -> str:
 
 
 def _make_deck_key(a: str, b: str, c: str) -> str:
-    a = _clean_name(a)
-    b = _clean_name(b)
-    c = _clean_name(c)
-    if not a:
-        return ""
-    rest = sorted([x for x in [b, c] if x])
-    if len(rest) != 2:
-        return ""
-    return "|".join([a] + rest)
+    return make_deck_key(_clean_name(a), _clean_name(b), _clean_name(c))
 
 
 def _pct(win: int, total: int) -> str:
@@ -151,7 +144,7 @@ def get_top_offense_decks(wizard_name: str, limit: int) -> pd.DataFrame:
     rows: List[Dict[str, object]] = []
     for key, (win, lose) in deck_counts.items():
         total = win + lose
-        d1, d2, d3 = key.split("|")
+        d1, d2, d3 = split_deck_key(key)
         rows.append(
             {
                 "key": key,
@@ -223,7 +216,7 @@ def get_top_defense_decks(wizard_name: str, limit: int) -> pd.DataFrame:
     rows: List[Dict[str, object]] = []
     for key, (win, lose) in deck_counts.items():
         total = win + lose
-        d1, d2, d3 = key.split("|")
+        d1, d2, d3 = split_deck_key(key)
         rows.append(
             {
                 "key": key,

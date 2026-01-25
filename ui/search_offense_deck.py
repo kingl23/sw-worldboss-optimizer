@@ -7,6 +7,7 @@ from ui.table_utils import apply_dataframe_style
 from data.siege_trend import build_cumulative_trend_df
 from ui.siege_trend_chart import render_cumulative_trend_chart
 from services.supabase_client import get_supabase_client
+from utils.deck_utils import format_deck_label
 
 
 # -------------------------
@@ -123,9 +124,7 @@ def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
         d["win_rate"] = 0.0
 
     def to_offense(r):
-        parts = [r.get("o1", ""), r.get("o2", ""), r.get("o3", "")]
-        parts = [p for p in parts if p]
-        return " / ".join(parts)
+        return format_deck_label([r.get("o1", ""), r.get("o2", ""), r.get("o3", "")])
 
     d["offense"] = d.apply(to_offense, axis=1)
 
@@ -167,9 +166,6 @@ def get_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 20
 
     d1, d2, d3 = parts[0], parts[1], parts[2]
 
-    if not (o1 and o2 and o3):
-        return pd.DataFrame()
-
     q = (
         sb()
         .table("siege_logs")
@@ -180,7 +176,9 @@ def get_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 20
         .eq("result", "Lose")
     )
 
-    perms_off = [(o1, o2, o3), (o1, o3, o2)]
+    perms_off = _build_offense_perms(o1, o2, o3)
+    if not perms_off:
+        return pd.DataFrame()
     perms_def = [(d1, d2, d3), (d1, d3, d2)]
 
     or_clauses = []
@@ -201,9 +199,20 @@ def get_siege_loss_logs(def_key: str, o1: str, o2: str, o3: str, limit: int = 20
 # UI helpers (Cards)
 # -------------------------
 def _fmt_team(r, a, b, c) -> str:
-    parts = [r.get(a, ""), r.get(b, ""), r.get(c, "")]
-    parts = [p for p in parts if p]
-    return " / ".join(parts)
+    return format_deck_label([r.get(a, ""), r.get(b, ""), r.get(c, "")])
+
+
+def _build_offense_perms(o1: str, o2: str, o3: str) -> list[tuple[str, str, str]]:
+    leader = o1 or ""
+    if not leader:
+        return []
+    others = [value for value in [o2, o3] if value]
+    if len(others) == 0:
+        return [(leader, "", "")]
+    if len(others) == 1:
+        other = others[0]
+        return [(leader, other, ""), (leader, "", other)]
+    return [(leader, others[0], others[1]), (leader, others[1], others[0])]
 
 
 def _badge_style(win_rate: float) -> str:

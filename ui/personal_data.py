@@ -12,10 +12,11 @@ from services.personal_data_service import (
     get_top_defense_decks,
     get_top_offense_decks,
 )
+from utils.deck_utils import format_deck_label
 
 
 def _deck_label(row) -> str:
-    return f"{row['Unit #1']} / {row['Unit #2']} / {row['Unit #3']}"
+    return format_deck_label([row["Unit #1"], row["Unit #2"], row["Unit #3"]])
 
 
 def _select_offense_key(df, table_key: str) -> str | None:

@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 
 from services.supabase_client import get_supabase_client
+from utils.deck_utils import make_deck_key
 
 
 def _or_val(v: str) -> str:
@@ -77,15 +78,7 @@ def build_worst_offense_list(cutoff: int = 4) -> pd.DataFrame:
 
 
 def make_key_fixed(a: str, b: str, c: str) -> str:
-    a = (a or "").strip()
-    b = (b or "").strip()
-    c = (c or "").strip()
-    if not a:
-        return ""
-    rest = sorted([x for x in [b, c] if x])
-    if len(rest) != 2:
-        return ""
-    return "|".join([a] + rest)
+    return make_deck_key(a, b, c)
 
 
 @st.cache_data(ttl=300)
