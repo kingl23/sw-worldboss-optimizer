@@ -4,11 +4,10 @@ import copy
 ### EDIT HERE: ATB SIMULATOR MONSTER DEFINITIONS ###
 
 ATB_MONSTER_LIBRARY = {
-    "swift_support": {
-        "key": "swift_support",
-        "name": "Swift Support",
-        "monster_family": "Fairy",
-        "element": "Wind",
+    "light_warewolf": {
+        "key": "light_warewolf",
+        "name": "light_warewolf",
+        "element": "Light",
         "base_speed": 115,
         "rune_speed": 0,
         "isSwift": True,
@@ -32,22 +31,196 @@ ATB_MONSTER_LIBRARY = {
             }
         ],
     },
-    "damage_dealer": {
-        "key": "damage_dealer",
-        "name": "Damage Dealer",
-        "monster_family": "Warrior",
-        "element": "Fire",
-        "base_speed": 98,
+    "water_pumpkin": {
+        "key": "water_pumpkin",
+        "name": "water_pumpkin",
+        "element": "Water",
+        "base_speed": 101,
+        "rune_speed": 0,
+        "isSwift": True,
+        "speedIncreasingEffect": 0,
+        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
+        "skills": [
+            {
+                "applyOnTurn": 1,
+                "target": "allies",
+                "buffSpeed": True,
+                "speedBuffDuration": 2,
+                "stripSpeed": False,
+                "flatSpeedBuff": False,
+                "flatSpeedBuffType": None,
+                "flatSpeedBuffAmount": 0,
+                "flatSpeedBuffDuration": 0,
+                "slow": False,
+                "slowDuration": 0,
+            }
+        ],
+    },
+    "water_pudding": {
+        "key": "water_pudding",
+        "name": "water_pudding",
+        "element": "Water",
+        "base_speed": 111,
+        "rune_speed": 0,
+        "isSwift": True,
+        "speedIncreasingEffect": 0,
+        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
+        "skills": [
+            {
+                "applyOnTurn": 1,
+                "target": "allies",
+                "buffSpeed": True,
+                "speedBuffDuration": 2,
+                "stripSpeed": False,
+                "flatSpeedBuff": False,
+                "flatSpeedBuffType": None,
+                "flatSpeedBuffAmount": 0,
+                "flatSpeedBuffDuration": 0,
+                "slow": False,
+                "slowDuration": 0,
+            }
+        ],
+    },
+    "dark_geomungo": {
+        "key": "dark_geomungo",
+        "name": "dark_geomungo",
+        "element": "Dark",
+        "base_speed": 107,
+        "rune_speed": 0,
+        "isSwift": True,
+        "speedIncreasingEffect": 0,
+        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
+        "skills": [
+            {
+                "applyOnTurn": 1,
+                "target": "allies",
+                "buffSpeed": True,
+                "speedBuffDuration": 2,
+                "stripSpeed": False,
+                "flatSpeedBuff": False,
+                "flatSpeedBuffType": None,
+                "flatSpeedBuffAmount": 0,
+                "flatSpeedBuffDuration": 0,
+                "slow": False,
+                "slowDuration": 0,
+            }
+        ],
+    },
+    "dark_harg": {
+        "key": "dark_harg",
+        "name": "dark_harg",
+        "element": "Dark",
+        "base_speed": 120,
+        "rune_speed": 0,
+        "isSwift": True,
+        "speedIncreasingEffect": 0,
+        # NOTE: Avoid targeting monsters by raw key in skills when using the UI prefixing.
+        "skills": [
+            {
+                "applyOnTurn": 1,
+                "target": "ally_atb_low",
+                "atbManipulationType": "add",
+                "atbManipulationAmount": 15,
+                "stripSpeed": False,
+                "flatSpeedBuff": False,
+                "flatSpeedBuffType": None,
+                "flatSpeedBuffAmount": 0,
+                "flatSpeedBuffDuration": 0,
+                "slow": False,
+                "slowDuration": 0,
+            },
+            {
+                "applyOnTurn": 1,
+                "target": "allies",
+                "buffSpeed": True,
+                "speedBuffDuration": 2,
+                "stripSpeed": False,
+                "flatSpeedBuff": False,
+                "flatSpeedBuffType": None,
+                "flatSpeedBuffAmount": 0,
+                "flatSpeedBuffDuration": 0,
+                "slow": False,
+                "slowDuration": 0,
+            }
+        ],
+    },
+    "water_pirate": {
+        "key": "water_pirate",
+        "name": "water_pirate",
+        "element": "Water",
+        "base_speed": 108,
         "rune_speed": 0,
         "isSwift": False,
         "speedIncreasingEffect": 0,
     },
-    "enemy_target": {
-        "key": "enemy_target",
-        "name": "Enemy Target",
-        "monster_family": "Knight",
-        "element": "Water",
+    "fire_mermaid": {
+        "key": "fire_mermaid",
+        "name": "fire_mermaid",
+        "element": "Fire",
         "base_speed": 95,
+        "rune_speed": 0,
+        "isSwift": False,
+        "speedIncreasingEffect": 0,
+    },
+    "light_archer": {
+        "key": "light_archer",
+        "name": "light_archer",
+        "element": "Light",
+        "base_speed": 105,
+        "rune_speed": 0,
+        "isSwift": False,
+        "speedIncreasingEffect": 0,
+    },
+    "dark_archer": {
+        "key": "dark_archer",
+        "name": "dark_archer",
+        "element": "Dark",
+        "base_speed": 120,
+        "rune_speed": 0,
+        "isSwift": False,
+        "speedIncreasingEffect": 0,
+    },
+    "water_dancer": {
+        "key": "water_dancer",
+        "name": "water_dancer",
+        "element": "Water",
+        "base_speed": 101,
+        "rune_speed": 215,
+        "isSwift": False,
+        "speedIncreasingEffect": 0,
+    },
+    "water_ciri": {
+        "key": "water_ciri",
+        "name": "water_ciri",
+        "element": "Water",
+        "base_speed": 106,
+        "rune_speed": 215,
+        "isSwift": False,
+        "speedIncreasingEffect": 0,
+    },
+    "fire_centa": {
+        "key": "fire_centa",
+        "name": "fire_centa",
+        "element": "Fire",
+        "base_speed": 104,
+        "rune_speed": 215,
+        "isSwift": False,
+        "speedIncreasingEffect": 0,
+    },
+    "fire_twin": {
+        "key": "fire_twin",
+        "name": "fire_twin",
+        "element": "Fire",
+        "base_speed": 102,
+        "rune_speed": 0,
+        "isSwift": False,
+        "speedIncreasingEffect": 0,
+    },
+    "wind_pala": {
+        "key": "wind_pala",
+        "name": "wind_pala",
+        "element": "Wind",
+        "base_speed": 102,
         "rune_speed": 0,
         "isSwift": False,
         "speedIncreasingEffect": 0,
@@ -65,77 +238,77 @@ _DEFAULT_EFFECTS = {
 ATB_SIMULATOR_PRESETS = {
     "Preset A": {
         "allies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["fire_mermaid", "water_pumpkin", "dark_archer"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["fire_mermaid", "water_pumpkin", "dark_archer"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset B": {
         "allies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["water_pirate", "water_pumpkin", "light_archer"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["water_pirate", "water_pumpkin", "light_archer"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset C": {
         "allies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["water_dancer", "light_warewolf", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["water_dancer", "light_warewolf", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset D": {
         "allies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["water_dancer", "water_pudding", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["water_dancer", "water_pudding", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset E": {
         "allies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["water_dancer", "water_pumpkin", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["water_dancer", "water_pumpkin", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset F": {
         "allies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["dark_geomungo", "water_ciri", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["dark_geomungo", "water_ciri", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
     },
     "Preset G": {
         "allies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["dark_geomungo", "fire_centa", "wind_pala"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["damage_dealer", "swift_support", "enemy_target"],
+            "monsters": ["dark_geomungo", "fire_centa", "wind_pala"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,
