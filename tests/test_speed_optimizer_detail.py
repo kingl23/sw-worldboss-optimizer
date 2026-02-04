@@ -1,7 +1,6 @@
 from config.atb_simulator_presets import build_full_preset
 from domain.speed_optimizer_detail import (
     RequiredOrder,
-    _build_case_display,
     _build_enemy_mirror,
     _build_section1_overrides,
     _matches_required_order,
@@ -129,37 +128,16 @@ def test_preset_e_uses_dark_harg():
     assert preset["allies"][1]["key"] == "dark_harg"
 
 
-def test_case_display_uses_unit_names():
-    detail_preset = {
-        "allies": [
-            {"key": "a1", "name": "Alpha", "isAlly": True, "base_speed": 1500, "rune_speed": 0},
-            {"key": "a2", "name": "Bravo", "isAlly": True, "base_speed": 1400, "rune_speed": 0},
-            {"key": "a3", "name": "Charlie", "isAlly": True, "base_speed": 1300, "rune_speed": 0},
-        ],
-        "enemies": [
-            {"key": "e1", "name": "Echo", "isAlly": False, "base_speed": 1200, "rune_speed": 0}
-        ],
-        "allyEffects": {"lead": 24, "tower": 15},
-        "enemyEffects": {"lead": 24, "tower": 15},
-        "tickCount": 5,
-    }
-    detail_keys = {"a1": "a1", "a2": "a2", "a3": "a3", "e_fast": "e1"}
-    required_order = RequiredOrder(mode="a2_a3_e", order=["a2", "a3", "e1"])
-    case_display = _build_case_display(
-        "Preset A",
-        detail_preset,
-        detail_keys,
-        required_order,
-        overrides={},
-    )
-    assert "Bravo" in case_display["display_title"]
-    assert "Charlie" in case_display["display_title"]
-    assert "Mirrored from Bravo" in case_display["display_title"]
+def test_preset_a_objective_uses_unit_labels():
+    result = build_section1_detail_cached("Preset A", 10, 20, None, None, False)
+    assert "A2" in result.objective
+    assert "A3" in result.objective
+    assert "E" in result.objective
 
 
 def test_all_presets_return_with_tick_tables():
     results = build_section1_detail_cached("Preset A", 10, 20, None, None, False)
-    assert results.preset_id == "Preset A"
+    assert results.preset_name == "Preset A"
     all_results = [
         build_section1_detail_cached(preset_id, 10, 20, None, None, False)
         for preset_id in [
@@ -172,19 +150,21 @@ def test_all_presets_return_with_tick_tables():
             "Preset G",
         ]
     ]
-    preset_ids = {result.preset_id for result in all_results}
+    preset_ids = {result.preset_name for result in all_results}
     assert preset_ids == {"Preset A", "Preset B", "Preset C", "Preset D", "Preset E", "Preset F", "Preset G"}
     for result in all_results:
-        if result.preset_id == "Preset B":
+        if result.status != "OK":
+            assert result.tick_atb_table is None
+            assert result.tick_atb_table_step1 is None
+            assert result.tick_atb_table_step2 is None
+            continue
+        if result.preset_name == "Preset B":
             assert result.tick_atb_table_step1 is not None
             assert result.tick_atb_table_step2 is not None
-            assert result.tick_atb_table is not None
             for table in (result.tick_atb_table_step1, result.tick_atb_table_step2):
-                if table:
-                    assert len(table) == 16
-                    assert [row["tick"] for row in table] == list(range(16))
+                assert len(table) == 16
+                assert [row["tick"] for row in table] == list(range(16))
         else:
             assert result.tick_atb_table is not None
-            if result.tick_atb_table:
-                assert len(result.tick_atb_table) == 16
-                assert [row["tick"] for row in result.tick_atb_table] == list(range(16))
+            assert len(result.tick_atb_table) == 16
+            assert [row["tick"] for row in result.tick_atb_table] == list(range(16))

@@ -259,36 +259,14 @@ def _render_section_1_details() -> None:
             st.info("No results yet.")
             return
         for result in results:
-            if result.display_title:
-                st.markdown(f"#### {result.display_title}")
-            else:
-                st.markdown(f"#### {result.preset_id}")
-            if result.calc_type:
-                st.caption(f"Mode: {result.calc_type}")
-            if result.error:
-                st.warning(result.error)
-            if result.unit_labels:
-                st.markdown("**Unit Mapping**")
-                mapping_rows = [
-                    {"Slot": slot, "Unit": name}
-                    for slot, name in result.unit_labels.items()
-                ]
-                st.dataframe(mapping_rows, use_container_width=True, hide_index=True)
-            if result.resolved_specs:
-                st.markdown("**Resolved Specs**")
-                spec_rows = []
-                for unit_label, specs in result.resolved_specs.items():
-                    row = {"Unit": unit_label}
-                    row.update(specs)
-                    spec_rows.append(row)
-                st.dataframe(spec_rows, use_container_width=True, hide_index=True)
-            if result.required_order_display or result.actual_order_display:
-                required = result.required_order_display or "Unavailable"
-                actual = result.actual_order_display or "Unavailable"
-                result_label = "PASS" if result.pass_flag else "FAIL"
-                st.markdown(f"**Required:** {required}")
-                st.markdown(f"**Actual:** {actual}")
-                st.markdown(f"**Result:** {result_label}")
+            st.markdown(f"#### {result.preset_name}")
+            st.markdown(f"**Leader %:** {result.leader_percent}")
+            st.markdown(f"**Objective:** {result.objective}")
+            if result.status and result.status != "OK":
+                st.warning(result.status)
+            if result.min_cut_result:
+                st.markdown("**Min Cut Result**")
+                st.dataframe([result.min_cut_result], use_container_width=True, hide_index=True)
             if result.tick_atb_table:
                 st.markdown("**Tick ATB Table**")
                 st.dataframe(result.tick_atb_table, use_container_width=True, hide_index=True)
@@ -298,18 +276,6 @@ def _render_section_1_details() -> None:
             if result.tick_atb_table_step2:
                 st.markdown("**Tick ATB Table (Step 2)**")
                 st.dataframe(result.tick_atb_table_step2, use_container_width=True, hide_index=True)
-            if result.a2_table:
-                _render_unit_detail_table(
-                    "A2 Minimum Rune Speed by Effect",
-                    result.a2_table,
-                    empty_message="No feasible solution for a2 given the current inputs.",
-                )
-            if result.a3_table:
-                _render_unit_detail_table(
-                    "A3 Minimum Rune Speed by Effect",
-                    result.a3_table,
-                    empty_message="No feasible solution for a3 given a1 fixed by Input 2.",
-                )
 
 
 def _render_unit_detail_table(
@@ -408,11 +374,10 @@ def _compute_section1_details(
 
 def _build_error_result(preset_id: str, message: str):
     return PresetDetailResult(
-        preset_id=preset_id,
-        a1_table=None,
-        a2_table=None,
-        a3_table=None,
-        error=message,
-        timing=None,
-        tick_atb_table=[],
+        preset_name=preset_id,
+        leader_percent=0,
+        objective=message,
+        min_cut_result=None,
+        tick_atb_table=None,
+        status="NO VALID SOLUTION",
     )

@@ -33,23 +33,14 @@ class RequiredOrder:
 
 @dataclass
 class PresetDetailResult:
-    preset_id: str
-    a1_table: Optional[DetailTable]
-    a2_table: Optional[DetailTable]
-    a3_table: Optional[DetailTable]
-    error: Optional[str] = None
-    timing: Optional[Dict[str, float]] = None
-    debug: Optional[Dict[str, Any]] = None
-    calc_type: Optional[str] = None
-    display_title: Optional[str] = None
-    unit_labels: Optional[Dict[str, str]] = None
-    resolved_specs: Optional[Dict[str, Dict[str, Any]]] = None
-    required_order_display: Optional[str] = None
-    actual_order_display: Optional[str] = None
-    pass_flag: Optional[bool] = None
-    tick_atb_table: Optional[List[Dict[str, Any]]] = None
+    preset_name: str
+    leader_percent: int
+    objective: str
+    min_cut_result: Optional[Dict[str, Any]]
+    tick_atb_table: Optional[List[Dict[str, Any]]]
     tick_atb_table_step1: Optional[List[Dict[str, Any]]] = None
     tick_atb_table_step2: Optional[List[Dict[str, Any]]] = None
+    status: Optional[str] = None
 
 
 @lru_cache(maxsize=128)
@@ -96,13 +87,12 @@ def _build_preset_detail_type_general(
     enemies = preset.get("enemies", [])
     if len(allies) < 3 or len(enemies) < 2:
         return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="Preset must contain at least 3 allies and 2 enemies.",
-            calc_type="general",
-            tick_atb_table=[],
+            preset_name=preset_id,
+            leader_percent=get_leader_percent(preset_id),
+            objective="Invalid preset",
+            min_cut_result=None,
+            tick_atb_table=None,
+            status="NO VALID SOLUTION",
         )
 
     # Input 2 fixes a1's rune speed so only a3 is optimized.
@@ -158,15 +148,12 @@ def _build_preset_detail_type_general(
     required_order = _resolve_required_order(preset_id, detail_keys)
     if required_order is None:
         return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="Invalid required turn order mapping for this preset.",
-            timing={},
-            debug=debug_payload,
-            calc_type="general",
-            tick_atb_table=[],
+            preset_name=preset_id,
+            leader_percent=get_leader_percent(preset_id),
+            objective="Invalid required order",
+            min_cut_result=None,
+            tick_atb_table=None,
+            status="NO VALID SOLUTION",
         )
 
     baseline_overrides = dict(prefixed_overrides)
@@ -220,16 +207,6 @@ def _build_preset_detail_type_general(
         debug_payload["baseline_turn_events"] = baseline_turn_events
         debug_payload["tick_atb_log"] = _format_atb_log(debug_atb_log, case_display["unit_display_map"])
 
-    a3_start = time.perf_counter()
-    a3_table, a3_error = _build_unit_detail_table(
-        detail_preset,
-        required_order,
-        prefixed_overrides,
-        target_key=detail_keys["a3"],
-        deadline=deadline,
-        debug=debug_payload,
-    )
-    a3_time = time.perf_counter() - a3_start
     tick_atb_table = _build_final_tick_table_for_a3(
         detail_preset,
         required_order,
@@ -238,28 +215,35 @@ def _build_preset_detail_type_general(
         case_display["unit_display_map"],
         deadline,
     )
-
-    error_messages = [msg for msg in [a3_error] if msg]
-    combined_error = "\n".join(error_messages) if error_messages else None
-
+    min_speed = _find_minimum_rune_speed(
+        detail_preset,
+        required_order,
+        prefixed_overrides,
+        detail_keys["a3"],
+        effect=0,
+        start_speed=MIN_RUNE_SPEED,
+        deadline=deadline,
+        debug=None,
+    )
+    if min_speed is None:
+        return PresetDetailResult(
+            preset_name=preset_id,
+            leader_percent=get_leader_percent(preset_id),
+            objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+            min_cut_result=None,
+            tick_atb_table=None,
+            status="NO VALID SOLUTION",
+        )
     return PresetDetailResult(
-        preset_id=preset_id,
-        a1_table=None,
-        a2_table=None,
-        a3_table=a3_table,
-        error=combined_error,
-        timing={
-            "a3_s": a3_time,
+        preset_name=preset_id,
+        leader_percent=get_leader_percent(preset_id),
+        objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+        min_cut_result={
+            "a3_rune_speed": min_speed,
+            "a3_artifact_speed": 0,
         },
-        debug=debug_payload,
-        calc_type="general",
-        display_title=case_display["display_title"],
-        unit_labels=case_display["unit_labels"],
-        resolved_specs=case_display["resolved_specs"],
-        required_order_display=case_display["required_order_display"],
-        actual_order_display=case_display["actual_order_display"],
-        pass_flag=case_display["pass_flag"],
         tick_atb_table=tick_atb_table,
+        status="OK",
     )
 
 
@@ -276,15 +260,14 @@ def _build_preset_detail_type_b(
     enemies = preset.get("enemies", [])
     if len(allies) < 3 or len(enemies) < 2:
         return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="Preset must contain at least 3 allies and 2 enemies.",
-            calc_type="special_b",
-            tick_atb_table_step1=[],
-            tick_atb_table_step2=[],
-            tick_atb_table=[],
+            preset_name=preset_id,
+            leader_percent=get_leader_percent(preset_id),
+            objective="Invalid preset",
+            min_cut_result=None,
+            tick_atb_table=None,
+            tick_atb_table_step1=None,
+            tick_atb_table_step2=None,
+            status="NO VALID SOLUTION",
         )
 
     start_time = time.perf_counter()
@@ -335,17 +318,14 @@ def _build_preset_detail_type_b(
     required_order = _resolve_required_order(preset_id, detail_keys)
     if required_order is None:
         return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="Invalid required turn order mapping for this preset.",
-            timing={},
-            debug=debug_payload,
-            calc_type="special_b",
-            tick_atb_table_step1=[],
-            tick_atb_table_step2=[],
-            tick_atb_table=[],
+            preset_name=preset_id,
+            leader_percent=get_leader_percent(preset_id),
+            objective="Invalid required order",
+            min_cut_result=None,
+            tick_atb_table=None,
+            tick_atb_table_step1=None,
+            tick_atb_table_step2=None,
+            status="NO VALID SOLUTION",
         )
 
     baseline_overrides = dict(prefixed_overrides)
@@ -360,15 +340,6 @@ def _build_preset_detail_type_b(
         required_order,
         baseline_overrides,
     )
-    tick_atb_table = _build_final_tick_table_for_a3(
-        detail_preset,
-        required_order,
-        prefixed_overrides,
-        detail_keys["a3"],
-        case_display["unit_display_map"],
-        deadline,
-    )
-
     if debug_payload is not None:
         debug_payload["required_order"] = {
             "mode": required_order.mode,
@@ -428,23 +399,14 @@ def _build_preset_detail_type_b(
 
     if a1_min0 is None:
         return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="Unable to find minimum rune speed for a1 at effect 0.",
-            timing={"a1_s": a1_time},
-            debug=debug_payload,
-            calc_type="special_b",
-            display_title=case_display["display_title"],
-            unit_labels=case_display["unit_labels"],
-            resolved_specs=case_display["resolved_specs"],
-            required_order_display=case_display["required_order_display"],
-            actual_order_display=case_display["actual_order_display"],
-            pass_flag=case_display["pass_flag"],
-            tick_atb_table_step1=[],
-            tick_atb_table_step2=[],
-            tick_atb_table=[],
+            preset_name=preset_id,
+            leader_percent=get_leader_percent(preset_id),
+            objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+            min_cut_result=None,
+            tick_atb_table=None,
+            tick_atb_table_step1=None,
+            tick_atb_table_step2=None,
+            status="NO VALID SOLUTION",
         )
 
     step1_overrides = dict(prefixed_overrides)
@@ -473,41 +435,40 @@ def _build_preset_detail_type_b(
         case_display["unit_display_map"],
         deadline,
     )
-    a3_start = time.perf_counter()
-    a3_table, a3_error = _build_unit_detail_table(
+    min_speed_a3 = _find_minimum_rune_speed(
         detail_preset,
         required_order,
         fixed_overrides,
-        target_key=detail_keys["a3"],
+        detail_keys["a3"],
+        effect=0,
+        start_speed=MIN_RUNE_SPEED,
         deadline=deadline,
-        debug=debug_payload,
+        debug=None,
     )
-    a3_time = time.perf_counter() - a3_start
-
-    error_messages = [msg for msg in [a3_error] if msg]
-    combined_error = "\n".join(error_messages) if error_messages else None
-
+    if min_speed_a3 is None:
+        return PresetDetailResult(
+            preset_name=preset_id,
+            leader_percent=get_leader_percent(preset_id),
+            objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+            min_cut_result=None,
+            tick_atb_table=None,
+            tick_atb_table_step1=tick_atb_table_step1,
+            tick_atb_table_step2=None,
+            status="NO VALID SOLUTION",
+        )
     return PresetDetailResult(
-        preset_id=preset_id,
-        a1_table=None,
-        a2_table=None,
-        a3_table=a3_table,
-        error=combined_error,
-        timing={
-            "a1_s": a1_time,
-            "a3_s": a3_time,
+        preset_name=preset_id,
+        leader_percent=get_leader_percent(preset_id),
+        objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+        min_cut_result={
+            "a1_rune_speed": a1_min0,
+            "a3_rune_speed": min_speed_a3,
+            "a3_artifact_speed": 0,
         },
-        debug=debug_payload,
-        calc_type="special_b",
-        display_title=case_display["display_title"],
-        unit_labels=case_display["unit_labels"],
-        resolved_specs=case_display["resolved_specs"],
-        required_order_display=case_display["required_order_display"],
-        actual_order_display=case_display["actual_order_display"],
-        pass_flag=case_display["pass_flag"],
+        tick_atb_table=None,
         tick_atb_table_step1=tick_atb_table_step1,
         tick_atb_table_step2=tick_atb_table_step2,
-        tick_atb_table=tick_atb_table_step2,
+        status="OK",
     )
 
 
