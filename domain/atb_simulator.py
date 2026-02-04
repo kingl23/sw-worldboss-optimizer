@@ -27,7 +27,8 @@ def simulate(preset: Dict[str, Any], overrides: Optional[Dict[str, Dict[str, Any
     }
 
     monsters: List[Dict[str, Any]] = []
-    for ally in allies:
+    for idx, ally in enumerate(allies):
+        ally["ally_index"] = idx
         monsters.append(transform_monster(simulator, ally))
     for enemy in enemies:
         monsters.append(transform_monster(simulator, enemy))
@@ -61,6 +62,7 @@ def simulate_with_turn_log(
     debug_atb_log: Optional[List[Dict[str, Any]]] = None,
     debug_atb_keys: Optional[List[str]] = None,
     debug_atb_labels: Optional[Dict[str, str]] = None,
+    debug_atb_names: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     allies = preset.get("allies", [])
     enemies = preset.get("enemies", [])
@@ -82,7 +84,8 @@ def simulate_with_turn_log(
     }
 
     monsters: List[Dict[str, Any]] = []
-    for ally in allies:
+    for idx, ally in enumerate(allies):
+        ally["ally_index"] = idx
         monsters.append(transform_monster(simulator, ally))
     for enemy in enemies:
         monsters.append(transform_monster(simulator, enemy))
@@ -111,6 +114,7 @@ def simulate_with_turn_log(
             atb_log=debug_atb_log,
             atb_log_keys=debug_atb_keys,
             atb_log_labels=debug_atb_labels,
+            atb_log_names=debug_atb_names,
         )
         simulator["ticks"].append({
             "tick": i,
@@ -136,6 +140,7 @@ def simulate_atb_table(
     tick_limit: int = 16,
     atb_keys: Optional[List[str]] = None,
     atb_labels: Optional[Dict[str, str]] = None,
+    atb_names: Optional[Dict[str, str]] = None,
 ) -> List[Dict[str, Any]]:
     if tick_limit <= 0:
         return []
@@ -153,7 +158,8 @@ def simulate_atb_table(
     }
 
     monsters: List[Dict[str, Any]] = []
-    for ally in allies:
+    for idx, ally in enumerate(allies):
+        ally["ally_index"] = idx
         monsters.append(transform_monster(simulator, ally))
     for enemy in enemies:
         monsters.append(transform_monster(simulator, enemy))
@@ -173,6 +179,7 @@ def simulate_atb_table(
             atb_log=atb_log,
             atb_log_keys=atb_keys,
             atb_log_labels=atb_labels,
+            atb_log_names=atb_names,
         )
         simulator["ticks"].append({
             "tick": tick_index + 1,
@@ -299,6 +306,7 @@ def run_tick(
     atb_log: Optional[List[Dict[str, Any]]] = None,
     atb_log_keys: Optional[List[str]] = None,
     atb_log_labels: Optional[Dict[str, str]] = None,
+    atb_log_names: Optional[Dict[str, str]] = None,
 ) -> List[Dict[str, Any]]:
     if len(simulator["ticks"]) == 1:
         for i, monster in enumerate(monsters):
@@ -330,6 +338,7 @@ def run_tick(
             "v_combat": combat_snapshot,
             "actor_key": actor_key,
             "actor_label": actor_label,
+            "event_note": "",
         })
     if move_index is not None:
         monsters[move_index]["turn"] += 1
@@ -369,6 +378,19 @@ def run_tick(
         ]
 
         apply_skill_effects(monsters, skills, skill_targets)
+        if (
+            atb_log is not None
+            and atb_log_keys
+            and atb_log_names
+            and monsters[move_index].get("base_key") == "dark_harg"
+        ):
+            atb_log[-1]["event_note"] = _format_dark_harg_event(
+                skills,
+                skill_targets,
+                monsters,
+                atb_log_labels or {},
+                atb_log_names,
+            )
         monsters[move_index]["tookTurn"] = True
 
     return monsters
@@ -446,7 +468,13 @@ def get_skill_targets(
         elif target_type == "ally_atb_low":
             allies = [(m, idx) for idx, m in enumerate(monsters) if m.get("isAlly")]
             if allies:
-                best = min(allies, key=lambda item: item[0].get("attack_bar", 0))
+                best = min(
+                    allies,
+                    key=lambda item: (
+                        item[0].get("attack_bar", 0),
+                        item[0].get("ally_index", item[1]),
+                    ),
+                )
                 targets = [best[1]]
         elif target_type == "enemy_atb_high":
             enemies = [(m, idx) for idx, m in enumerate(monsters) if not m.get("isAlly")]
@@ -473,3 +501,27 @@ def get_skill_targets(
 def find_base_monster(simulator: Dict[str, Any], monster: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     source = simulator["allies"] if monster.get("isAlly") else simulator["enemies"]
     return next((item for item in source if item.get("key") == monster.get("key")), None)
+
+
+def _format_dark_harg_event(
+    skills: List[Dict[str, Any]],
+    skill_targets: List[List[int]],
+    monsters: List[Dict[str, Any]],
+    label_map: Dict[str, str],
+    name_map: Dict[str, str],
+) -> str:
+    atb_target = None
+    speed_duration = None
+    for skill, targets in zip(skills, skill_targets):
+        if skill.get("atbManipulationType") == "add" and skill.get("atbManipulationAmount") == 15:
+            if targets:
+                target = monsters[targets[0]]
+                atb_target = f"{label_map.get(target.get('key'), target.get('key'))}({name_map.get(target.get('key'), target.get('name'))})"
+        if skill.get("buffSpeed"):
+            speed_duration = skill.get("speedBuffDuration", 0)
+    if atb_target and speed_duration is not None:
+        return (
+            f"Dark Harg skill: +15 ATB to {atb_target}; "
+            f"SpeedUp applied to allies (A1/A2/A3) duration={speed_duration}"
+        )
+    return ""

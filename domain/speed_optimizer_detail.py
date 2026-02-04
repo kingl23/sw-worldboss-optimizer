@@ -951,19 +951,21 @@ def _build_tick_atb_table(
     overrides: Dict[str, Dict[str, int]],
     short_label_map: Dict[str, str],
 ) -> List[Dict[str, Any]]:
-    base_rune_row: Dict[str, Any] = {"tick": "base+rune", "act": ""}
+    base_rune_row: Dict[str, Any] = {"tick": "base+rune", "act": "", "note": ""}
     units = {unit.get("key"): unit for unit in detail_preset.get("allies", []) + detail_preset.get("enemies", [])}
     for key, label in short_label_map.items():
         unit = units.get(key, {})
         base_speed = unit.get("base_speed", 0)
         rune_speed = overrides.get(key, {}).get("rune_speed", unit.get("rune_speed", 0))
         base_rune_row[label] = base_speed + rune_speed
+    name_map = {unit.get("key"): unit.get("name", unit.get("key")) for unit in units.values()}
     debug_atb_log = simulate_atb_table(
         detail_preset,
         overrides,
         tick_limit=16,
         atb_keys=list(short_label_map.keys()),
         atb_labels=short_label_map,
+        atb_names=name_map,
     )
     return [base_rune_row, *_format_atb_log(debug_atb_log, short_label_map)]
 
@@ -1201,6 +1203,7 @@ def _format_atb_log(
         row: Dict[str, Any] = {
             "tick": entry.get("tick"),
             "act": entry.get("actor_label"),
+            "note": entry.get("event_note") or "",
         }
         atb_values = entry.get("atb", {})
         for key, label in label_map.items():

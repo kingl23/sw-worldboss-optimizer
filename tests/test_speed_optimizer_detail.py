@@ -261,7 +261,7 @@ def test_all_presets_return_with_tick_tables():
         assert len(table) == 17
         assert table[0]["tick"] == "base+rune"
         assert [row["tick"] for row in table[1:]] == list(range(16))
-        assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())
+        assert {"tick", "A1", "A2", "A3", "E", "act", "note"}.issubset(table[0].keys())
         assert "act_speed" not in table[0]
 
 
@@ -273,6 +273,14 @@ def test_tick_table_includes_base_rune_row():
     assert table is not None
     assert table[0]["tick"] == "base+rune"
     assert all(isinstance(table[0][label], (int, float)) for label in ("A1", "A2", "A3", "E"))
+
+
+def test_dark_harg_tick_note_present():
+    result = build_section1_detail_cached("Preset E", 10, 20, None, None, False)
+    if result.status != "OK" or not result.tick_atb_table:
+        return
+    notes = [row.get("note", "") for row in result.tick_atb_table if row.get("note")]
+    assert any("Dark Harg skill" in note for note in notes)
 
 
 def test_preset_a_min_cut_respects_order():

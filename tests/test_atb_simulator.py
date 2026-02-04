@@ -1,6 +1,13 @@
 import math
 
-from domain.atb_simulator import calculate_combat_speed, simulate_atb_table, simulate_with_turn_log
+from config.atb_simulator_presets import ATB_MONSTER_LIBRARY
+from domain.atb_simulator import (
+    apply_skill_effects,
+    calculate_combat_speed,
+    get_skill_targets,
+    simulate_atb_table,
+    simulate_with_turn_log,
+)
 
 
 def test_swift_bonus_disabled():
@@ -113,3 +120,48 @@ def test_combat_speed_uses_effect_multiplier():
     v_total = 100 + (100 * (24 + 15) / 100)
     expected = v_total * (1 + 0.3 * (100 + 20) / 100)
     assert calculate_combat_speed(monster) == math.ceil(expected)
+
+
+def test_dark_harg_skill_applies_atb_and_speed_buff():
+    dark_harg = dict(ATB_MONSTER_LIBRARY["dark_harg"])
+    skills = dark_harg.get("skills", [])
+    monsters = [
+        {
+            "key": "a1",
+            "name": "dark_harg",
+            "isAlly": True,
+            "attack_bar": 10,
+            "ally_index": 0,
+            "has_speed_buff": False,
+            "speedBuffDuration": 0,
+            "flatSpeedBuffs": [],
+        },
+        {
+            "key": "a2",
+            "name": "ally_two",
+            "isAlly": True,
+            "attack_bar": 5,
+            "ally_index": 1,
+            "has_speed_buff": False,
+            "speedBuffDuration": 0,
+            "flatSpeedBuffs": [],
+        },
+        {
+            "key": "a3",
+            "name": "ally_three",
+            "isAlly": True,
+            "attack_bar": 5,
+            "ally_index": 2,
+            "has_speed_buff": False,
+            "speedBuffDuration": 0,
+            "flatSpeedBuffs": [],
+        },
+    ]
+
+    targets = get_skill_targets(skills, monsters, self_idx=0)
+    apply_skill_effects(monsters, skills, targets)
+
+    assert monsters[1]["attack_bar"] == 20
+    assert monsters[2]["attack_bar"] == 5
+    assert all(monster["has_speed_buff"] for monster in monsters)
+    assert all(monster["speedBuffDuration"] == 2 for monster in monsters)
