@@ -16,7 +16,7 @@ from domain.atb_simulator_utils import prefix_monsters
 MAX_RUNE_SPEED = 250
 MIN_RUNE_SPEED = 150
 COARSE_STEP = 10
-MAX_EFFECT = 50
+MAX_EFFECT = 60
 DEFAULT_INPUT_3 = 0
 
 
@@ -36,6 +36,7 @@ class PresetDetailResult:
     preset_name: str
     leader_percent: int
     objective: str
+    effect_table: Optional[DetailTable]
     min_cut_result: Optional[Dict[str, Any]]
     tick_atb_table: Optional[List[Dict[str, Any]]]
     tick_atb_table_step1: Optional[List[Dict[str, Any]]] = None
@@ -90,6 +91,7 @@ def _build_preset_detail_type_general(
             preset_name=preset_id,
             leader_percent=get_leader_percent(preset_id),
             objective="Invalid preset",
+            effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
             status="NO VALID SOLUTION",
@@ -151,6 +153,7 @@ def _build_preset_detail_type_general(
             preset_name=preset_id,
             leader_percent=get_leader_percent(preset_id),
             objective="Invalid required order",
+            effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
             status="NO VALID SOLUTION",
@@ -207,6 +210,14 @@ def _build_preset_detail_type_general(
         debug_payload["baseline_turn_events"] = baseline_turn_events
         debug_payload["tick_atb_log"] = _format_atb_log(debug_atb_log, case_display["unit_display_map"])
 
+    effect_table, effect_error = _build_unit_detail_table(
+        detail_preset,
+        required_order,
+        prefixed_overrides,
+        detail_keys["a3"],
+        deadline,
+        debug_payload,
+    )
     tick_atb_table = _build_final_tick_table_for_a3(
         detail_preset,
         required_order,
@@ -235,9 +246,10 @@ def _build_preset_detail_type_general(
                 case_display["short_label_map"],
                 case_display["legend"],
             ),
+            effect_table=effect_table,
             min_cut_result=None,
             tick_atb_table=None,
-            status="NO VALID SOLUTION",
+            status=effect_error or "NO VALID SOLUTION",
         )
     return PresetDetailResult(
         preset_name=preset_id,
@@ -248,10 +260,8 @@ def _build_preset_detail_type_general(
             case_display["short_label_map"],
             case_display["legend"],
         ),
-        min_cut_result={
-            "a3_rune_speed": min_speed,
-            "a3_artifact_speed": 0,
-        },
+        effect_table=effect_table,
+        min_cut_result=None,
         tick_atb_table=tick_atb_table,
         status="OK",
     )
@@ -273,6 +283,7 @@ def _build_preset_detail_type_b(
             preset_name=preset_id,
             leader_percent=get_leader_percent(preset_id),
             objective="Invalid preset",
+            effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
             tick_atb_table_step1=None,
@@ -331,6 +342,7 @@ def _build_preset_detail_type_b(
             preset_name=preset_id,
             leader_percent=get_leader_percent(preset_id),
             objective="Invalid required order",
+            effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
             tick_atb_table_step1=None,
@@ -417,6 +429,7 @@ def _build_preset_detail_type_b(
                 case_display["short_label_map"],
                 case_display["legend"],
             ),
+            effect_table=_build_no_solution_table(),
             min_cut_result=None,
             tick_atb_table=None,
             tick_atb_table_step1=None,
@@ -436,6 +449,14 @@ def _build_preset_detail_type_b(
         detail_keys,
         required_order,
         fixed_overrides,
+    )
+    effect_table, effect_error = _build_unit_detail_table(
+        detail_preset,
+        required_order,
+        fixed_overrides,
+        detail_keys["a3"],
+        deadline,
+        debug_payload,
     )
     tick_atb_table_step2 = _build_final_tick_table_for_a3(
         detail_preset,
@@ -465,11 +486,12 @@ def _build_preset_detail_type_b(
                 case_display["short_label_map"],
                 case_display["legend"],
             ),
+            effect_table=effect_table,
             min_cut_result=None,
             tick_atb_table=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
-            status="NO VALID SOLUTION",
+            status=effect_error or "NO VALID SOLUTION",
         )
     return PresetDetailResult(
         preset_name=preset_id,
@@ -480,14 +502,11 @@ def _build_preset_detail_type_b(
             case_display["short_label_map"],
             case_display["legend"],
         ),
-        min_cut_result={
-            "a1_rune_speed": a1_min0,
-            "a3_rune_speed": min_speed_a3,
-            "a3_artifact_speed": 0,
-        },
-        tick_atb_table=None,
+        effect_table=effect_table,
+        min_cut_result=None,
+        tick_atb_table=tick_atb_table_step2,
         tick_atb_table_step1=None,
-        tick_atb_table_step2=tick_atb_table_step2,
+        tick_atb_table_step2=None,
         status="OK",
     )
 
@@ -819,10 +838,12 @@ def _build_unit_detail_table(
         if minimum is not None:
             start_speed = minimum
 
-    if all(value is None for value in effect_to_speed.values()):
-        return None, None
-
     return DetailTable(ranges=_summarize_effect_ranges(effect_to_speed)), None
+
+
+def _build_no_solution_table() -> DetailTable:
+    effect_to_speed = {effect: None for effect in range(0, MAX_EFFECT + 1)}
+    return DetailTable(ranges=_summarize_effect_ranges(effect_to_speed))
 
 
 def _find_minimum_rune_speed(
@@ -958,7 +979,7 @@ def _summarize_effect_ranges(effect_to_speed: Dict[int, Optional[int]]) -> List[
 
 def _format_range(start: int, end: int, speed: Optional[int]) -> Dict[str, str]:
     label = f"{start}~{end}" if start != end else str(start)
-    speed_label = "No solution" if speed is None else str(speed)
+    speed_label = "NO SOLUTION" if speed is None else str(speed)
     return {"Effect Range": label, "Rune Speed": speed_label}
 
 
@@ -985,17 +1006,13 @@ def _format_atb_log(
 ) -> List[Dict[str, Any]]:
     formatted: List[Dict[str, Any]] = []
     for entry in atb_log:
-        actor_key = entry.get("actor_key")
         row: Dict[str, Any] = {
             "tick": entry.get("tick"),
             "act": entry.get("actor_label"),
         }
         atb_values = entry.get("atb", {})
-        combat_values = entry.get("v_combat", {})
         for key, label in label_map.items():
             row[label] = atb_values.get(key)
-        if actor_key:
-            row["act_speed"] = combat_values.get(actor_key)
         formatted.append(row)
     return formatted
 

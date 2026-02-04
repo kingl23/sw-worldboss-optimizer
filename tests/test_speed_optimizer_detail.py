@@ -153,21 +153,31 @@ def test_all_presets_return_with_tick_tables():
     preset_ids = {result.preset_name for result in all_results}
     assert preset_ids == {"Preset A", "Preset B", "Preset C", "Preset D", "Preset E", "Preset F", "Preset G"}
     for result in all_results:
+        assert result.effect_table is not None
+        ranges = result.effect_table.ranges
+        assert ranges
+        range_starts = []
+        range_ends = []
+        for entry in ranges:
+            span = entry.get("Effect Range", "")
+            if "~" in span:
+                start, end = span.split("~")
+            else:
+                start = end = span
+            range_starts.append(int(start))
+            range_ends.append(int(end))
+        assert min(range_starts) == 0
+        assert max(range_ends) == 60
         if result.status != "OK":
             assert result.tick_atb_table is None
             assert result.tick_atb_table_step1 is None
             assert result.tick_atb_table_step2 is None
             continue
-        if result.preset_name == "Preset B":
-            assert result.tick_atb_table_step1 is None
-            assert result.tick_atb_table_step2 is not None
-            table = result.tick_atb_table_step2
-            assert len(table) == 16
-            assert [row["tick"] for row in table] == list(range(16))
-            assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())
-        else:
-            assert result.tick_atb_table is not None
-            table = result.tick_atb_table
-            assert len(table) == 16
-            assert [row["tick"] for row in table] == list(range(16))
-            assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())
+        assert result.tick_atb_table_step1 is None
+        assert result.tick_atb_table_step2 is None
+        assert result.tick_atb_table is not None
+        table = result.tick_atb_table
+        assert len(table) == 16
+        assert [row["tick"] for row in table] == list(range(16))
+        assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())
+        assert "act_speed" not in table[0]

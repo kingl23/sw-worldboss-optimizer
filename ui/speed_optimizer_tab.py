@@ -264,18 +264,11 @@ def _render_section_1_details() -> None:
             st.markdown(f"**Objective:** {result.objective}")
             if result.status and result.status != "OK":
                 st.warning(result.status)
-            if result.min_cut_result:
-                st.markdown("**Min Cut Result**")
-                st.dataframe([result.min_cut_result], use_container_width=True, hide_index=True)
+            if result.effect_table:
+                _render_unit_detail_table("Effect → Min Rune Speed", result.effect_table)
             if result.tick_atb_table:
-                st.markdown("**Tick ATB Table**")
+                st.markdown("**Tick ATB Table (Effect 0)**")
                 st.dataframe(result.tick_atb_table, use_container_width=True, hide_index=True)
-            if result.tick_atb_table_step1:
-                st.markdown("**Tick ATB Table (Step 1)**")
-                st.dataframe(result.tick_atb_table_step1, use_container_width=True, hide_index=True)
-            if result.tick_atb_table_step2:
-                st.markdown("**Tick ATB Table (Step 2)**")
-                st.dataframe(result.tick_atb_table_step2, use_container_width=True, hide_index=True)
 
 
 def _render_unit_detail_table(
@@ -377,6 +370,7 @@ def _build_error_result(preset_id: str, message: str):
         preset_name=preset_id,
         leader_percent=0,
         objective=message,
+        effect_table=None,
         min_cut_result=None,
         tick_atb_table=None,
         status="NO VALID SOLUTION",
