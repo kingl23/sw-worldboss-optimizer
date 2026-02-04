@@ -5,7 +5,11 @@ from functools import lru_cache
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS, build_full_preset
+from config.atb_simulator_presets import (
+    TOWER_PERCENT,
+    build_full_preset,
+    get_leader_percent,
+)
 from domain.atb_simulator import simulate_with_turn_log
 from domain.atb_simulator_utils import prefix_monsters
 
@@ -13,6 +17,7 @@ MAX_RUNE_SPEED = 250
 MIN_RUNE_SPEED = 150
 COARSE_STEP = 10
 MAX_EFFECT = 50
+DEFAULT_INPUT_3 = 0
 
 
 @dataclass
@@ -125,35 +130,20 @@ def _build_preset_detail_type_general(
             "max_rune_speed": MAX_RUNE_SPEED,
             "effect_logs": [],
         }
-    e_fast_start = time.perf_counter()
-    e_fast_key = _select_fastest_enemy(
-        preset,
-        prefixed_allies,
-        prefixed_enemies,
-        prefixed_overrides,
-    )
-    e_fast_time = time.perf_counter() - e_fast_start
-    if not e_fast_key:
-        return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="No enemy took a turn in the simulation.",
-            timing={"e_fast_s": e_fast_time},
-            debug=debug_payload,
-            calc_type="C",
-        )
-
     if debug_payload is not None:
         debug_payload["calc_type"] = "general"
-        debug_payload["input_summary"]["selected_enemy_key"] = e_fast_key
+        debug_payload["input_summary"]["selected_enemy_key"] = "E_MIRROR"
 
+    enemy_mirror = _build_enemy_mirror(
+        preset_id,
+        prefixed_allies,
+        prefixed_overrides,
+        input_3,
+    )
     detail_preset, detail_keys = _build_detail_preset(
         preset,
         prefixed_allies,
-        prefixed_enemies,
-        e_fast_key,
+        enemy_mirror,
     )
     required_order = _resolve_required_order(preset_id, detail_keys)
     if required_order is None:
@@ -163,7 +153,7 @@ def _build_preset_detail_type_general(
             a2_table=None,
             a3_table=None,
             error="Invalid required turn order mapping for this preset.",
-            timing={"e_fast_s": e_fast_time},
+            timing={},
             debug=debug_payload,
             calc_type="general",
         )
@@ -222,7 +212,6 @@ def _build_preset_detail_type_general(
         a3_table=a3_table,
         error=combined_error,
         timing={
-            "e_fast_s": e_fast_time,
             "a3_s": a3_time,
         },
         debug=debug_payload,
@@ -248,7 +237,7 @@ def _build_preset_detail_type_b(
             a2_table=None,
             a3_table=None,
             error="Preset must contain at least 3 allies and 2 enemies.",
-            calc_type="B",
+            calc_type="special_b",
         )
 
     start_time = time.perf_counter()
@@ -285,31 +274,16 @@ def _build_preset_detail_type_b(
             "effect_logs": [],
         }
 
-    e_fast_start = time.perf_counter()
-    e_fast_key = _select_fastest_enemy(
-        preset,
+    enemy_mirror = _build_enemy_mirror(
+        preset_id,
         prefixed_allies,
-        prefixed_enemies,
         prefixed_overrides,
+        input_3,
     )
-    e_fast_time = time.perf_counter() - e_fast_start
-    if not e_fast_key:
-        return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="No enemy took a turn in the simulation.",
-            timing={"e_fast_s": e_fast_time},
-            debug=debug_payload,
-            calc_type="special_b",
-        )
-
     detail_preset, detail_keys = _build_detail_preset(
         preset,
         prefixed_allies,
-        prefixed_enemies,
-        e_fast_key,
+        enemy_mirror,
     )
     required_order = _resolve_required_order(preset_id, detail_keys)
     if required_order is None:
@@ -319,7 +293,7 @@ def _build_preset_detail_type_b(
             a2_table=None,
             a3_table=None,
             error="Invalid required turn order mapping for this preset.",
-            timing={"e_fast_s": e_fast_time},
+            timing={},
             debug=debug_payload,
             calc_type="special_b",
         )
@@ -350,7 +324,7 @@ def _build_preset_detail_type_b(
             a2_table=None,
             a3_table=None,
             error="Unable to find minimum rune speed for a1 at effect 0.",
-            timing={"e_fast_s": e_fast_time, "a1_s": a1_time},
+            timing={"a1_s": a1_time},
             debug=debug_payload,
             calc_type="special_b",
         )
@@ -381,7 +355,6 @@ def _build_preset_detail_type_b(
         a3_table=a3_table,
         error=combined_error,
         timing={
-            "e_fast_s": e_fast_time,
             "a1_s": a1_time,
             "a3_s": a3_time,
         },
@@ -402,11 +375,12 @@ def _build_section1_overrides(
     overrides: Dict[str, Dict[str, int]] = {}
     a1_key = allies[0].get("key")
     a2_key = allies[1].get("key")
+    leader_percent = get_leader_percent(preset_id)
     if preset_id in {"Preset A", "Preset B", "Preset E"}:
         if input_2 is None:
             raise ValueError("input_2 is required for preset mapping.")
         if a2_key:
-            overrides[a2_key] = {"rune_speed": input_2 + 39}
+            overrides[a2_key] = {"rune_speed": input_2 + leader_percent + TOWER_PERCENT}
     elif preset_id in {"Preset C", "Preset D"}:
         if input_1 is None:
             raise ValueError("input_1 is required for preset mapping.")
@@ -418,20 +392,8 @@ def _build_section1_overrides(
         if a1_key:
             overrides[a1_key] = {"rune_speed": input_1}
 
-    e2_key = enemies[1].get("key")
-    if input_3 is None and not allow_enemy_fallback:
-        raise ValueError("Enemy rune_speed cannot be resolved (input_3 is empty).")
-    if input_3 is None and input_1 is None:
-        raise ValueError(
-            "Enemy rune_speed cannot be resolved (input_1 and input_3 are both empty)."
-        )
-    resolved_enemy_speed = input_3 if input_3 is not None else input_1
-    enemy_speed_source = "input_3" if input_3 is not None else "input_1"
-    if resolved_enemy_speed is None or resolved_enemy_speed <= 0:
-        raise ValueError("Enemy rune_speed must be greater than 0.")
-    if e2_key:
-        # Enemy rune_speed falls back to input_1 when input_3 is empty.
-        overrides[e2_key] = {"rune_speed": resolved_enemy_speed}
+    resolved_enemy_speed = input_3 if input_3 is not None else DEFAULT_INPUT_3
+    enemy_speed_source = "input_3" if input_3 is not None else "default"
 
     return overrides, enemy_speed_source, resolved_enemy_speed
 
@@ -468,39 +430,36 @@ def _resolve_required_order(
     return None
 
 
-def _select_fastest_enemy(
-    preset: Dict[str, Any],
+def _build_enemy_mirror(
+    preset_id: str,
     prefixed_allies: List[Dict[str, Any]],
-    prefixed_enemies: List[Dict[str, Any]],
     overrides: Dict[str, Dict[str, int]],
-) -> Optional[str]:
-    simulation_preset = {
-        "allies": prefixed_allies,
-        "enemies": prefixed_enemies,
-        "allyEffects": preset.get("allyEffects", {}),
-        "enemyEffects": preset.get("enemyEffects", {}),
-        "tickCount": preset.get("tickCount", 0),
-    }
-    _, turn_events = simulate_with_turn_log(simulation_preset, overrides)
-    for event in turn_events:
-        if not event.get("isAlly"):
-            return event.get("key")
-    return None
+    input_3: Optional[int],
+) -> Dict[str, Any]:
+    reference_index = 1 if preset_id in {"Preset A", "Preset B", "Preset C", "Preset D", "Preset E"} else 0
+    reference = prefixed_allies[reference_index]
+    reference_key = reference.get("key")
+    reference_rune_speed = reference.get("rune_speed", 0)
+    if reference_key and reference_key in overrides:
+        reference_rune_speed = overrides[reference_key].get("rune_speed", reference_rune_speed)
+    mirror = dict(reference)
+    mirror["key"] = "E_MIRROR"
+    mirror["name"] = f"E_{reference.get('name', 'mirror')}"
+    mirror["isAlly"] = False
+    mirror["rune_speed"] = reference_rune_speed + (input_3 or DEFAULT_INPUT_3)
+    mirror["isSwift"] = False
+    return mirror
 
 
 def _build_detail_preset(
     preset: Dict[str, Any],
     prefixed_allies: List[Dict[str, Any]],
-    prefixed_enemies: List[Dict[str, Any]],
-    e_fast_key: str,
+    enemy_mirror: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], Dict[str, str]]:
     a1 = prefixed_allies[0]
     a2 = prefixed_allies[1]
     a3 = prefixed_allies[2]
-    e_fast = next(
-        (enemy for enemy in prefixed_enemies if enemy.get("key") == e_fast_key),
-        prefixed_enemies[0],
-    )
+    e_fast = enemy_mirror
 
     detail_preset = {
         "allies": [a1, a2, a3],

@@ -1,6 +1,7 @@
 from config.atb_simulator_presets import build_full_preset
 from domain.speed_optimizer_detail import (
     RequiredOrder,
+    _build_enemy_mirror,
     _build_section1_overrides,
     _matches_required_order,
 )
@@ -98,3 +99,24 @@ def test_required_order_allows_a1_anywhere_for_preset_a():
     required_order = RequiredOrder(mode="a2_a3_e", order=["a2", "a3", "e1"])
     matched, _, _ = _matches_required_order(detail_preset, {}, required_order)
     assert matched is True
+
+
+def test_input_3_optional_and_enemy_mirror_default_speed():
+    preset = build_full_preset("Preset B")
+    allies, _ = prefix_monsters(preset["allies"], prefix="A")
+    enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
+    overrides, source, effective = _build_section1_overrides(
+        "Preset B",
+        allies,
+        enemies,
+        input_1=10,
+        input_2=20,
+        input_3=None,
+        allow_enemy_fallback=False,
+    )
+    assert source == "default"
+    assert effective == 0
+    enemy = _build_enemy_mirror("Preset B", allies, overrides, input_3=None)
+    reference = allies[1]
+    expected_rune_speed = overrides[reference["key"]]["rune_speed"]
+    assert enemy["rune_speed"] == expected_rune_speed

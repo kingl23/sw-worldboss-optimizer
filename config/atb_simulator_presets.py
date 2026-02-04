@@ -315,6 +315,23 @@ ATB_SIMULATOR_PRESETS = {
     },
 }
 
+LEADER_PERCENT_BY_PRESET = {
+    "Preset A": 24,
+    "Preset B": 24,
+    "Preset C": 28,
+    "Preset D": 28,
+    "Preset E": 28,
+    "Preset F": 28,
+    "Preset G": 24,
+}
+TOWER_PERCENT = 15
+
+
+def get_leader_percent(preset_id: str) -> int:
+    resolved_id = preset_id.replace("Ally ", "").replace("Enemy ", "")
+    return LEADER_PERCENT_BY_PRESET.get(resolved_id, 0)
+
+
 ### ATB SIMULATOR ALLY/ENEMY PRESET LISTS (DERIVED) ###
 
 ATB_SIMULATOR_ALLY_PRESETS = {
@@ -361,11 +378,19 @@ def build_full_preset(preset_id: str) -> Dict[str, Any]:
             f"Preset '{preset_id}' must define at least 1 enemy monster key."
         )
 
+    leader_percent = get_leader_percent(preset_id)
+    ally_effects = dict(ally_meta.get("effects", {}))
+    enemy_effects = dict(enemy_meta.get("effects", {}))
+    ally_effects["tower"] = TOWER_PERCENT
+    ally_effects["lead"] = leader_percent
+    enemy_effects["tower"] = TOWER_PERCENT
+    enemy_effects["lead"] = leader_percent
+
     return {
         "allies": build_monsters_for_keys(ally_keys, is_ally=True),
         "enemies": build_monsters_for_keys(enemy_keys, is_ally=False),
-        "allyEffects": ally_meta.get("effects", {}),
-        "enemyEffects": enemy_meta.get("effects", {}),
+        "allyEffects": ally_effects,
+        "enemyEffects": enemy_effects,
         "tickCount": preset_meta.get("tickCount", 0),
     }
 
@@ -383,9 +408,12 @@ def build_ally_preset(preset_id: str) -> Dict[str, Any]:
             f"Ally preset '{preset_id}' must define exactly 3 monster keys."
         )
 
+    effects = dict(preset_meta.get("effects", {}))
+    effects["tower"] = TOWER_PERCENT
+    effects["lead"] = get_leader_percent(preset_id)
     return {
         "monsters": build_monsters_for_keys(keys, is_ally=True),
-        "effects": preset_meta.get("effects", {}),
+        "effects": effects,
         "tickCount": preset_meta.get("tickCount", 0),
     }
 
@@ -403,9 +431,12 @@ def build_enemy_preset(preset_id: str) -> Dict[str, Any]:
             f"Enemy preset '{preset_id}' must define exactly 3 monster keys."
         )
 
+    effects = dict(preset_meta.get("effects", {}))
+    effects["tower"] = TOWER_PERCENT
+    effects["lead"] = get_leader_percent(preset_id)
     return {
         "monsters": build_monsters_for_keys(keys, is_ally=False),
-        "effects": preset_meta.get("effects", {}),
+        "effects": effects,
         "tickCount": preset_meta.get("tickCount", 0),
     }
 
