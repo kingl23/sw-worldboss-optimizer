@@ -46,8 +46,80 @@ def test_preset_mapping_rules_for_a1():
     )
     a1_key = allies[0]["key"]
     a2_key = allies[1]["key"]
-    assert overrides[a1_key]["rune_speed"] == 42
+    assert overrides[a1_key]["rune_speed"] == 40
     assert a2_key not in overrides
+
+
+def test_preset_mapping_rules_for_offsets():
+    preset = build_full_preset("Preset C")
+    allies, _ = prefix_monsters(preset["allies"], prefix="A")
+    enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
+    overrides, _, _ = _build_section1_overrides(
+        "Preset C",
+        allies,
+        enemies,
+        input_1=100,
+        input_2=0,
+        input_3=0,
+        allow_enemy_fallback=False,
+    )
+    assert overrides[allies[1]["key"]]["rune_speed"] == 100
+
+    preset = build_full_preset("Preset D")
+    allies, _ = prefix_monsters(preset["allies"], prefix="A")
+    enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
+    overrides, _, _ = _build_section1_overrides(
+        "Preset D",
+        allies,
+        enemies,
+        input_1=100,
+        input_2=0,
+        input_3=0,
+        allow_enemy_fallback=False,
+    )
+    assert overrides[allies[1]["key"]]["rune_speed"] == 99
+
+    preset = build_full_preset("Preset E")
+    allies, _ = prefix_monsters(preset["allies"], prefix="A")
+    enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
+    overrides, _, _ = _build_section1_overrides(
+        "Preset E",
+        allies,
+        enemies,
+        input_1=100,
+        input_2=0,
+        input_3=0,
+        allow_enemy_fallback=False,
+    )
+    assert overrides[allies[1]["key"]]["rune_speed"] == 101
+
+    preset = build_full_preset("Preset F")
+    allies, _ = prefix_monsters(preset["allies"], prefix="A")
+    enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
+    overrides, _, _ = _build_section1_overrides(
+        "Preset F",
+        allies,
+        enemies,
+        input_1=100,
+        input_2=0,
+        input_3=0,
+        allow_enemy_fallback=False,
+    )
+    assert overrides[allies[0]["key"]]["rune_speed"] == 98
+
+    preset = build_full_preset("Preset G")
+    allies, _ = prefix_monsters(preset["allies"], prefix="A")
+    enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
+    overrides, _, _ = _build_section1_overrides(
+        "Preset G",
+        allies,
+        enemies,
+        input_1=100,
+        input_2=0,
+        input_3=0,
+        allow_enemy_fallback=False,
+    )
+    assert overrides[allies[0]["key"]]["rune_speed"] == 98
 
 
 def test_required_order_allows_a1_anywhere_for_preset_a():
@@ -186,10 +258,21 @@ def test_all_presets_return_with_tick_tables():
         assert result.tick_atb_table_step2 is None
         assert result.tick_atb_table is not None
         table = result.tick_atb_table
-        assert len(table) == 16
-        assert [row["tick"] for row in table] == list(range(16))
+        assert len(table) == 17
+        assert table[0]["tick"] == "base+rune"
+        assert [row["tick"] for row in table[1:]] == list(range(16))
         assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())
         assert "act_speed" not in table[0]
+
+
+def test_tick_table_includes_base_rune_row():
+    result = build_section1_detail_cached("Preset A", 10, 20, None, None, False)
+    if result.status != "OK":
+        return
+    table = result.tick_atb_table
+    assert table is not None
+    assert table[0]["tick"] == "base+rune"
+    assert all(isinstance(table[0][label], (int, float)) for label in ("A1", "A2", "A3", "E"))
 
 
 def test_preset_a_min_cut_respects_order():

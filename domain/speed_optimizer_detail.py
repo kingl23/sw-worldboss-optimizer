@@ -615,21 +615,31 @@ def _build_section1_overrides(
     a1_key = allies[0].get("key")
     a2_key = allies[1].get("key")
     leader_percent = get_leader_percent(preset_id)
-    if preset_id in {"Preset A", "Preset B", "Preset E"}:
+    if preset_id in {"Preset A", "Preset B"}:
         if input_2 is None:
             raise ValueError("input_2 is required for preset mapping.")
         if a2_key:
             overrides[a2_key] = {"rune_speed": input_2 + leader_percent + TOWER_PERCENT}
-    elif preset_id in {"Preset C", "Preset D"}:
+    elif preset_id == "Preset C":
         if input_1 is None:
             raise ValueError("input_1 is required for preset mapping.")
         if a2_key:
             overrides[a2_key] = {"rune_speed": input_1}
+    elif preset_id == "Preset D":
+        if input_1 is None:
+            raise ValueError("input_1 is required for preset mapping.")
+        if a2_key:
+            overrides[a2_key] = {"rune_speed": input_1 - 1}
+    elif preset_id == "Preset E":
+        if input_1 is None:
+            raise ValueError("input_1 is required for preset mapping.")
+        if a2_key:
+            overrides[a2_key] = {"rune_speed": input_1 + 1}
     elif preset_id in {"Preset F", "Preset G"}:
         if input_1 is None:
             raise ValueError("input_1 is required for preset mapping.")
         if a1_key:
-            overrides[a1_key] = {"rune_speed": input_1}
+            overrides[a1_key] = {"rune_speed": input_1 - 2}
 
     resolved_enemy_speed = input_3 if input_3 is not None else DEFAULT_INPUT_3
     enemy_speed_source = "input_3" if input_3 is not None else "default"
@@ -941,6 +951,13 @@ def _build_tick_atb_table(
     overrides: Dict[str, Dict[str, int]],
     short_label_map: Dict[str, str],
 ) -> List[Dict[str, Any]]:
+    base_rune_row: Dict[str, Any] = {"tick": "base+rune", "act": ""}
+    units = {unit.get("key"): unit for unit in detail_preset.get("allies", []) + detail_preset.get("enemies", [])}
+    for key, label in short_label_map.items():
+        unit = units.get(key, {})
+        base_speed = unit.get("base_speed", 0)
+        rune_speed = overrides.get(key, {}).get("rune_speed", unit.get("rune_speed", 0))
+        base_rune_row[label] = base_speed + rune_speed
     debug_atb_log = simulate_atb_table(
         detail_preset,
         overrides,
@@ -948,7 +965,7 @@ def _build_tick_atb_table(
         atb_keys=list(short_label_map.keys()),
         atb_labels=short_label_map,
     )
-    return _format_atb_log(debug_atb_log, short_label_map)
+    return [base_rune_row, *_format_atb_log(debug_atb_log, short_label_map)]
 
 
 def _build_final_tick_table_for_a3(
