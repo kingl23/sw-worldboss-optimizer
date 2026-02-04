@@ -306,7 +306,11 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
     if not raw_table:
         return
     df_raw = pd.DataFrame(raw_table)
-    df_raw = df_raw[df_raw["tick"].between(1, 15)]
+    df_raw["tick"] = df_raw["tick"].astype(int)
+    enemy_ticks = df_raw.loc[df_raw.get("act") == "E", "tick"]
+    first_enemy_tick = int(enemy_ticks.min()) if not enemy_ticks.empty else 15
+    end_tick = min(15, first_enemy_tick)
+    df_raw = df_raw[df_raw["tick"].between(1, end_tick)]
     if df_raw.empty:
         return
     act_series = df_raw.get("act")
@@ -318,7 +322,7 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
     for col in df.columns:
         if col == "tick":
             continue
-        df[col] = df[col].map(lambda value: round(value, 1) if isinstance(value, float) else value)
+        df[col] = df[col].map(lambda value: f"{value:.2f}" if isinstance(value, (int, float)) else value)
 
     def _highlight_actor(row: pd.Series) -> list[str]:
         styles = [""] * len(row)
@@ -337,7 +341,7 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
             column = mapping.get(actor, actor)
         if column in row.index:
             col_index = row.index.get_loc(column)
-            styles[col_index] = "background-color: #ffe08a"
+            styles[col_index] = "background-color: #fff2cc; color: #333333"
         return styles
 
     styler = df.style.apply(_highlight_actor, axis=1)
