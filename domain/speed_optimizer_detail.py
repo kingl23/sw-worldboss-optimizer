@@ -212,7 +212,7 @@ def _build_preset_detail_type_general(
         required_order,
         prefixed_overrides,
         detail_keys["a3"],
-        case_display["unit_display_map"],
+        case_display["short_label_map"],
         deadline,
     )
     min_speed = _find_minimum_rune_speed(
@@ -229,7 +229,12 @@ def _build_preset_detail_type_general(
         return PresetDetailResult(
             preset_name=preset_id,
             leader_percent=get_leader_percent(preset_id),
-            objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+            objective=_format_objective_with_legend(
+                preset_id,
+                required_order,
+                case_display["short_label_map"],
+                case_display["legend"],
+            ),
             min_cut_result=None,
             tick_atb_table=None,
             status="NO VALID SOLUTION",
@@ -237,7 +242,12 @@ def _build_preset_detail_type_general(
     return PresetDetailResult(
         preset_name=preset_id,
         leader_percent=get_leader_percent(preset_id),
-        objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+        objective=_format_objective_with_legend(
+            preset_id,
+            required_order,
+            case_display["short_label_map"],
+            case_display["legend"],
+        ),
         min_cut_result={
             "a3_rune_speed": min_speed,
             "a3_artifact_speed": 0,
@@ -401,7 +411,12 @@ def _build_preset_detail_type_b(
         return PresetDetailResult(
             preset_name=preset_id,
             leader_percent=get_leader_percent(preset_id),
-            objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+            objective=_format_objective_with_legend(
+                preset_id,
+                required_order,
+                case_display["short_label_map"],
+                case_display["legend"],
+            ),
             min_cut_result=None,
             tick_atb_table=None,
             tick_atb_table_step1=None,
@@ -414,11 +429,6 @@ def _build_preset_detail_type_b(
         "rune_speed": a1_min0,
         "speedIncreasingEffect": 0,
     }
-    tick_atb_table_step1 = _build_tick_atb_table(
-        detail_preset,
-        step1_overrides,
-        case_display["unit_display_map"],
-    )
     fixed_overrides = dict(step1_overrides)
     case_display = _build_case_display(
         preset_id,
@@ -432,7 +442,7 @@ def _build_preset_detail_type_b(
         required_order,
         fixed_overrides,
         detail_keys["a3"],
-        case_display["unit_display_map"],
+        case_display["short_label_map"],
         deadline,
     )
     min_speed_a3 = _find_minimum_rune_speed(
@@ -449,24 +459,34 @@ def _build_preset_detail_type_b(
         return PresetDetailResult(
             preset_name=preset_id,
             leader_percent=get_leader_percent(preset_id),
-            objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+            objective=_format_objective_with_legend(
+                preset_id,
+                required_order,
+                case_display["short_label_map"],
+                case_display["legend"],
+            ),
             min_cut_result=None,
             tick_atb_table=None,
-            tick_atb_table_step1=tick_atb_table_step1,
+            tick_atb_table_step1=None,
             tick_atb_table_step2=None,
             status="NO VALID SOLUTION",
         )
     return PresetDetailResult(
         preset_name=preset_id,
         leader_percent=get_leader_percent(preset_id),
-        objective=_format_required_order_display(preset_id, required_order, case_display["unit_display_map"]),
+        objective=_format_objective_with_legend(
+            preset_id,
+            required_order,
+            case_display["short_label_map"],
+            case_display["legend"],
+        ),
         min_cut_result={
             "a1_rune_speed": a1_min0,
             "a3_rune_speed": min_speed_a3,
             "a3_artifact_speed": 0,
         },
         tick_atb_table=None,
-        tick_atb_table_step1=tick_atb_table_step1,
+        tick_atb_table_step1=None,
         tick_atb_table_step2=tick_atb_table_step2,
         status="OK",
     )
@@ -600,11 +620,11 @@ def _build_case_display(
         detail_keys["a3"]: f"A3({unit_names['a3']})",
         detail_keys["e_fast"]: f"E({unit_names['e']})",
     }
-    unit_labels = {
-        "A1": unit_names["a1"],
-        "A2": unit_names["a2"],
-        "A3": unit_names["a3"],
-        "E": unit_names["e"],
+    short_label_map = {
+        detail_keys["a1"]: "A1",
+        detail_keys["a2"]: "A2",
+        detail_keys["a3"]: "A3",
+        detail_keys["e_fast"]: "E",
     }
     matched, actual_order, _ = _matches_required_order(
         detail_preset,
@@ -626,14 +646,19 @@ def _build_case_display(
         overrides,
         unit_display_map,
     )
+    legend = (
+        f"A1={unit_names['a1']}, A2={unit_names['a2']}, "
+        f"A3={unit_names['a3']}, E={unit_names['e']}"
+    )
     return {
         "display_title": display_title,
-        "unit_labels": unit_labels,
         "resolved_specs": resolved_specs,
         "required_order_display": required_display,
         "actual_order_display": actual_display,
         "pass_flag": matched,
         "unit_display_map": unit_display_map,
+        "short_label_map": short_label_map,
+        "legend": legend,
     }
 
 
@@ -658,15 +683,25 @@ def _build_unit_name_map(
 def _format_required_order_display(
     preset_id: str,
     required_order: RequiredOrder,
-    unit_display_map: Dict[str, str],
+    label_map: Dict[str, str],
 ) -> str:
     if preset_id == "Preset A":
         a2, a3, enemy = required_order.order
         return (
-            f"{unit_display_map.get(a2, a2)} → {unit_display_map.get(a3, a3)} → "
-            f"{unit_display_map.get(enemy, enemy)} (A1 unconstrained)"
+            f"{label_map.get(a2, a2)} → {label_map.get(a3, a3)} → "
+            f"{label_map.get(enemy, enemy)} (A1 unconstrained)"
         )
-    return " → ".join(unit_display_map.get(key, key) for key in required_order.order)
+    return " → ".join(label_map.get(key, key) for key in required_order.order)
+
+
+def _format_objective_with_legend(
+    preset_id: str,
+    required_order: RequiredOrder,
+    label_map: Dict[str, str],
+    legend: str,
+) -> str:
+    objective = _format_required_order_display(preset_id, required_order, label_map)
+    return f"{objective} | Legend: {legend}"
 
 
 def _format_actual_order_display(
@@ -714,16 +749,16 @@ def _build_resolved_specs(
 def _build_tick_atb_table(
     detail_preset: Dict[str, Any],
     overrides: Dict[str, Dict[str, int]],
-    unit_display_map: Dict[str, str],
+    short_label_map: Dict[str, str],
 ) -> List[Dict[str, Any]]:
     debug_atb_log = simulate_atb_table(
         detail_preset,
         overrides,
         tick_limit=16,
-        atb_keys=list(unit_display_map.keys()),
-        atb_labels=unit_display_map,
+        atb_keys=list(short_label_map.keys()),
+        atb_labels=short_label_map,
     )
-    return _format_atb_log(debug_atb_log, unit_display_map)
+    return _format_atb_log(debug_atb_log, short_label_map)
 
 
 def _build_final_tick_table_for_a3(
@@ -731,7 +766,7 @@ def _build_final_tick_table_for_a3(
     required_order: RequiredOrder,
     base_overrides: Dict[str, Dict[str, int]],
     target_key: str,
-    unit_display_map: Dict[str, str],
+    short_label_map: Dict[str, str],
     deadline: Optional[float],
 ) -> List[Dict[str, Any]]:
     min_speed = _find_minimum_rune_speed(
@@ -751,7 +786,7 @@ def _build_final_tick_table_for_a3(
         "rune_speed": min_speed,
         "speedIncreasingEffect": 0,
     }
-    return _build_tick_atb_table(detail_preset, overrides, unit_display_map)
+    return _build_tick_atb_table(detail_preset, overrides, short_label_map)
 
 
 def _build_unit_detail_table(
@@ -950,14 +985,17 @@ def _format_atb_log(
 ) -> List[Dict[str, Any]]:
     formatted: List[Dict[str, Any]] = []
     for entry in atb_log:
-        row: Dict[str, Any] = {"tick": entry.get("tick"), "actor": entry.get("actor_label")}
+        actor_key = entry.get("actor_key")
+        row: Dict[str, Any] = {
+            "tick": entry.get("tick"),
+            "act": entry.get("actor_label"),
+        }
         atb_values = entry.get("atb", {})
         combat_values = entry.get("v_combat", {})
-        buff_values = entry.get("speed_buff", {})
         for key, label in label_map.items():
-            row[f"{label}_ATB"] = atb_values.get(key)
-            row[f"{label}_v_combat"] = combat_values.get(key)
-            row[f"{label}_speed_buff"] = buff_values.get(key)
+            row[label] = atb_values.get(key)
+        if actor_key:
+            row["act_speed"] = combat_values.get(actor_key)
         formatted.append(row)
     return formatted
 

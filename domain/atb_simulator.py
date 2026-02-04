@@ -244,8 +244,8 @@ def calculate_combat_speed(monster: Dict[str, Any]) -> int:
     if monster.get("has_slow"):
         speed *= 0.7
 
-    if monster.get("has_speed_buff"):
-        speed *= 1 + 0.3 * (100 + monster.get("speedIncreasingEffect", 0)) / 100
+    effect = monster.get("speedIncreasingEffect", 0)
+    speed *= 1 + 0.3 * (100 + effect) / 100
 
     return math.ceil(speed)
 
@@ -317,19 +317,16 @@ def run_tick(
     if atb_log is not None and atb_log_keys:
         atb_snapshot = {}
         combat_snapshot = {}
-        buff_snapshot = {}
         for key in atb_log_keys:
             monster = next((item for item in monsters if item.get("key") == key), None)
             atb_snapshot[key] = monster.get("attack_bar") if monster else None
             combat_snapshot[key] = monster.get("combat_speed") if monster else None
-            buff_snapshot[key] = monster.get("has_speed_buff") if monster else None
         actor_key = monsters[move_index].get("key") if move_index is not None else None
         actor_label = atb_log_labels.get(actor_key) if atb_log_labels and actor_key else None
         atb_log.append({
             "tick": tick_index,
             "atb": atb_snapshot,
             "v_combat": combat_snapshot,
-            "speed_buff": buff_snapshot,
             "actor_key": actor_key,
             "actor_label": actor_label,
         })

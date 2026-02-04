@@ -159,12 +159,15 @@ def test_all_presets_return_with_tick_tables():
             assert result.tick_atb_table_step2 is None
             continue
         if result.preset_name == "Preset B":
-            assert result.tick_atb_table_step1 is not None
+            assert result.tick_atb_table_step1 is None
             assert result.tick_atb_table_step2 is not None
-            for table in (result.tick_atb_table_step1, result.tick_atb_table_step2):
-                assert len(table) == 16
-                assert [row["tick"] for row in table] == list(range(16))
+            table = result.tick_atb_table_step2
+            assert len(table) == 16
+            assert [row["tick"] for row in table] == list(range(16))
+            assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())
         else:
             assert result.tick_atb_table is not None
-            assert len(result.tick_atb_table) == 16
-            assert [row["tick"] for row in result.tick_atb_table] == list(range(16))
+            table = result.tick_atb_table
+            assert len(table) == 16
+            assert [row["tick"] for row in table] == list(range(16))
+            assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())

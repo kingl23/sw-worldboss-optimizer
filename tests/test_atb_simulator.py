@@ -1,3 +1,5 @@
+import math
+
 from domain.atb_simulator import calculate_combat_speed, simulate_atb_table, simulate_with_turn_log
 
 
@@ -97,61 +99,16 @@ def test_debug_atb_log_records_actor_and_values():
     assert atb_log[0]["atb"]["ally_1"] is not None
 
 
-def test_speed_buff_increases_combat_speed():
-    preset = {
-        "allies": [
-            {
-                "key": "ally_1",
-                "name": "ally_1",
-                "isAlly": True,
-                "base_speed": 100,
-                "rune_speed": 0,
-                "isSwift": False,
-                "speedIncreasingEffect": 0,
-                "skills": [
-                    {
-                        "applyOnTurn": 1,
-                        "target": "self",
-                        "buffSpeed": True,
-                        "speedBuffDuration": 2,
-                        "stripSpeed": False,
-                        "flatSpeedBuff": False,
-                        "flatSpeedBuffType": None,
-                        "flatSpeedBuffAmount": 0,
-                        "flatSpeedBuffDuration": 0,
-                        "slow": False,
-                        "slowDuration": 0,
-                    }
-                ],
-            }
-        ],
-        "enemies": [
-            {
-                "key": "enemy_1",
-                "name": "enemy_1",
-                "isAlly": False,
-                "base_speed": 10,
-                "rune_speed": 0,
-                "isSwift": False,
-                "speedIncreasingEffect": 0,
-                "skills": [],
-            }
-        ],
-        "allyEffects": {"lead": 0, "tower": 0},
-        "enemyEffects": {"lead": 0, "tower": 0},
-        "tickCount": 16,
+def test_combat_speed_uses_effect_multiplier():
+    monster = {
+        "base_speed": 100,
+        "tower_buff": 15,
+        "lead": 24,
+        "rune_speed": 0,
+        "flatSpeedBuffs": [],
+        "has_slow": False,
+        "speedIncreasingEffect": 20,
     }
-
-    atb_log = simulate_atb_table(
-        preset,
-        tick_limit=16,
-        atb_keys=["ally_1", "enemy_1"],
-        atb_labels={"ally_1": "A1", "enemy_1": "E"},
-    )
-    base_speed = atb_log[0]["v_combat"]["ally_1"]
-    boosted = next(
-        (row["v_combat"]["ally_1"] for row in atb_log if row["speed_buff"]["ally_1"]),
-        None,
-    )
-    assert boosted is not None
-    assert boosted == base_speed * 1.3
+    v_total = 100 + (100 * (24 + 15) / 100)
+    expected = v_total * (1 + 0.3 * (100 + 20) / 100)
+    assert calculate_combat_speed(monster) == math.ceil(expected)
