@@ -338,7 +338,6 @@ def run_tick(
             "v_combat": combat_snapshot,
             "actor_key": actor_key,
             "actor_label": actor_label,
-            "event_note": "",
         })
     if move_index is not None:
         monsters[move_index]["turn"] += 1
@@ -378,19 +377,6 @@ def run_tick(
         ]
 
         apply_skill_effects(monsters, skills, skill_targets)
-        if (
-            atb_log is not None
-            and atb_log_keys
-            and atb_log_names
-            and monsters[move_index].get("base_key") == "dark_harg"
-        ):
-            atb_log[-1]["event_note"] = _format_dark_harg_event(
-                skills,
-                skill_targets,
-                monsters,
-                atb_log_labels or {},
-                atb_log_names,
-            )
         monsters[move_index]["tookTurn"] = True
 
     return monsters
@@ -502,26 +488,3 @@ def find_base_monster(simulator: Dict[str, Any], monster: Dict[str, Any]) -> Opt
     source = simulator["allies"] if monster.get("isAlly") else simulator["enemies"]
     return next((item for item in source if item.get("key") == monster.get("key")), None)
 
-
-def _format_dark_harg_event(
-    skills: List[Dict[str, Any]],
-    skill_targets: List[List[int]],
-    monsters: List[Dict[str, Any]],
-    label_map: Dict[str, str],
-    name_map: Dict[str, str],
-) -> str:
-    atb_target = None
-    speed_duration = None
-    for skill, targets in zip(skills, skill_targets):
-        if skill.get("atbManipulationType") == "add" and skill.get("atbManipulationAmount") == 15:
-            if targets:
-                target = monsters[targets[0]]
-                atb_target = f"{label_map.get(target.get('key'), target.get('key'))}({name_map.get(target.get('key'), target.get('name'))})"
-        if skill.get("buffSpeed"):
-            speed_duration = skill.get("speedBuffDuration", 0)
-    if atb_target and speed_duration is not None:
-        return (
-            f"Dark Harg skill: +15 ATB to {atb_target}; "
-            f"SpeedUp applied to allies (A1/A2/A3) duration={speed_duration}"
-        )
-    return ""

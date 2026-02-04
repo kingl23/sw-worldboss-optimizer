@@ -260,13 +260,12 @@ def _render_section_1_details() -> None:
             return
         for result in results:
             st.markdown(f"#### {result.preset_label}")
-            if result.legend:
-                st.caption(result.legend)
             if result.effect_table:
                 _render_unit_detail_table("Effect → Min Rune Speed", result.effect_table)
             if result.tick_atb_table:
                 st.markdown("**Tick ATB Table (Effect 0)**")
-                st.dataframe(result.tick_atb_table, use_container_width=True, hide_index=True)
+                headers = _parse_preset_headers(result.preset_label)
+                _render_tick_table(result.tick_atb_table, headers)
 
 
 def _render_unit_detail_table(
@@ -283,11 +282,79 @@ def _render_unit_detail_table(
     speeds = [row.get("Rune Speed") for row in ranges]
     speed_values = [speed for effect_range, speed in zip(effect_ranges, speeds) if effect_range]
     display_ranges = [effect_range for effect_range in effect_ranges if effect_range]
-    table_df = pd.DataFrame(
-        [["effect", *display_ranges], ["speed", *speed_values]],
+    _render_wrapped_range_table(display_ranges, speed_values)
+
+
+def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> None:
+    if not effect_ranges:
+        return
+    split_index = (len(effect_ranges) + 1) // 2
+    parts = [
+        (effect_ranges[:split_index], speeds[:split_index]),
+        (effect_ranges[split_index:], speeds[split_index:]),
+    ]
+    for ranges, values in parts:
+        if not ranges:
+            continue
+        table_df = pd.DataFrame(
+            [["effect", *ranges], ["speed", *values]],
+        )
+        html = table_df.to_html(index=False, header=False, escape=False)
+        st.markdown(html, unsafe_allow_html=True)
+
+
+def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | None) -> None:
+    if not raw_table:
+        return
+    df = pd.DataFrame(raw_table)
+    act_series = df.get("act")
+    tick_series = df.get("tick")
+    df = df.drop(columns=[col for col in ("act", "note") if col in df.columns])
+    name_headers = headers
+    if name_headers:
+        rename_map = {key: value for key, value in zip(["A1", "A2", "A3", "E"], name_headers)}
+        df = df.rename(columns=rename_map)
+    highlight_columns = [col for col in df.columns if col not in {"tick"}]
+
+    def _highlight_actor(row: pd.Series) -> list[str]:
+        styles = [""] * len(row)
+        if act_series is None or tick_series is None:
+            return styles
+        try:
+            idx = row.name
+            if tick_series.iloc[idx] == "base+rune":
+                return styles
+            actor = act_series.iloc[idx]
+        except Exception:
+            return styles
+        if not actor:
+            return styles
+        column = actor
+        if name_headers:
+            mapping = {"A1": name_headers[0], "A2": name_headers[1], "A3": name_headers[2], "E": name_headers[3]}
+            column = mapping.get(actor, actor)
+        if column in row.index:
+            col_index = row.index.get_loc(column)
+            styles[col_index] = "background-color: #ffe08a"
+        return styles
+
+    styler = df.style.apply(_highlight_actor, axis=1)
+    styler = styler.set_table_styles(
+        [
+            {"selector": "th", "props": [("min-width", "60px"), ("max-width", "80px")]},
+            {"selector": "td", "props": [("min-width", "60px"), ("max-width", "80px")]},
+        ]
     )
-    html = table_df.to_html(index=False, header=False, escape=False)
-    st.markdown(html, unsafe_allow_html=True)
+    st.dataframe(styler, use_container_width=True, hide_index=True)
+
+def _parse_preset_headers(preset_label: str) -> list[str] | None:
+    if not preset_label:
+        return None
+    title = preset_label.split("|")[0].strip()
+    parts = [part.strip() for part in title.split("/") if part.strip()]
+    if len(parts) != 3:
+        return None
+    return [parts[0], parts[1], parts[2], "적"]
 
 
 def _section_columns(input_weights: list[float]) -> tuple[list[st.delta_generator.DeltaGenerator], st.delta_generator.DeltaGenerator, st.delta_generator.DeltaGenerator]:
