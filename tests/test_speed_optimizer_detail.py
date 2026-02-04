@@ -179,5 +179,12 @@ def test_all_presets_return_with_tick_tables():
             assert result.tick_atb_table_step1 is not None
             assert result.tick_atb_table_step2 is not None
             assert result.tick_atb_table is not None
+            for table in (result.tick_atb_table_step1, result.tick_atb_table_step2):
+                if table:
+                    assert len(table) == 16
+                    assert [row["tick"] for row in table] == list(range(16))
         else:
             assert result.tick_atb_table is not None
+            if result.tick_atb_table:
+                assert len(result.tick_atb_table) == 16
+                assert [row["tick"] for row in result.tick_atb_table] == list(range(16))

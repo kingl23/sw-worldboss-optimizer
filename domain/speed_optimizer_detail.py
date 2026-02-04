@@ -10,7 +10,7 @@ from config.atb_simulator_presets import (
     build_full_preset,
     get_leader_percent,
 )
-from domain.atb_simulator import simulate_with_turn_log
+from domain.atb_simulator import simulate_atb_table, simulate_with_turn_log
 from domain.atb_simulator_utils import prefix_monsters
 
 MAX_RUNE_SPEED = 250
@@ -181,11 +181,6 @@ def _build_preset_detail_type_general(
         required_order,
         baseline_overrides,
     )
-    tick_atb_table = _build_tick_atb_table(
-        detail_preset,
-        baseline_overrides,
-        case_display["unit_display_map"],
-    )
 
     if debug_payload is not None:
         debug_payload["required_order"] = {
@@ -235,6 +230,14 @@ def _build_preset_detail_type_general(
         debug=debug_payload,
     )
     a3_time = time.perf_counter() - a3_start
+    tick_atb_table = _build_final_tick_table_for_a3(
+        detail_preset,
+        required_order,
+        prefixed_overrides,
+        detail_keys["a3"],
+        case_display["unit_display_map"],
+        deadline,
+    )
 
     error_messages = [msg for msg in [a3_error] if msg]
     combined_error = "\n".join(error_messages) if error_messages else None
@@ -357,10 +360,13 @@ def _build_preset_detail_type_b(
         required_order,
         baseline_overrides,
     )
-    tick_atb_table = _build_tick_atb_table(
+    tick_atb_table = _build_final_tick_table_for_a3(
         detail_preset,
-        baseline_overrides,
+        required_order,
+        prefixed_overrides,
+        detail_keys["a3"],
         case_display["unit_display_map"],
+        deadline,
     )
 
     if debug_payload is not None:
@@ -436,9 +442,9 @@ def _build_preset_detail_type_b(
             required_order_display=case_display["required_order_display"],
             actual_order_display=case_display["actual_order_display"],
             pass_flag=case_display["pass_flag"],
-            tick_atb_table_step1=tick_atb_table,
+            tick_atb_table_step1=[],
             tick_atb_table_step2=[],
-            tick_atb_table=tick_atb_table,
+            tick_atb_table=[],
         )
 
     step1_overrides = dict(prefixed_overrides)
@@ -459,15 +465,13 @@ def _build_preset_detail_type_b(
         required_order,
         fixed_overrides,
     )
-    step2_overrides = dict(fixed_overrides)
-    step2_overrides[detail_keys["a3"]] = {
-        "rune_speed": MIN_RUNE_SPEED,
-        "speedIncreasingEffect": 0,
-    }
-    tick_atb_table_step2 = _build_tick_atb_table(
+    tick_atb_table_step2 = _build_final_tick_table_for_a3(
         detail_preset,
-        step2_overrides,
+        required_order,
+        fixed_overrides,
+        detail_keys["a3"],
         case_display["unit_display_map"],
+        deadline,
     )
     a3_start = time.perf_counter()
     a3_table, a3_error = _build_unit_detail_table(
@@ -751,15 +755,42 @@ def _build_tick_atb_table(
     overrides: Dict[str, Dict[str, int]],
     unit_display_map: Dict[str, str],
 ) -> List[Dict[str, Any]]:
-    debug_atb_log: List[Dict[str, Any]] = []
-    _, _ = simulate_with_turn_log(
+    debug_atb_log = simulate_atb_table(
         detail_preset,
         overrides,
-        debug_atb_log=debug_atb_log,
-        debug_atb_keys=list(unit_display_map.keys()),
-        debug_atb_labels=unit_display_map,
+        tick_limit=16,
+        atb_keys=list(unit_display_map.keys()),
+        atb_labels=unit_display_map,
     )
     return _format_atb_log(debug_atb_log, unit_display_map)
+
+
+def _build_final_tick_table_for_a3(
+    detail_preset: Dict[str, Any],
+    required_order: RequiredOrder,
+    base_overrides: Dict[str, Dict[str, int]],
+    target_key: str,
+    unit_display_map: Dict[str, str],
+    deadline: Optional[float],
+) -> List[Dict[str, Any]]:
+    min_speed = _find_minimum_rune_speed(
+        detail_preset,
+        required_order,
+        base_overrides,
+        target_key,
+        effect=0,
+        start_speed=MIN_RUNE_SPEED,
+        deadline=deadline,
+        debug=None,
+    )
+    if min_speed is None:
+        return []
+    overrides = dict(base_overrides)
+    overrides[target_key] = {
+        "rune_speed": min_speed,
+        "speedIncreasingEffect": 0,
+    }
+    return _build_tick_atb_table(detail_preset, overrides, unit_display_map)
 
 
 def _build_unit_detail_table(
@@ -960,8 +991,12 @@ def _format_atb_log(
     for entry in atb_log:
         row: Dict[str, Any] = {"tick": entry.get("tick"), "actor": entry.get("actor_label")}
         atb_values = entry.get("atb", {})
+        combat_values = entry.get("v_combat", {})
+        buff_values = entry.get("speed_buff", {})
         for key, label in label_map.items():
             row[f"{label}_ATB"] = atb_values.get(key)
+            row[f"{label}_v_combat"] = combat_values.get(key)
+            row[f"{label}_speed_buff"] = buff_values.get(key)
         formatted.append(row)
     return formatted
 

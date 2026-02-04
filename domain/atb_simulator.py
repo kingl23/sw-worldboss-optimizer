@@ -130,6 +130,58 @@ def simulate_with_turn_log(
     return simulator["ticks"], turn_events
 
 
+def simulate_atb_table(
+    preset: Dict[str, Any],
+    overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+    tick_limit: int = 16,
+    atb_keys: Optional[List[str]] = None,
+    atb_labels: Optional[Dict[str, str]] = None,
+) -> List[Dict[str, Any]]:
+    if tick_limit <= 0:
+        return []
+    overrides = overrides or {}
+    allies = apply_overrides(preset.get("allies", []), overrides)
+    enemies = apply_overrides(preset.get("enemies", []), overrides)
+
+    simulator = {
+        "allies": allies,
+        "enemies": enemies,
+        "allyEffects": preset.get("allyEffects", {}),
+        "enemyEffects": preset.get("enemyEffects", {}),
+        "tickCount": tick_limit,
+        "ticks": [],
+    }
+
+    monsters: List[Dict[str, Any]] = []
+    for ally in allies:
+        monsters.append(transform_monster(simulator, ally))
+    for enemy in enemies:
+        monsters.append(transform_monster(simulator, enemy))
+    monsters = sorted(monsters, key=lambda item: item["combat_speed"], reverse=True)
+
+    simulator["ticks"].append({
+        "tick": 0,
+        "monsters": copy.deepcopy(monsters),
+    })
+
+    atb_log: List[Dict[str, Any]] = []
+    for tick_index in range(tick_limit):
+        monsters = run_tick(
+            simulator,
+            monsters,
+            tick_index=tick_index,
+            atb_log=atb_log,
+            atb_log_keys=atb_keys,
+            atb_log_labels=atb_labels,
+        )
+        simulator["ticks"].append({
+            "tick": tick_index + 1,
+            "monsters": copy.deepcopy(monsters),
+        })
+
+    return atb_log
+
+
 def _collect_debug_tick(
     debug_snapshots: Optional[List[Dict[str, Any]]],
     tick_index: int,
@@ -264,14 +316,20 @@ def run_tick(
     move_index = get_monster_that_moves(monsters)
     if atb_log is not None and atb_log_keys:
         atb_snapshot = {}
+        combat_snapshot = {}
+        buff_snapshot = {}
         for key in atb_log_keys:
             monster = next((item for item in monsters if item.get("key") == key), None)
             atb_snapshot[key] = monster.get("attack_bar") if monster else None
+            combat_snapshot[key] = monster.get("combat_speed") if monster else None
+            buff_snapshot[key] = monster.get("has_speed_buff") if monster else None
         actor_key = monsters[move_index].get("key") if move_index is not None else None
         actor_label = atb_log_labels.get(actor_key) if atb_log_labels and actor_key else None
         atb_log.append({
             "tick": tick_index,
             "atb": atb_snapshot,
+            "v_combat": combat_snapshot,
+            "speed_buff": buff_snapshot,
             "actor_key": actor_key,
             "actor_label": actor_label,
         })
