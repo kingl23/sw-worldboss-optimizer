@@ -282,11 +282,11 @@ ATB_SIMULATOR_PRESETS = {
     },
     "Preset E": {
         "allies": {
-            "monsters": ["water_dancer", "water_pumpkin", "fire_twin"],
+            "monsters": ["water_dancer", "dark_harg", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "enemies": {
-            "monsters": ["water_dancer", "water_pumpkin", "fire_twin"],
+            "monsters": ["water_dancer", "dark_harg", "fire_twin"],
             "effects": dict(_DEFAULT_EFFECTS),
         },
         "tickCount": 100,

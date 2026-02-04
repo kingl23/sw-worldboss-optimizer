@@ -120,3 +120,8 @@ def test_input_3_optional_and_enemy_mirror_default_speed():
     reference = allies[1]
     expected_rune_speed = overrides[reference["key"]]["rune_speed"]
     assert enemy["rune_speed"] == expected_rune_speed
+
+
+def test_preset_e_uses_dark_harg():
+    preset = build_full_preset("Preset E")
+    assert preset["allies"][1]["key"] == "dark_harg"

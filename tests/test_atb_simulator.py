@@ -52,3 +52,46 @@ def test_one_action_per_tick_and_tie_breaker():
     assert len(turn_events) == 1
     assert turn_events[0]["tick"] == 1
     assert turn_events[0]["key"] == "ally_1"
+
+
+def test_debug_atb_log_records_actor_and_values():
+    preset = {
+        "allies": [
+            {
+                "key": "ally_1",
+                "name": "ally_1",
+                "isAlly": True,
+                "base_speed": 1500,
+                "rune_speed": 0,
+                "isSwift": False,
+                "speedIncreasingEffect": 0,
+                "skills": [],
+            }
+        ],
+        "enemies": [
+            {
+                "key": "enemy_1",
+                "name": "enemy_1",
+                "isAlly": False,
+                "base_speed": 1400,
+                "rune_speed": 0,
+                "isSwift": False,
+                "speedIncreasingEffect": 0,
+                "skills": [],
+            }
+        ],
+        "allyEffects": {},
+        "enemyEffects": {},
+        "tickCount": 1,
+    }
+
+    atb_log = []
+    simulate_with_turn_log(
+        preset,
+        debug_atb_log=atb_log,
+        debug_atb_keys=["ally_1", "enemy_1"],
+        debug_atb_labels={"ally_1": "A1", "enemy_1": "E"},
+    )
+    assert len(atb_log) == 1
+    assert atb_log[0]["actor_label"] == "A1"
+    assert atb_log[0]["atb"]["ally_1"] is not None

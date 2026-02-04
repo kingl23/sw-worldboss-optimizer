@@ -58,6 +58,9 @@ def simulate_with_turn_log(
     debug_snapshots: Optional[List[Dict[str, Any]]] = None,
     debug_ticks: int = 0,
     debug_keys: Optional[set[str]] = None,
+    debug_atb_log: Optional[List[Dict[str, Any]]] = None,
+    debug_atb_keys: Optional[List[str]] = None,
+    debug_atb_labels: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     allies = preset.get("allies", [])
     enemies = preset.get("enemies", [])
@@ -105,6 +108,9 @@ def simulate_with_turn_log(
             simulator["ticks"][i - 1]["monsters"],
             tick_index=i,
             turn_events=turn_events,
+            atb_log=debug_atb_log,
+            atb_log_keys=debug_atb_keys,
+            atb_log_labels=debug_atb_labels,
         )
         simulator["ticks"].append({
             "tick": i,
@@ -237,6 +243,9 @@ def run_tick(
     monsters: List[Dict[str, Any]],
     tick_index: int,
     turn_events: Optional[List[Dict[str, Any]]] = None,
+    atb_log: Optional[List[Dict[str, Any]]] = None,
+    atb_log_keys: Optional[List[str]] = None,
+    atb_log_labels: Optional[Dict[str, str]] = None,
 ) -> List[Dict[str, Any]]:
     if len(simulator["ticks"]) == 1:
         for i, monster in enumerate(monsters):
@@ -253,6 +262,19 @@ def run_tick(
         monster["tookTurn"] = False
 
     move_index = get_monster_that_moves(monsters)
+    if atb_log is not None and atb_log_keys:
+        atb_snapshot = {}
+        for key in atb_log_keys:
+            monster = next((item for item in monsters if item.get("key") == key), None)
+            atb_snapshot[key] = monster.get("attack_bar") if monster else None
+        actor_key = monsters[move_index].get("key") if move_index is not None else None
+        actor_label = atb_log_labels.get(actor_key) if atb_log_labels and actor_key else None
+        atb_log.append({
+            "tick": tick_index,
+            "atb": atb_snapshot,
+            "actor_key": actor_key,
+            "actor_label": actor_label,
+        })
     if move_index is not None:
         monsters[move_index]["turn"] += 1
         if turn_events is not None:

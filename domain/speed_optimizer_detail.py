@@ -176,6 +176,7 @@ def _build_preset_detail_type_general(
         )
         debug_payload["tick_limit"] = 30
         debug_snapshots: List[Dict[str, Any]] = []
+        debug_atb_log: List[Dict[str, Any]] = []
         baseline_overrides = dict(prefixed_overrides)
         baseline_overrides[detail_keys["a3"]] = {
             "rune_speed": MIN_RUNE_SPEED,
@@ -187,9 +188,31 @@ def _build_preset_detail_type_general(
             debug_snapshots=debug_snapshots,
             debug_ticks=debug_payload["tick_limit"],
             debug_keys=set(debug_payload["unit_order"].values()),
+            debug_atb_log=debug_atb_log,
+            debug_atb_keys=[
+                detail_keys["a1"],
+                detail_keys["a2"],
+                detail_keys["a3"],
+                detail_keys["e_fast"],
+            ],
+            debug_atb_labels={
+                detail_keys["a1"]: "A1",
+                detail_keys["a2"]: "A2",
+                detail_keys["a3"]: "A3",
+                detail_keys["e_fast"]: "E",
+            },
         )
         debug_payload["tick_snapshots"] = debug_snapshots
         debug_payload["baseline_turn_events"] = baseline_turn_events
+        debug_payload["tick_atb_log"] = _format_atb_log(
+            debug_atb_log,
+            {
+                detail_keys["a1"]: "A1",
+                detail_keys["a2"]: "A2",
+                detail_keys["a3"]: "A3",
+                detail_keys["e_fast"]: "E",
+            },
+        )
 
     a3_start = time.perf_counter()
     a3_table, a3_error = _build_unit_detail_table(
@@ -296,6 +319,62 @@ def _build_preset_detail_type_b(
             timing={},
             debug=debug_payload,
             calc_type="special_b",
+        )
+
+    if debug_payload is not None:
+        debug_payload["required_order"] = {
+            "mode": required_order.mode,
+            "order": required_order.order,
+        }
+        debug_payload["unit_order"] = {
+            "a2": detail_keys["a2"],
+            "a1": detail_keys["a1"],
+            "a3": detail_keys["a3"],
+            "e": detail_keys["e_fast"],
+        }
+        debug_payload["selected_units"] = _build_debug_unit_summary(
+            detail_preset,
+            required_order,
+            prefixed_overrides,
+        )
+        debug_payload["tick_limit"] = 30
+        debug_snapshots: List[Dict[str, Any]] = []
+        debug_atb_log: List[Dict[str, Any]] = []
+        baseline_overrides = dict(prefixed_overrides)
+        baseline_overrides[detail_keys["a3"]] = {
+            "rune_speed": MIN_RUNE_SPEED,
+            "speedIncreasingEffect": 0,
+        }
+        _, baseline_turn_events = simulate_with_turn_log(
+            detail_preset,
+            baseline_overrides,
+            debug_snapshots=debug_snapshots,
+            debug_ticks=debug_payload["tick_limit"],
+            debug_keys=set(debug_payload["unit_order"].values()),
+            debug_atb_log=debug_atb_log,
+            debug_atb_keys=[
+                detail_keys["a1"],
+                detail_keys["a2"],
+                detail_keys["a3"],
+                detail_keys["e_fast"],
+            ],
+            debug_atb_labels={
+                detail_keys["a1"]: "A1",
+                detail_keys["a2"]: "A2",
+                detail_keys["a3"]: "A3",
+                detail_keys["e_fast"]: "E",
+            },
+        )
+        debug_payload["tick_snapshots"] = debug_snapshots
+        debug_payload["baseline_turn_events"] = baseline_turn_events
+        debug_payload["tick_atb_log"] = _format_atb_log(
+            debug_atb_log,
+            {
+                detail_keys["a1"]: "A1",
+                detail_keys["a2"]: "A2",
+                detail_keys["a3"]: "A3",
+                detail_keys["e_fast"]: "E",
+            },
         )
 
     required_order_a1 = RequiredOrder(
@@ -665,6 +744,20 @@ def _trim_turn_events(
         }
         for event in turn_events[:10]
     ]
+
+
+def _format_atb_log(
+    atb_log: List[Dict[str, Any]],
+    label_map: Dict[str, str],
+) -> List[Dict[str, Any]]:
+    formatted: List[Dict[str, Any]] = []
+    for entry in atb_log:
+        row: Dict[str, Any] = {"tick": entry.get("tick"), "actor": entry.get("actor_label")}
+        atb_values = entry.get("atb", {})
+        for key, label in label_map.items():
+            row[f"{label}_ATB"] = atb_values.get(key)
+        formatted.append(row)
+    return formatted
 
 
 def _record_debug_attempt(
