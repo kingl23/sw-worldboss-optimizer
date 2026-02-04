@@ -47,6 +47,9 @@ class PresetDetailResult:
     required_order_display: Optional[str] = None
     actual_order_display: Optional[str] = None
     pass_flag: Optional[bool] = None
+    tick_atb_table: Optional[List[Dict[str, Any]]] = None
+    tick_atb_table_step1: Optional[List[Dict[str, Any]]] = None
+    tick_atb_table_step2: Optional[List[Dict[str, Any]]] = None
 
 
 @lru_cache(maxsize=128)
@@ -99,6 +102,7 @@ def _build_preset_detail_type_general(
             a3_table=None,
             error="Preset must contain at least 3 allies and 2 enemies.",
             calc_type="general",
+            tick_atb_table=[],
         )
 
     # Input 2 fixes a1's rune speed so only a3 is optimized.
@@ -162,6 +166,7 @@ def _build_preset_detail_type_general(
             timing={},
             debug=debug_payload,
             calc_type="general",
+            tick_atb_table=[],
         )
 
     baseline_overrides = dict(prefixed_overrides)
@@ -175,6 +180,11 @@ def _build_preset_detail_type_general(
         detail_keys,
         required_order,
         baseline_overrides,
+    )
+    tick_atb_table = _build_tick_atb_table(
+        detail_preset,
+        baseline_overrides,
+        case_display["unit_display_map"],
     )
 
     if debug_payload is not None:
@@ -246,6 +256,7 @@ def _build_preset_detail_type_general(
         required_order_display=case_display["required_order_display"],
         actual_order_display=case_display["actual_order_display"],
         pass_flag=case_display["pass_flag"],
+        tick_atb_table=tick_atb_table,
     )
 
 
@@ -268,6 +279,9 @@ def _build_preset_detail_type_b(
             a3_table=None,
             error="Preset must contain at least 3 allies and 2 enemies.",
             calc_type="special_b",
+            tick_atb_table_step1=[],
+            tick_atb_table_step2=[],
+            tick_atb_table=[],
         )
 
     start_time = time.perf_counter()
@@ -326,6 +340,9 @@ def _build_preset_detail_type_b(
             timing={},
             debug=debug_payload,
             calc_type="special_b",
+            tick_atb_table_step1=[],
+            tick_atb_table_step2=[],
+            tick_atb_table=[],
         )
 
     baseline_overrides = dict(prefixed_overrides)
@@ -339,6 +356,11 @@ def _build_preset_detail_type_b(
         detail_keys,
         required_order,
         baseline_overrides,
+    )
+    tick_atb_table = _build_tick_atb_table(
+        detail_preset,
+        baseline_overrides,
+        case_display["unit_display_map"],
     )
 
     if debug_payload is not None:
@@ -408,19 +430,44 @@ def _build_preset_detail_type_b(
             timing={"a1_s": a1_time},
             debug=debug_payload,
             calc_type="special_b",
+            display_title=case_display["display_title"],
+            unit_labels=case_display["unit_labels"],
+            resolved_specs=case_display["resolved_specs"],
+            required_order_display=case_display["required_order_display"],
+            actual_order_display=case_display["actual_order_display"],
+            pass_flag=case_display["pass_flag"],
+            tick_atb_table_step1=tick_atb_table,
+            tick_atb_table_step2=[],
+            tick_atb_table=tick_atb_table,
         )
 
-    fixed_overrides = dict(prefixed_overrides)
-    fixed_overrides[detail_keys["a1"]] = {
+    step1_overrides = dict(prefixed_overrides)
+    step1_overrides[detail_keys["a1"]] = {
         "rune_speed": a1_min0,
         "speedIncreasingEffect": 0,
     }
+    tick_atb_table_step1 = _build_tick_atb_table(
+        detail_preset,
+        step1_overrides,
+        case_display["unit_display_map"],
+    )
+    fixed_overrides = dict(step1_overrides)
     case_display = _build_case_display(
         preset_id,
         detail_preset,
         detail_keys,
         required_order,
         fixed_overrides,
+    )
+    step2_overrides = dict(fixed_overrides)
+    step2_overrides[detail_keys["a3"]] = {
+        "rune_speed": MIN_RUNE_SPEED,
+        "speedIncreasingEffect": 0,
+    }
+    tick_atb_table_step2 = _build_tick_atb_table(
+        detail_preset,
+        step2_overrides,
+        case_display["unit_display_map"],
     )
     a3_start = time.perf_counter()
     a3_table, a3_error = _build_unit_detail_table(
@@ -454,6 +501,9 @@ def _build_preset_detail_type_b(
         required_order_display=case_display["required_order_display"],
         actual_order_display=case_display["actual_order_display"],
         pass_flag=case_display["pass_flag"],
+        tick_atb_table_step1=tick_atb_table_step1,
+        tick_atb_table_step2=tick_atb_table_step2,
+        tick_atb_table=tick_atb_table_step2,
     )
 
 
@@ -694,6 +744,22 @@ def _build_resolved_specs(
             "v_combat": v_combat,
         }
     return summary
+
+
+def _build_tick_atb_table(
+    detail_preset: Dict[str, Any],
+    overrides: Dict[str, Dict[str, int]],
+    unit_display_map: Dict[str, str],
+) -> List[Dict[str, Any]]:
+    debug_atb_log: List[Dict[str, Any]] = []
+    _, _ = simulate_with_turn_log(
+        detail_preset,
+        overrides,
+        debug_atb_log=debug_atb_log,
+        debug_atb_keys=list(unit_display_map.keys()),
+        debug_atb_labels=unit_display_map,
+    )
+    return _format_atb_log(debug_atb_log, unit_display_map)
 
 
 def _build_unit_detail_table(

@@ -289,6 +289,15 @@ def _render_section_1_details() -> None:
                 st.markdown(f"**Required:** {required}")
                 st.markdown(f"**Actual:** {actual}")
                 st.markdown(f"**Result:** {result_label}")
+            if result.tick_atb_table:
+                st.markdown("**Tick ATB Table**")
+                st.dataframe(result.tick_atb_table, use_container_width=True, hide_index=True)
+            if result.tick_atb_table_step1:
+                st.markdown("**Tick ATB Table (Step 1)**")
+                st.dataframe(result.tick_atb_table_step1, use_container_width=True, hide_index=True)
+            if result.tick_atb_table_step2:
+                st.markdown("**Tick ATB Table (Step 2)**")
+                st.dataframe(result.tick_atb_table_step2, use_container_width=True, hide_index=True)
             if result.a2_table:
                 _render_unit_detail_table(
                     "A2 Minimum Rune Speed by Effect",
@@ -405,4 +414,5 @@ def _build_error_result(preset_id: str, message: str):
         a3_table=None,
         error=message,
         timing=None,
+        tick_atb_table=[],
     )

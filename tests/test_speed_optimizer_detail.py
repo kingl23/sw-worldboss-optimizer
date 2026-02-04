@@ -5,6 +5,7 @@ from domain.speed_optimizer_detail import (
     _build_enemy_mirror,
     _build_section1_overrides,
     _matches_required_order,
+    build_section1_detail_cached,
 )
 from domain.atb_simulator_utils import prefix_monsters
 
@@ -154,3 +155,29 @@ def test_case_display_uses_unit_names():
     assert "Bravo" in case_display["display_title"]
     assert "Charlie" in case_display["display_title"]
     assert "Mirrored from Bravo" in case_display["display_title"]
+
+
+def test_all_presets_return_with_tick_tables():
+    results = build_section1_detail_cached("Preset A", 10, 20, None, None, False)
+    assert results.preset_id == "Preset A"
+    all_results = [
+        build_section1_detail_cached(preset_id, 10, 20, None, None, False)
+        for preset_id in [
+            "Preset A",
+            "Preset B",
+            "Preset C",
+            "Preset D",
+            "Preset E",
+            "Preset F",
+            "Preset G",
+        ]
+    ]
+    preset_ids = {result.preset_id for result in all_results}
+    assert preset_ids == {"Preset A", "Preset B", "Preset C", "Preset D", "Preset E", "Preset F", "Preset G"}
+    for result in all_results:
+        if result.preset_id == "Preset B":
+            assert result.tick_atb_table_step1 is not None
+            assert result.tick_atb_table_step2 is not None
+            assert result.tick_atb_table is not None
+        else:
+            assert result.tick_atb_table is not None
