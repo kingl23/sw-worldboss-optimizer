@@ -130,9 +130,9 @@ def test_preset_e_uses_dark_harg():
 
 def test_preset_a_objective_uses_unit_labels():
     result = build_section1_detail_cached("Preset A", 10, 20, None, None, False)
-    assert "A2" in result.objective
-    assert "A3" in result.objective
-    assert "E" in result.objective
+    assert "water_pumpkin" in result.objective
+    assert "dark_archer" in result.objective
+    assert "Enemy (Mirrored" in result.objective
 
 
 def test_all_presets_return_with_tick_tables():

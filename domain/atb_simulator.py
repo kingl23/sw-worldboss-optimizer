@@ -244,8 +244,9 @@ def calculate_combat_speed(monster: Dict[str, Any]) -> int:
     if monster.get("has_slow"):
         speed *= 0.7
 
-    effect = monster.get("speedIncreasingEffect", 0)
-    speed *= 1 + 0.3 * (100 + effect) / 100
+    if monster.get("has_speed_buff"):
+        effect = monster.get("speedIncreasingEffect", 0)
+        speed *= 1 + 0.3 * (100 + effect) / 100
 
     return math.ceil(speed)
 

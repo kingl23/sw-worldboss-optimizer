@@ -259,11 +259,27 @@ def _render_section_1_details() -> None:
             st.info("No results yet.")
             return
         for result in results:
-            st.markdown(f"#### {result.preset_name}")
+            st.markdown(f"#### {result.preset_label}")
             st.markdown(f"**Leader %:** {result.leader_percent}")
             st.markdown(f"**Objective:** {result.objective}")
+            if result.legend:
+                st.caption(result.legend)
             if result.status and result.status != "OK":
                 st.warning(result.status)
+                if result.no_solution_diagnostic:
+                    st.markdown("**No-solution diagnostic**")
+                    st.dataframe(
+                        [result.no_solution_diagnostic],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+            if result.formula_notes:
+                st.markdown("**Formulas**")
+                for note in result.formula_notes:
+                    st.markdown(f"- {note}")
+            if result.formula_table:
+                st.markdown("**Resolved values (effect = 0)**")
+                st.dataframe(result.formula_table, use_container_width=True, hide_index=True)
             if result.effect_table:
                 _render_unit_detail_table("Effect → Min Rune Speed", result.effect_table)
             if result.tick_atb_table:
@@ -368,8 +384,13 @@ def _compute_section1_details(
 def _build_error_result(preset_id: str, message: str):
     return PresetDetailResult(
         preset_name=preset_id,
+        preset_label=preset_id,
         leader_percent=0,
         objective=message,
+        legend="",
+        formula_notes=[],
+        formula_table=[],
+        no_solution_diagnostic=None,
         effect_table=None,
         min_cut_result=None,
         tick_atb_table=None,

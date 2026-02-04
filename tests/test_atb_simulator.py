@@ -107,6 +107,7 @@ def test_combat_speed_uses_effect_multiplier():
         "rune_speed": 0,
         "flatSpeedBuffs": [],
         "has_slow": False,
+        "has_speed_buff": True,
         "speedIncreasingEffect": 20,
     }
     v_total = 100 + (100 * (24 + 15) / 100)

@@ -34,8 +34,13 @@ class RequiredOrder:
 @dataclass
 class PresetDetailResult:
     preset_name: str
+    preset_label: str
     leader_percent: int
     objective: str
+    legend: str
+    formula_notes: List[str]
+    formula_table: List[Dict[str, Any]]
+    no_solution_diagnostic: Optional[Dict[str, Any]]
     effect_table: Optional[DetailTable]
     min_cut_result: Optional[Dict[str, Any]]
     tick_atb_table: Optional[List[Dict[str, Any]]]
@@ -89,8 +94,13 @@ def _build_preset_detail_type_general(
     if len(allies) < 3 or len(enemies) < 2:
         return PresetDetailResult(
             preset_name=preset_id,
+            preset_label=preset_id,
             leader_percent=get_leader_percent(preset_id),
             objective="Invalid preset",
+            legend="",
+            formula_notes=[],
+            formula_table=[],
+            no_solution_diagnostic=None,
             effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
@@ -151,8 +161,13 @@ def _build_preset_detail_type_general(
     if required_order is None:
         return PresetDetailResult(
             preset_name=preset_id,
+            preset_label=preset_id,
             leader_percent=get_leader_percent(preset_id),
             objective="Invalid required order",
+            legend="",
+            formula_notes=[],
+            formula_table=[],
+            no_solution_diagnostic=None,
             effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
@@ -236,30 +251,58 @@ def _build_preset_detail_type_general(
         deadline=deadline,
         debug=None,
     )
+    objective = _format_required_order_display(
+        preset_id,
+        required_order,
+        case_display["name_label_map"],
+    )
+    formula_notes = _build_formula_notes()
     if min_speed is None:
+        no_solution_diagnostic = _build_no_solution_diagnostic(
+            detail_preset,
+            required_order,
+            prefixed_overrides,
+            detail_keys["a3"],
+            case_display,
+        )
         return PresetDetailResult(
             preset_name=preset_id,
+            preset_label=case_display["preset_label"],
             leader_percent=get_leader_percent(preset_id),
-            objective=_format_objective_with_legend(
-                preset_id,
-                required_order,
-                case_display["short_label_map"],
-                case_display["legend"],
+            objective=objective,
+            legend=case_display["legend"],
+            formula_notes=formula_notes,
+            formula_table=_build_formula_table(
+                detail_preset,
+                prefixed_overrides,
+                case_display,
+                get_leader_percent(preset_id),
             ),
+            no_solution_diagnostic=no_solution_diagnostic,
             effect_table=effect_table,
             min_cut_result=None,
             tick_atb_table=None,
             status=effect_error or "NO VALID SOLUTION",
         )
+    overrides_for_formula = dict(prefixed_overrides)
+    overrides_for_formula[detail_keys["a3"]] = {
+        "rune_speed": min_speed,
+        "speedIncreasingEffect": 0,
+    }
     return PresetDetailResult(
         preset_name=preset_id,
+        preset_label=case_display["preset_label"],
         leader_percent=get_leader_percent(preset_id),
-        objective=_format_objective_with_legend(
-            preset_id,
-            required_order,
-            case_display["short_label_map"],
-            case_display["legend"],
+        objective=objective,
+        legend=case_display["legend"],
+        formula_notes=formula_notes,
+        formula_table=_build_formula_table(
+            detail_preset,
+            overrides_for_formula,
+            case_display,
+            get_leader_percent(preset_id),
         ),
+        no_solution_diagnostic=None,
         effect_table=effect_table,
         min_cut_result=None,
         tick_atb_table=tick_atb_table,
@@ -281,8 +324,13 @@ def _build_preset_detail_type_b(
     if len(allies) < 3 or len(enemies) < 2:
         return PresetDetailResult(
             preset_name=preset_id,
+            preset_label=preset_id,
             leader_percent=get_leader_percent(preset_id),
             objective="Invalid preset",
+            legend="",
+            formula_notes=[],
+            formula_table=[],
+            no_solution_diagnostic=None,
             effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
@@ -340,8 +388,13 @@ def _build_preset_detail_type_b(
     if required_order is None:
         return PresetDetailResult(
             preset_name=preset_id,
+            preset_label=preset_id,
             leader_percent=get_leader_percent(preset_id),
             objective="Invalid required order",
+            legend="",
+            formula_notes=[],
+            formula_table=[],
+            no_solution_diagnostic=None,
             effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
@@ -419,15 +472,32 @@ def _build_preset_detail_type_b(
     if debug_payload is not None:
         debug_payload["a1_min0"] = a1_min0
 
+    objective = _format_required_order_display(
+        preset_id,
+        required_order,
+        case_display["name_label_map"],
+    )
+    formula_notes = _build_formula_notes()
     if a1_min0 is None:
         return PresetDetailResult(
             preset_name=preset_id,
+            preset_label=case_display["preset_label"],
             leader_percent=get_leader_percent(preset_id),
-            objective=_format_objective_with_legend(
-                preset_id,
+            objective=objective,
+            legend=case_display["legend"],
+            formula_notes=formula_notes,
+            formula_table=_build_formula_table(
+                detail_preset,
+                prefixed_overrides,
+                case_display,
+                get_leader_percent(preset_id),
+            ),
+            no_solution_diagnostic=_build_no_solution_diagnostic(
+                detail_preset,
                 required_order,
-                case_display["short_label_map"],
-                case_display["legend"],
+                prefixed_overrides,
+                detail_keys["a3"],
+                case_display,
             ),
             effect_table=_build_no_solution_table(),
             min_cut_result=None,
@@ -479,12 +549,23 @@ def _build_preset_detail_type_b(
     if min_speed_a3 is None:
         return PresetDetailResult(
             preset_name=preset_id,
+            preset_label=case_display["preset_label"],
             leader_percent=get_leader_percent(preset_id),
-            objective=_format_objective_with_legend(
-                preset_id,
+            objective=objective,
+            legend=case_display["legend"],
+            formula_notes=formula_notes,
+            formula_table=_build_formula_table(
+                detail_preset,
+                fixed_overrides,
+                case_display,
+                get_leader_percent(preset_id),
+            ),
+            no_solution_diagnostic=_build_no_solution_diagnostic(
+                detail_preset,
                 required_order,
-                case_display["short_label_map"],
-                case_display["legend"],
+                fixed_overrides,
+                detail_keys["a3"],
+                case_display,
             ),
             effect_table=effect_table,
             min_cut_result=None,
@@ -493,15 +574,25 @@ def _build_preset_detail_type_b(
             tick_atb_table_step2=None,
             status=effect_error or "NO VALID SOLUTION",
         )
+    overrides_for_formula = dict(fixed_overrides)
+    overrides_for_formula[detail_keys["a3"]] = {
+        "rune_speed": min_speed_a3,
+        "speedIncreasingEffect": 0,
+    }
     return PresetDetailResult(
         preset_name=preset_id,
+        preset_label=case_display["preset_label"],
         leader_percent=get_leader_percent(preset_id),
-        objective=_format_objective_with_legend(
-            preset_id,
-            required_order,
-            case_display["short_label_map"],
-            case_display["legend"],
+        objective=objective,
+        legend=case_display["legend"],
+        formula_notes=formula_notes,
+        formula_table=_build_formula_table(
+            detail_preset,
+            overrides_for_formula,
+            case_display,
+            get_leader_percent(preset_id),
         ),
+        no_solution_diagnostic=None,
         effect_table=effect_table,
         min_cut_result=None,
         tick_atb_table=tick_atb_table_step2,
@@ -645,6 +736,12 @@ def _build_case_display(
         detail_keys["a3"]: "A3",
         detail_keys["e_fast"]: "E",
     }
+    name_label_map = {
+        detail_keys["a1"]: unit_names["a1"],
+        detail_keys["a2"]: unit_names["a2"],
+        detail_keys["a3"]: unit_names["a3"],
+        detail_keys["e_fast"]: unit_names["e"],
+    }
     matched, actual_order, _ = _matches_required_order(
         detail_preset,
         overrides,
@@ -654,9 +751,9 @@ def _build_case_display(
     required_display = _format_required_order_display(
         preset_id,
         required_order,
-        unit_display_map,
+        name_label_map,
     )
-    actual_display = _format_actual_order_display(actual_order, unit_display_map, required_order)
+    actual_display = _format_actual_order_display(actual_order, name_label_map, required_order)
     display_title = f"{preset_id} — Required: {required_display}"
     resolved_specs = _build_resolved_specs(
         preset_id,
@@ -669,6 +766,10 @@ def _build_case_display(
         f"A1={unit_names['a1']}, A2={unit_names['a2']}, "
         f"A3={unit_names['a3']}, E={unit_names['e']}"
     )
+    preset_label = (
+        f"{unit_names['a1']} / {unit_names['a2']} / {unit_names['a3']} "
+        f"| Leader: +{get_leader_percent(preset_id)}%"
+    )
     return {
         "display_title": display_title,
         "resolved_specs": resolved_specs,
@@ -677,7 +778,87 @@ def _build_case_display(
         "pass_flag": matched,
         "unit_display_map": unit_display_map,
         "short_label_map": short_label_map,
+        "name_label_map": name_label_map,
         "legend": legend,
+        "preset_label": preset_label,
+    }
+
+
+def _build_formula_notes() -> List[str]:
+    return [
+        f"v_total = v_base + v_rune + (v_base × (leader% + tower%)/100); tower%={TOWER_PERCENT}",
+        "If speed buff: combat_speed = v_total × [1 + 0.3 × (100 + effect)/100]; otherwise combat_speed = v_total",
+        "ΔATB per tick = combat_speed × 0.07",
+    ]
+
+
+def _build_formula_table(
+    detail_preset: Dict[str, Any],
+    overrides: Dict[str, Dict[str, int]],
+    case_display: Dict[str, Any],
+    leader_percent: int,
+) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    label_map = case_display["name_label_map"]
+    units = detail_preset.get("allies", []) + detail_preset.get("enemies", [])
+    for unit in units:
+        key = unit.get("key")
+        if not key or key not in label_map:
+            continue
+        base_speed = unit.get("base_speed", 0)
+        rune_speed = overrides.get(key, {}).get("rune_speed", unit.get("rune_speed", 0))
+        v_total = base_speed + rune_speed + (base_speed * (leader_percent + TOWER_PERCENT) / 100)
+        v_total_formula = (
+            f"{base_speed} + {rune_speed} + ({base_speed} × ({leader_percent}+{TOWER_PERCENT})/100)"
+        )
+        effect = 0
+        has_speed_buff = bool(unit.get("has_speed_buff"))
+        if has_speed_buff:
+            combat_speed = v_total * (1 + 0.3 * (100 + effect) / 100)
+            combat_formula = "v_total × [1 + 0.3 × (100 + effect)/100]"
+        else:
+            combat_speed = v_total
+            combat_formula = "v_total"
+        atb_gain = combat_speed * 0.07
+        rows.append({
+            "Unit": label_map[key],
+            "v_base": base_speed,
+            "v_rune": rune_speed,
+            "leader%": leader_percent,
+            "tower%": TOWER_PERCENT,
+            "v_total": round(v_total, 2),
+            "v_total_formula": v_total_formula,
+            "combat_speed (effect=0)": round(combat_speed, 2),
+            "combat_speed_formula": combat_formula,
+            "ΔATB/tick": round(atb_gain, 2),
+        })
+    return rows
+
+
+def _build_no_solution_diagnostic(
+    detail_preset: Dict[str, Any],
+    required_order: RequiredOrder,
+    overrides: Dict[str, Dict[str, int]],
+    target_key: Optional[str],
+    case_display: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    if not target_key:
+        return None
+    overrides_max = dict(overrides)
+    overrides_max[target_key] = {
+        "rune_speed": MAX_RUNE_SPEED,
+        "speedIncreasingEffect": 0,
+    }
+    _, turn_events = simulate_with_turn_log(detail_preset, overrides_max)
+    actual_order = [event.get("key") for event in turn_events]
+    actual_display = _format_actual_order_display(
+        actual_order,
+        case_display["name_label_map"],
+        required_order,
+    )
+    return {
+        "search_range": f"{MIN_RUNE_SPEED}–{MAX_RUNE_SPEED}",
+        "actual_order_at_max": actual_display,
     }
 
 
@@ -690,12 +871,12 @@ def _build_unit_name_map(
     name_map = {unit.get("key"): unit.get("name", unit.get("key")) for unit in base_units}
     reference_index = 1 if preset_id in {"Preset A", "Preset B", "Preset C", "Preset D", "Preset E"} else 0
     reference_unit = detail_preset.get("allies", [])[reference_index]
-    mirror_note = f"Mirrored from {reference_unit.get('name', 'Unknown')}"
+    mirror_note = f"Mirrored {reference_unit.get('name', 'Unknown')}"
     return {
         "a1": name_map.get(detail_keys["a1"], detail_keys["a1"]),
         "a2": name_map.get(detail_keys["a2"], detail_keys["a2"]),
         "a3": name_map.get(detail_keys["a3"], detail_keys["a3"]),
-        "e": f"{name_map.get(detail_keys['e_fast'], detail_keys['e_fast'])} ({mirror_note})",
+        "e": f"Enemy ({mirror_note})",
     }
 
 
@@ -711,16 +892,6 @@ def _format_required_order_display(
             f"{label_map.get(enemy, enemy)} (A1 unconstrained)"
         )
     return " → ".join(label_map.get(key, key) for key in required_order.order)
-
-
-def _format_objective_with_legend(
-    preset_id: str,
-    required_order: RequiredOrder,
-    label_map: Dict[str, str],
-    legend: str,
-) -> str:
-    objective = _format_required_order_display(preset_id, required_order, label_map)
-    return f"{objective} | Legend: {legend}"
 
 
 def _format_actual_order_display(
