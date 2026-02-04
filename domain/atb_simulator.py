@@ -183,9 +183,6 @@ def calculate_combat_speed(monster: Dict[str, Any]) -> int:
         elif buff_type == "subtract_percent":
             speed *= 1 - amount / 100
 
-    if monster.get("isSwift") and (monster["base_speed"] * 0.25) % 1 > 0:
-        speed -= 1 - ((monster["base_speed"] * 0.25) % 1)
-
     if monster.get("has_slow"):
         speed *= 0.7
 
@@ -221,7 +218,7 @@ def transform_monster(simulator: Dict[str, Any], base_monster: Dict[str, Any]) -
         "speedIncreasingEffect": base_monster.get("speedIncreasingEffect", 0),
         "speedBuffDuration": 0,
         "has_slow": False,
-        "isSwift": base_monster.get("isSwift", False),
+        "isSwift": False,
         "slowDuration": 0,
         "flatSpeedBuffs": [],
         "skills": base_monster.get("skills", []),
@@ -250,69 +247,68 @@ def run_tick(
             skill_targets = get_skill_targets(skills, monsters, i)
             apply_skill_effects(monsters, skills, skill_targets)
 
-    move_candidate = get_monster_that_moves(monsters)
-    if move_candidate:
-        idx = next((index for index, item in enumerate(monsters) if item["key"] == move_candidate["key"]), None)
-        if idx is not None:
-            monsters[idx]["turn"] += 1
-            if turn_events is not None:
-                turn_events.append({
-                    "tick": tick_index,
-                    "key": monsters[idx].get("key"),
-                    "base_key": monsters[idx].get("base_key", monsters[idx].get("key")),
-                    "name": monsters[idx].get("name"),
-                    "isAlly": monsters[idx].get("isAlly"),
-                    "turn_number": monsters[idx].get("turn"),
-                    "attack_bar_before_reset": monsters[idx].get("attack_bar"),
-                    "combat_speed": monsters[idx].get("combat_speed"),
-                })
-            actual_monster = find_base_monster(simulator, monsters[idx])
-            skills = []
-            if actual_monster:
-                skills = [
-                    skill for skill in actual_monster.get("skills", [])
-                    if skill.get("applyOnTurn") == monsters[idx]["turn"] or skill.get("applyOnTurn") == -1
-                ]
-            skill_targets = get_skill_targets(skills, monsters, idx)
-
-            monsters[idx]["attack_bar"] = 0
-
-            if monsters[idx].get("has_speed_buff"):
-                monsters[idx]["speedBuffDuration"] -= 1
-                monsters[idx]["has_speed_buff"] = monsters[idx]["speedBuffDuration"] > 0
-            if monsters[idx].get("has_slow"):
-                monsters[idx]["slowDuration"] -= 1
-                monsters[idx]["has_slow"] = monsters[idx]["slowDuration"] > 0
-            for buff in monsters[idx].get("flatSpeedBuffs", []):
-                buff["flatSpeedBuffDuration"] -= 1
-            monsters[idx]["flatSpeedBuffs"] = [
-                buff for buff in monsters[idx].get("flatSpeedBuffs", [])
-                if buff.get("flatSpeedBuffDuration", 0) > 0
-            ]
-
-            apply_skill_effects(monsters, skills, skill_targets)
-
     for monster in monsters:
         monster["combat_speed"] = calculate_combat_speed(monster)
         monster["attack_bar"] += monster["combat_speed"] * 0.07
+        monster["tookTurn"] = False
 
-    move_candidate = get_monster_that_moves(monsters)
-    if move_candidate:
-        idx = next((index for index, item in enumerate(monsters) if item["key"] == move_candidate["key"]), None)
-        if idx is not None:
-            monsters[idx]["tookTurn"] = True
+    move_index = get_monster_that_moves(monsters)
+    if move_index is not None:
+        monsters[move_index]["turn"] += 1
+        if turn_events is not None:
+            turn_events.append({
+                "tick": tick_index,
+                "key": monsters[move_index].get("key"),
+                "base_key": monsters[move_index].get("base_key", monsters[move_index].get("key")),
+                "name": monsters[move_index].get("name"),
+                "isAlly": monsters[move_index].get("isAlly"),
+                "turn_number": monsters[move_index].get("turn"),
+                "attack_bar_before_reset": monsters[move_index].get("attack_bar"),
+                "combat_speed": monsters[move_index].get("combat_speed"),
+            })
+        actual_monster = find_base_monster(simulator, monsters[move_index])
+        skills = []
+        if actual_monster:
+            skills = [
+                skill for skill in actual_monster.get("skills", [])
+                if skill.get("applyOnTurn") == monsters[move_index]["turn"] or skill.get("applyOnTurn") == -1
+            ]
+        skill_targets = get_skill_targets(skills, monsters, move_index)
+
+        monsters[move_index]["attack_bar"] = 0
+
+        if monsters[move_index].get("has_speed_buff"):
+            monsters[move_index]["speedBuffDuration"] -= 1
+            monsters[move_index]["has_speed_buff"] = monsters[move_index]["speedBuffDuration"] > 0
+        if monsters[move_index].get("has_slow"):
+            monsters[move_index]["slowDuration"] -= 1
+            monsters[move_index]["has_slow"] = monsters[move_index]["slowDuration"] > 0
+        for buff in monsters[move_index].get("flatSpeedBuffs", []):
+            buff["flatSpeedBuffDuration"] -= 1
+        monsters[move_index]["flatSpeedBuffs"] = [
+            buff for buff in monsters[move_index].get("flatSpeedBuffs", [])
+            if buff.get("flatSpeedBuffDuration", 0) > 0
+        ]
+
+        apply_skill_effects(monsters, skills, skill_targets)
+        monsters[move_index]["tookTurn"] = True
 
     return monsters
 
 
-def get_monster_that_moves(monsters: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    candidate = None
-    for monster in monsters:
-        monster["tookTurn"] = False
-        if monster.get("attack_bar", 0) >= 100:
-            if candidate is None or monster["attack_bar"] > candidate["attack_bar"]:
-                candidate = monster
-    return candidate
+def get_monster_that_moves(monsters: List[Dict[str, Any]]) -> Optional[int]:
+    candidate_index = None
+    candidate_attack_bar = None
+    for idx, monster in enumerate(monsters):
+        if monster.get("attack_bar", 0) < 100:
+            continue
+        attack_bar = monster.get("attack_bar", 0)
+        if candidate_index is None or attack_bar > candidate_attack_bar:
+            candidate_index = idx
+            candidate_attack_bar = attack_bar
+        elif attack_bar == candidate_attack_bar and idx < candidate_index:
+            candidate_index = idx
+    return candidate_index
 
 
 def apply_skill_effects(

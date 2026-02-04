@@ -13,24 +13,17 @@ MAX_RUNE_SPEED = 250
 MIN_RUNE_SPEED = 150
 COARSE_STEP = 10
 MAX_EFFECT = 50
-SECTION1_TURN_ORDER_DEFAULT = ["a2", "a1", "a3", "e_fast"]
-SECTION1_TURN_ORDER_OVERRIDES: Dict[str, List[str]] = {}
-_SECTION1_CALC_PATTERN = ["A", "B", "C", "B", "C", "B", "C"]
-_SECTION1_PRESET_ORDER = list(ATB_SIMULATOR_PRESETS.keys())
-_SECTION1_CALC_TYPE_MAP: Dict[str, str] = {
-    preset_id: _SECTION1_CALC_PATTERN[idx]
-    for idx, preset_id in enumerate(_SECTION1_PRESET_ORDER)
-    if idx < len(_SECTION1_CALC_PATTERN)
-}
-
-
-def _resolve_calc_type(preset_id: str) -> str:
-    return _SECTION1_CALC_TYPE_MAP.get(preset_id, "C")
 
 
 @dataclass
 class DetailTable:
     ranges: List[Dict[str, str]]
+
+
+@dataclass(frozen=True)
+class RequiredOrder:
+    mode: str
+    order: List[str]
 
 
 @dataclass
@@ -55,18 +48,7 @@ def build_section1_detail_cached(
     debug: bool,
 ) -> PresetDetailResult:
     preset = build_full_preset(preset_id)
-    calc_type = _resolve_calc_type(preset_id)
-    if calc_type == "A":
-        return _build_preset_detail_type_a(
-            preset_id,
-            preset,
-            input_1,
-            input_2,
-            input_3,
-            max_runtime_s=max_runtime_s,
-            debug=debug,
-        )
-    if calc_type == "B":
+    if preset_id == "Preset B":
         return _build_preset_detail_type_b(
             preset_id,
             preset,
@@ -76,7 +58,7 @@ def build_section1_detail_cached(
             max_runtime_s=max_runtime_s,
             debug=debug,
         )
-    return _build_preset_detail_type_c(
+    return _build_preset_detail_type_general(
         preset_id,
         preset,
         input_1,
@@ -87,7 +69,7 @@ def build_section1_detail_cached(
     )
 
 
-def _build_preset_detail_type_c(
+def _build_preset_detail_type_general(
     preset_id: str,
     preset: Dict[str, Any],
     input_1: Optional[int],
@@ -105,7 +87,7 @@ def _build_preset_detail_type_c(
             a2_table=None,
             a3_table=None,
             error="Preset must contain at least 3 allies and 2 enemies.",
-            calc_type="C",
+            calc_type="general",
         )
 
     # Input 2 fixes a1's rune speed so only a3 is optimized.
@@ -115,6 +97,7 @@ def _build_preset_detail_type_c(
     prefixed_allies, _ = prefix_monsters(allies, prefix="A")
     prefixed_enemies, _ = prefix_monsters(enemies, prefix="E")
     prefixed_overrides, enemy_speed_source, enemy_speed_effective = _build_section1_overrides(
+        preset_id,
         prefixed_allies,
         prefixed_enemies,
         input_1,
@@ -132,7 +115,7 @@ def _build_preset_detail_type_c(
                 "input_3": input_3 if input_3 is not None else enemy_speed_effective,
                 "enemy_rune_speed_source": enemy_speed_source,
                 "enemy_rune_speed_effective": enemy_speed_effective,
-                "calc_type": "C",
+                "calc_type": "general",
             },
             "attempts": [],
             # Debug mode stores only a limited number of attempts to avoid heavy memory use.
@@ -163,7 +146,7 @@ def _build_preset_detail_type_c(
         )
 
     if debug_payload is not None:
-        debug_payload["calc_type"] = "C"
+        debug_payload["calc_type"] = "general"
         debug_payload["input_summary"]["selected_enemy_key"] = e_fast_key
 
     detail_preset, detail_keys = _build_detail_preset(
@@ -182,11 +165,14 @@ def _build_preset_detail_type_c(
             error="Invalid required turn order mapping for this preset.",
             timing={"e_fast_s": e_fast_time},
             debug=debug_payload,
-            calc_type="C",
+            calc_type="general",
         )
 
     if debug_payload is not None:
-        debug_payload["required_order"] = required_order
+        debug_payload["required_order"] = {
+            "mode": required_order.mode,
+            "order": required_order.order,
+        }
         debug_payload["unit_order"] = {
             "a2": detail_keys["a2"],
             "a1": detail_keys["a1"],
@@ -240,129 +226,7 @@ def _build_preset_detail_type_c(
             "a3_s": a3_time,
         },
         debug=debug_payload,
-        calc_type="C",
-    )
-
-
-def _build_preset_detail_type_a(
-    preset_id: str,
-    preset: Dict[str, Any],
-    input_1: Optional[int],
-    input_2: Optional[int],
-    input_3: Optional[int],
-    max_runtime_s: Optional[float],
-    debug: bool,
-) -> PresetDetailResult:
-    allies = preset.get("allies", [])
-    enemies = preset.get("enemies", [])
-    if len(allies) < 3 or len(enemies) < 2:
-        return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="Preset must contain at least 3 allies and 2 enemies.",
-            calc_type="A",
-        )
-
-    start_time = time.perf_counter()
-    deadline = start_time + max_runtime_s if max_runtime_s else None
-
-    prefixed_allies, _ = prefix_monsters(allies, prefix="A")
-    prefixed_enemies, _ = prefix_monsters(enemies, prefix="E")
-    prefixed_overrides, enemy_speed_source, enemy_speed_effective = _build_section1_overrides(
-        prefixed_allies,
-        prefixed_enemies,
-        input_1,
-        input_2,
-        input_3,
-        allow_enemy_fallback=False,
-    )
-    debug_payload: Optional[Dict[str, Any]] = None
-    if debug:
-        debug_payload = {
-            "input_summary": {
-                "preset_id": preset_id,
-                "input_1": input_1,
-                "input_2": input_2,
-                "input_3": input_3,
-                "enemy_rune_speed_source": enemy_speed_source,
-                "enemy_rune_speed_effective": enemy_speed_effective,
-                "calc_type": "A",
-            },
-            "attempts": [],
-            "attempt_limit": 25,
-            "truncated": False,
-            "min_rune_speed": MIN_RUNE_SPEED,
-            "max_rune_speed": MAX_RUNE_SPEED,
-            "effect_logs": [],
-        }
-
-    e_fast_start = time.perf_counter()
-    e_fast_key = _select_fastest_enemy(
-        preset,
-        prefixed_allies,
-        prefixed_enemies,
-        prefixed_overrides,
-    )
-    e_fast_time = time.perf_counter() - e_fast_start
-    if not e_fast_key:
-        return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="No enemy took a turn in the simulation.",
-            timing={"e_fast_s": e_fast_time},
-            debug=debug_payload,
-            calc_type="A",
-        )
-
-    detail_preset, detail_keys = _build_detail_preset(
-        preset,
-        prefixed_allies,
-        prefixed_enemies,
-        e_fast_key,
-    )
-    required_order = _resolve_required_order(preset_id, detail_keys)
-    if required_order is None:
-        return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=None,
-            a3_table=None,
-            error="Invalid required turn order mapping for this preset.",
-            timing={"e_fast_s": e_fast_time},
-            debug=debug_payload,
-            calc_type="A",
-        )
-
-    a2_start = time.perf_counter()
-    a2_table, a2_error = _build_unit_detail_table(
-        detail_preset,
-        required_order,
-        prefixed_overrides,
-        target_key=detail_keys["a2"],
-        deadline=deadline,
-        debug=debug_payload,
-    )
-    a2_time = time.perf_counter() - a2_start
-
-    error_messages = [msg for msg in [a2_error] if msg]
-    combined_error = "\n".join(error_messages) if error_messages else None
-
-    return PresetDetailResult(
-        preset_id=preset_id,
-        a1_table=None,
-        a2_table=a2_table,
-        a3_table=None,
-        error=combined_error,
-        timing={
-            "e_fast_s": e_fast_time,
-            "a2_s": a2_time,
-        },
-        debug=debug_payload,
-        calc_type="A",
+        calc_type="general",
     )
 
 
@@ -393,6 +257,7 @@ def _build_preset_detail_type_b(
     prefixed_allies, _ = prefix_monsters(allies, prefix="A")
     prefixed_enemies, _ = prefix_monsters(enemies, prefix="E")
     prefixed_overrides, enemy_speed_source, enemy_speed_effective = _build_section1_overrides(
+        preset_id,
         prefixed_allies,
         prefixed_enemies,
         input_1,
@@ -410,7 +275,7 @@ def _build_preset_detail_type_b(
                 "input_3": input_3,
                 "enemy_rune_speed_source": enemy_speed_source,
                 "enemy_rune_speed_effective": enemy_speed_effective,
-                "calc_type": "B",
+                "calc_type": "special_b",
             },
             "attempts": [],
             "attempt_limit": 25,
@@ -437,7 +302,7 @@ def _build_preset_detail_type_b(
             error="No enemy took a turn in the simulation.",
             timing={"e_fast_s": e_fast_time},
             debug=debug_payload,
-            calc_type="B",
+            calc_type="special_b",
         )
 
     detail_preset, detail_keys = _build_detail_preset(
@@ -456,59 +321,43 @@ def _build_preset_detail_type_b(
             error="Invalid required turn order mapping for this preset.",
             timing={"e_fast_s": e_fast_time},
             debug=debug_payload,
-            calc_type="B",
+            calc_type="special_b",
         )
 
-    a2_start = time.perf_counter()
-    a2_table, a2_error = _build_unit_detail_table(
-        detail_preset,
-        required_order,
-        prefixed_overrides,
-        target_key=detail_keys["a2"],
-        deadline=deadline,
-        debug=debug_payload,
+    required_order_a1 = RequiredOrder(
+        mode="strict",
+        order=[detail_keys["a2"], detail_keys["a1"], detail_keys["e_fast"]],
     )
-    a2_time = time.perf_counter() - a2_start
-    if a2_error:
-        return PresetDetailResult(
-            preset_id=preset_id,
-            a1_table=None,
-            a2_table=a2_table,
-            a3_table=None,
-            error=a2_error,
-            timing={"e_fast_s": e_fast_time, "a2_s": a2_time},
-            debug=debug_payload,
-            calc_type="B",
-        )
-
-    a2_min0 = _find_minimum_rune_speed(
+    a1_start = time.perf_counter()
+    a1_min0 = _find_minimum_rune_speed(
         detail_preset,
-        required_order,
+        required_order_a1,
         prefixed_overrides,
-        detail_keys["a2"],
+        detail_keys["a1"],
         effect=0,
         start_speed=MIN_RUNE_SPEED,
         deadline=deadline,
         debug=debug_payload,
     )
+    a1_time = time.perf_counter() - a1_start
     if debug_payload is not None:
-        debug_payload["a2_min0"] = a2_min0
+        debug_payload["a1_min0"] = a1_min0
 
-    if a2_min0 is None:
+    if a1_min0 is None:
         return PresetDetailResult(
             preset_id=preset_id,
             a1_table=None,
-            a2_table=a2_table,
+            a2_table=None,
             a3_table=None,
-            error="Unable to find minimum rune speed for a2 at effect 0.",
-            timing={"e_fast_s": e_fast_time, "a2_s": a2_time},
+            error="Unable to find minimum rune speed for a1 at effect 0.",
+            timing={"e_fast_s": e_fast_time, "a1_s": a1_time},
             debug=debug_payload,
-            calc_type="B",
+            calc_type="special_b",
         )
 
     fixed_overrides = dict(prefixed_overrides)
-    fixed_overrides[detail_keys["a2"]] = {
-        "rune_speed": a2_min0,
+    fixed_overrides[detail_keys["a1"]] = {
+        "rune_speed": a1_min0,
         "speedIncreasingEffect": 0,
     }
     a3_start = time.perf_counter()
@@ -522,26 +371,27 @@ def _build_preset_detail_type_b(
     )
     a3_time = time.perf_counter() - a3_start
 
-    error_messages = [msg for msg in [a2_error, a3_error] if msg]
+    error_messages = [msg for msg in [a3_error] if msg]
     combined_error = "\n".join(error_messages) if error_messages else None
 
     return PresetDetailResult(
         preset_id=preset_id,
         a1_table=None,
-        a2_table=a2_table,
+        a2_table=None,
         a3_table=a3_table,
         error=combined_error,
         timing={
             "e_fast_s": e_fast_time,
-            "a2_s": a2_time,
+            "a1_s": a1_time,
             "a3_s": a3_time,
         },
         debug=debug_payload,
-        calc_type="B",
+        calc_type="special_b",
     )
 
 
 def _build_section1_overrides(
+    preset_id: str,
     allies: List[Dict[str, Any]],
     enemies: List[Dict[str, Any]],
     input_1: Optional[int],
@@ -551,12 +401,22 @@ def _build_section1_overrides(
 ) -> Tuple[Dict[str, Dict[str, int]], str, int]:
     overrides: Dict[str, Dict[str, int]] = {}
     a1_key = allies[0].get("key")
-    if a1_key and input_2 is not None:
-        overrides[a1_key] = {"rune_speed": input_2}
-
     a2_key = allies[1].get("key")
-    if a2_key and input_1 is not None:
-        overrides[a2_key] = {"rune_speed": input_1}
+    if preset_id in {"Preset A", "Preset B", "Preset E"}:
+        if input_2 is None:
+            raise ValueError("input_2 is required for preset mapping.")
+        if a2_key:
+            overrides[a2_key] = {"rune_speed": input_2 + 39}
+    elif preset_id in {"Preset C", "Preset D"}:
+        if input_1 is None:
+            raise ValueError("input_1 is required for preset mapping.")
+        if a2_key:
+            overrides[a2_key] = {"rune_speed": input_1}
+    elif preset_id in {"Preset F", "Preset G"}:
+        if input_1 is None:
+            raise ValueError("input_1 is required for preset mapping.")
+        if a1_key:
+            overrides[a1_key] = {"rune_speed": input_1}
 
     e2_key = enemies[1].get("key")
     if input_3 is None and not allow_enemy_fallback:
@@ -579,16 +439,33 @@ def _build_section1_overrides(
 def _resolve_required_order(
     preset_id: str,
     detail_keys: Dict[str, str],
-) -> Optional[List[str]]:
-    order_tokens = SECTION1_TURN_ORDER_OVERRIDES.get(preset_id, SECTION1_TURN_ORDER_DEFAULT)
-    resolved = []
-    for token in order_tokens:
-        key = detail_keys.get(token)
-        if not key:
-            # Previously this could return None keys and cause comparisons to never match.
+) -> Optional[RequiredOrder]:
+    if preset_id == "Preset A":
+        order = [detail_keys.get("a2"), detail_keys.get("a3"), detail_keys.get("e_fast")]
+        if any(key is None for key in order):
             return None
-        resolved.append(key)
-    return resolved
+        return RequiredOrder(mode="a2_a3_e", order=order)
+    if preset_id in {"Preset B", "Preset C", "Preset D", "Preset E"}:
+        order = [
+            detail_keys.get("a2"),
+            detail_keys.get("a1"),
+            detail_keys.get("a3"),
+            detail_keys.get("e_fast"),
+        ]
+        if any(key is None for key in order):
+            return None
+        return RequiredOrder(mode="strict", order=order)
+    if preset_id in {"Preset F", "Preset G"}:
+        order = [
+            detail_keys.get("a1"),
+            detail_keys.get("a2"),
+            detail_keys.get("a3"),
+            detail_keys.get("e_fast"),
+        ]
+        if any(key is None for key in order):
+            return None
+        return RequiredOrder(mode="strict", order=order)
+    return None
 
 
 def _select_fastest_enemy(
@@ -643,7 +520,7 @@ def _build_detail_preset(
 
 def _build_unit_detail_table(
     detail_preset: Dict[str, Any],
-    required_order: List[str],
+    required_order: RequiredOrder,
     base_overrides: Dict[str, Dict[str, int]],
     target_key: Optional[str],
     deadline: Optional[float],
@@ -679,7 +556,7 @@ def _build_unit_detail_table(
 
 def _find_minimum_rune_speed(
     detail_preset: Dict[str, Any],
-    required_order: List[str],
+    required_order: RequiredOrder,
     base_overrides: Dict[str, Dict[str, int]],
     target_key: str,
     effect: int,
@@ -770,15 +647,23 @@ def _find_minimum_rune_speed(
 def _matches_required_order(
     detail_preset: Dict[str, Any],
     overrides: Dict[str, Dict[str, int]],
-    required_order: List[str],
+    required_order: RequiredOrder,
     debug: Optional[Dict[str, Any]] = None,
 ) -> Tuple[bool, List[str], List[Dict[str, Any]]]:
     _, turn_events = simulate_with_turn_log(detail_preset, overrides)
-    if len(turn_events) < len(required_order):
+    if required_order.mode == "a2_a3_e":
+        actual_order = [event.get("key") for event in turn_events]
+        index_map = {key: idx for idx, key in enumerate(actual_order) if key is not None}
+        a2, a3, enemy = required_order.order
+        if a2 not in index_map or a3 not in index_map or enemy not in index_map:
+            return False, actual_order, _trim_turn_events(turn_events, debug)
+        is_valid = index_map[a2] < index_map[a3] < index_map[enemy]
+        return is_valid, actual_order, _trim_turn_events(turn_events, debug)
+    if len(turn_events) < len(required_order.order):
         actual_order = [event.get("key") for event in turn_events]
         return False, actual_order, _trim_turn_events(turn_events, debug)
-    actual_order = [event.get("key") for event in turn_events[: len(required_order)]]
-    return actual_order == required_order, actual_order, _trim_turn_events(turn_events, debug)
+    actual_order = [event.get("key") for event in turn_events[: len(required_order.order)]]
+    return actual_order == required_order.order, actual_order, _trim_turn_events(turn_events, debug)
 
 
 def _summarize_effect_ranges(effect_to_speed: Dict[int, Optional[int]]) -> List[Dict[str, str]]:
@@ -827,7 +712,7 @@ def _record_debug_attempt(
     debug: Optional[Dict[str, Any]],
     effect: int,
     rune_speed: int,
-    required_order: List[str],
+    required_order: RequiredOrder,
     matched: bool,
     actual_order: List[str],
     turn_events: List[Dict[str, Any]],
@@ -847,7 +732,7 @@ def _record_debug_attempt(
         "rune_speed": rune_speed,
         "phase": phase,
         "matched": matched,
-        "required_order": required_order,
+        "required_order": required_order.order,
         "actual_order": actual_order,
         "turn_events": turn_events,
     })
@@ -855,7 +740,7 @@ def _record_debug_attempt(
 
 def _build_debug_unit_summary(
     detail_preset: Dict[str, Any],
-    required_order: List[str],
+    required_order: RequiredOrder,
     overrides: Dict[str, Dict[str, int]],
 ) -> Dict[str, Any]:
     base_units = detail_preset.get("allies", []) + detail_preset.get("enemies", [])
@@ -876,7 +761,7 @@ def _build_debug_unit_summary(
             "isAlly": unit.get("isAlly"),
         }
     return {
-        "required_order": required_order,
+        "required_order": required_order.order,
         "units": summary,
         "parity_note": (
             "All units (allies/enemies) use the same ATB tick formula; "
@@ -888,7 +773,7 @@ def _build_debug_unit_summary(
 def _simulate_attempt(
     detail_preset: Dict[str, Any],
     base_overrides: Dict[str, Dict[str, int]],
-    required_order: List[str],
+    required_order: RequiredOrder,
     target_key: str,
     effect: int,
     rune_speed: int,
