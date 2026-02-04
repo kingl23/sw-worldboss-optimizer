@@ -259,11 +259,36 @@ def _render_section_1_details() -> None:
             st.info("No results yet.")
             return
         for result in results:
-            st.markdown(f"#### {result.preset_id}")
+            if result.display_title:
+                st.markdown(f"#### {result.display_title}")
+            else:
+                st.markdown(f"#### {result.preset_id}")
             if result.calc_type:
                 st.caption(f"Mode: {result.calc_type}")
             if result.error:
                 st.warning(result.error)
+            if result.unit_labels:
+                st.markdown("**Unit Mapping**")
+                mapping_rows = [
+                    {"Slot": slot, "Unit": name}
+                    for slot, name in result.unit_labels.items()
+                ]
+                st.dataframe(mapping_rows, use_container_width=True, hide_index=True)
+            if result.resolved_specs:
+                st.markdown("**Resolved Specs**")
+                spec_rows = []
+                for unit_label, specs in result.resolved_specs.items():
+                    row = {"Unit": unit_label}
+                    row.update(specs)
+                    spec_rows.append(row)
+                st.dataframe(spec_rows, use_container_width=True, hide_index=True)
+            if result.required_order_display or result.actual_order_display:
+                required = result.required_order_display or "Unavailable"
+                actual = result.actual_order_display or "Unavailable"
+                result_label = "PASS" if result.pass_flag else "FAIL"
+                st.markdown(f"**Required:** {required}")
+                st.markdown(f"**Actual:** {actual}")
+                st.markdown(f"**Result:** {result_label}")
             if result.a2_table:
                 _render_unit_detail_table(
                     "A2 Minimum Rune Speed by Effect",

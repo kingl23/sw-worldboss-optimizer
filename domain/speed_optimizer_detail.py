@@ -41,6 +41,12 @@ class PresetDetailResult:
     timing: Optional[Dict[str, float]] = None
     debug: Optional[Dict[str, Any]] = None
     calc_type: Optional[str] = None
+    display_title: Optional[str] = None
+    unit_labels: Optional[Dict[str, str]] = None
+    resolved_specs: Optional[Dict[str, Dict[str, Any]]] = None
+    required_order_display: Optional[str] = None
+    actual_order_display: Optional[str] = None
+    pass_flag: Optional[bool] = None
 
 
 @lru_cache(maxsize=128)
@@ -158,6 +164,19 @@ def _build_preset_detail_type_general(
             calc_type="general",
         )
 
+    baseline_overrides = dict(prefixed_overrides)
+    baseline_overrides[detail_keys["a3"]] = {
+        "rune_speed": MIN_RUNE_SPEED,
+        "speedIncreasingEffect": 0,
+    }
+    case_display = _build_case_display(
+        preset_id,
+        detail_preset,
+        detail_keys,
+        required_order,
+        baseline_overrides,
+    )
+
     if debug_payload is not None:
         debug_payload["required_order"] = {
             "mode": required_order.mode,
@@ -177,11 +196,6 @@ def _build_preset_detail_type_general(
         debug_payload["tick_limit"] = 30
         debug_snapshots: List[Dict[str, Any]] = []
         debug_atb_log: List[Dict[str, Any]] = []
-        baseline_overrides = dict(prefixed_overrides)
-        baseline_overrides[detail_keys["a3"]] = {
-            "rune_speed": MIN_RUNE_SPEED,
-            "speedIncreasingEffect": 0,
-        }
         _, baseline_turn_events = simulate_with_turn_log(
             detail_preset,
             baseline_overrides,
@@ -195,24 +209,11 @@ def _build_preset_detail_type_general(
                 detail_keys["a3"],
                 detail_keys["e_fast"],
             ],
-            debug_atb_labels={
-                detail_keys["a1"]: "A1",
-                detail_keys["a2"]: "A2",
-                detail_keys["a3"]: "A3",
-                detail_keys["e_fast"]: "E",
-            },
+            debug_atb_labels=case_display["unit_display_map"],
         )
         debug_payload["tick_snapshots"] = debug_snapshots
         debug_payload["baseline_turn_events"] = baseline_turn_events
-        debug_payload["tick_atb_log"] = _format_atb_log(
-            debug_atb_log,
-            {
-                detail_keys["a1"]: "A1",
-                detail_keys["a2"]: "A2",
-                detail_keys["a3"]: "A3",
-                detail_keys["e_fast"]: "E",
-            },
-        )
+        debug_payload["tick_atb_log"] = _format_atb_log(debug_atb_log, case_display["unit_display_map"])
 
     a3_start = time.perf_counter()
     a3_table, a3_error = _build_unit_detail_table(
@@ -239,6 +240,12 @@ def _build_preset_detail_type_general(
         },
         debug=debug_payload,
         calc_type="general",
+        display_title=case_display["display_title"],
+        unit_labels=case_display["unit_labels"],
+        resolved_specs=case_display["resolved_specs"],
+        required_order_display=case_display["required_order_display"],
+        actual_order_display=case_display["actual_order_display"],
+        pass_flag=case_display["pass_flag"],
     )
 
 
@@ -321,6 +328,19 @@ def _build_preset_detail_type_b(
             calc_type="special_b",
         )
 
+    baseline_overrides = dict(prefixed_overrides)
+    baseline_overrides[detail_keys["a3"]] = {
+        "rune_speed": MIN_RUNE_SPEED,
+        "speedIncreasingEffect": 0,
+    }
+    case_display = _build_case_display(
+        preset_id,
+        detail_preset,
+        detail_keys,
+        required_order,
+        baseline_overrides,
+    )
+
     if debug_payload is not None:
         debug_payload["required_order"] = {
             "mode": required_order.mode,
@@ -340,11 +360,6 @@ def _build_preset_detail_type_b(
         debug_payload["tick_limit"] = 30
         debug_snapshots: List[Dict[str, Any]] = []
         debug_atb_log: List[Dict[str, Any]] = []
-        baseline_overrides = dict(prefixed_overrides)
-        baseline_overrides[detail_keys["a3"]] = {
-            "rune_speed": MIN_RUNE_SPEED,
-            "speedIncreasingEffect": 0,
-        }
         _, baseline_turn_events = simulate_with_turn_log(
             detail_preset,
             baseline_overrides,
@@ -358,24 +373,11 @@ def _build_preset_detail_type_b(
                 detail_keys["a3"],
                 detail_keys["e_fast"],
             ],
-            debug_atb_labels={
-                detail_keys["a1"]: "A1",
-                detail_keys["a2"]: "A2",
-                detail_keys["a3"]: "A3",
-                detail_keys["e_fast"]: "E",
-            },
+            debug_atb_labels=case_display["unit_display_map"],
         )
         debug_payload["tick_snapshots"] = debug_snapshots
         debug_payload["baseline_turn_events"] = baseline_turn_events
-        debug_payload["tick_atb_log"] = _format_atb_log(
-            debug_atb_log,
-            {
-                detail_keys["a1"]: "A1",
-                detail_keys["a2"]: "A2",
-                detail_keys["a3"]: "A3",
-                detail_keys["e_fast"]: "E",
-            },
-        )
+        debug_payload["tick_atb_log"] = _format_atb_log(debug_atb_log, case_display["unit_display_map"])
 
     required_order_a1 = RequiredOrder(
         mode="strict",
@@ -413,6 +415,13 @@ def _build_preset_detail_type_b(
         "rune_speed": a1_min0,
         "speedIncreasingEffect": 0,
     }
+    case_display = _build_case_display(
+        preset_id,
+        detail_preset,
+        detail_keys,
+        required_order,
+        fixed_overrides,
+    )
     a3_start = time.perf_counter()
     a3_table, a3_error = _build_unit_detail_table(
         detail_preset,
@@ -439,6 +448,12 @@ def _build_preset_detail_type_b(
         },
         debug=debug_payload,
         calc_type="special_b",
+        display_title=case_display["display_title"],
+        unit_labels=case_display["unit_labels"],
+        resolved_specs=case_display["resolved_specs"],
+        required_order_display=case_display["required_order_display"],
+        actual_order_display=case_display["actual_order_display"],
+        pass_flag=case_display["pass_flag"],
     )
 
 
@@ -554,6 +569,131 @@ def _build_detail_preset(
         "e_fast": e_fast.get("key"),
     }
     return detail_preset, detail_keys
+
+
+def _build_case_display(
+    preset_id: str,
+    detail_preset: Dict[str, Any],
+    detail_keys: Dict[str, str],
+    required_order: RequiredOrder,
+    overrides: Dict[str, Dict[str, int]],
+) -> Dict[str, Any]:
+    unit_names = _build_unit_name_map(detail_preset, detail_keys, preset_id)
+    unit_display_map = {
+        detail_keys["a1"]: f"A1({unit_names['a1']})",
+        detail_keys["a2"]: f"A2({unit_names['a2']})",
+        detail_keys["a3"]: f"A3({unit_names['a3']})",
+        detail_keys["e_fast"]: f"E({unit_names['e']})",
+    }
+    unit_labels = {
+        "A1": unit_names["a1"],
+        "A2": unit_names["a2"],
+        "A3": unit_names["a3"],
+        "E": unit_names["e"],
+    }
+    matched, actual_order, _ = _matches_required_order(
+        detail_preset,
+        overrides,
+        required_order,
+        debug=None,
+    )
+    required_display = _format_required_order_display(
+        preset_id,
+        required_order,
+        unit_display_map,
+    )
+    actual_display = _format_actual_order_display(actual_order, unit_display_map, required_order)
+    display_title = f"{preset_id} — Required: {required_display}"
+    resolved_specs = _build_resolved_specs(
+        preset_id,
+        detail_preset,
+        detail_keys,
+        overrides,
+        unit_display_map,
+    )
+    return {
+        "display_title": display_title,
+        "unit_labels": unit_labels,
+        "resolved_specs": resolved_specs,
+        "required_order_display": required_display,
+        "actual_order_display": actual_display,
+        "pass_flag": matched,
+        "unit_display_map": unit_display_map,
+    }
+
+
+def _build_unit_name_map(
+    detail_preset: Dict[str, Any],
+    detail_keys: Dict[str, str],
+    preset_id: str,
+) -> Dict[str, str]:
+    base_units = detail_preset.get("allies", []) + detail_preset.get("enemies", [])
+    name_map = {unit.get("key"): unit.get("name", unit.get("key")) for unit in base_units}
+    reference_index = 1 if preset_id in {"Preset A", "Preset B", "Preset C", "Preset D", "Preset E"} else 0
+    reference_unit = detail_preset.get("allies", [])[reference_index]
+    mirror_note = f"Mirrored from {reference_unit.get('name', 'Unknown')}"
+    return {
+        "a1": name_map.get(detail_keys["a1"], detail_keys["a1"]),
+        "a2": name_map.get(detail_keys["a2"], detail_keys["a2"]),
+        "a3": name_map.get(detail_keys["a3"], detail_keys["a3"]),
+        "e": f"{name_map.get(detail_keys['e_fast'], detail_keys['e_fast'])} ({mirror_note})",
+    }
+
+
+def _format_required_order_display(
+    preset_id: str,
+    required_order: RequiredOrder,
+    unit_display_map: Dict[str, str],
+) -> str:
+    if preset_id == "Preset A":
+        a2, a3, enemy = required_order.order
+        return (
+            f"{unit_display_map.get(a2, a2)} → {unit_display_map.get(a3, a3)} → "
+            f"{unit_display_map.get(enemy, enemy)} (A1 unconstrained)"
+        )
+    return " → ".join(unit_display_map.get(key, key) for key in required_order.order)
+
+
+def _format_actual_order_display(
+    actual_order: List[str],
+    unit_display_map: Dict[str, str],
+    required_order: RequiredOrder,
+) -> str:
+    if required_order.mode == "a2_a3_e":
+        display = [unit_display_map.get(key, key) for key in actual_order[:4]]
+        return " → ".join(display)
+    display = [unit_display_map.get(key, key) for key in actual_order[: len(required_order.order)]]
+    return " → ".join(display)
+
+
+def _build_resolved_specs(
+    preset_id: str,
+    detail_preset: Dict[str, Any],
+    detail_keys: Dict[str, str],
+    overrides: Dict[str, Dict[str, int]],
+    unit_display_map: Dict[str, str],
+) -> Dict[str, Dict[str, Any]]:
+    leader_percent = get_leader_percent(preset_id)
+    summary: Dict[str, Dict[str, Any]] = {}
+    units = detail_preset.get("allies", []) + detail_preset.get("enemies", [])
+    for unit in units:
+        key = unit.get("key")
+        if not key or key not in unit_display_map:
+            continue
+        rune_speed = overrides.get(key, {}).get("rune_speed", unit.get("rune_speed", 0))
+        base_speed = unit.get("base_speed", 0)
+        v_total = base_speed + rune_speed + (base_speed * (leader_percent + TOWER_PERCENT) / 100)
+        has_speed_buff = bool(unit.get("has_speed_buff"))
+        v_combat = v_total * (1.3 if has_speed_buff else 1.0)
+        summary[unit_display_map[key]] = {
+            "base_speed": base_speed,
+            "rune_speed": rune_speed,
+            "leader_percent": leader_percent,
+            "speed_buff": has_speed_buff,
+            "v_total": v_total,
+            "v_combat": v_combat,
+        }
+    return summary
 
 
 def _build_unit_detail_table(

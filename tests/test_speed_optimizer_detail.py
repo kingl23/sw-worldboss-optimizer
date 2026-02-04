@@ -1,6 +1,7 @@
 from config.atb_simulator_presets import build_full_preset
 from domain.speed_optimizer_detail import (
     RequiredOrder,
+    _build_case_display,
     _build_enemy_mirror,
     _build_section1_overrides,
     _matches_required_order,
@@ -125,3 +126,31 @@ def test_input_3_optional_and_enemy_mirror_default_speed():
 def test_preset_e_uses_dark_harg():
     preset = build_full_preset("Preset E")
     assert preset["allies"][1]["key"] == "dark_harg"
+
+
+def test_case_display_uses_unit_names():
+    detail_preset = {
+        "allies": [
+            {"key": "a1", "name": "Alpha", "isAlly": True, "base_speed": 1500, "rune_speed": 0},
+            {"key": "a2", "name": "Bravo", "isAlly": True, "base_speed": 1400, "rune_speed": 0},
+            {"key": "a3", "name": "Charlie", "isAlly": True, "base_speed": 1300, "rune_speed": 0},
+        ],
+        "enemies": [
+            {"key": "e1", "name": "Echo", "isAlly": False, "base_speed": 1200, "rune_speed": 0}
+        ],
+        "allyEffects": {"lead": 24, "tower": 15},
+        "enemyEffects": {"lead": 24, "tower": 15},
+        "tickCount": 5,
+    }
+    detail_keys = {"a1": "a1", "a2": "a2", "a3": "a3", "e_fast": "e1"}
+    required_order = RequiredOrder(mode="a2_a3_e", order=["a2", "a3", "e1"])
+    case_display = _build_case_display(
+        "Preset A",
+        detail_preset,
+        detail_keys,
+        required_order,
+        overrides={},
+    )
+    assert "Bravo" in case_display["display_title"]
+    assert "Charlie" in case_display["display_title"]
+    assert "Mirrored from Bravo" in case_display["display_title"]
