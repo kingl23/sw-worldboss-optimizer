@@ -258,21 +258,22 @@ def test_all_presets_return_with_tick_tables():
         assert result.tick_atb_table_step2 is None
         assert result.tick_atb_table is not None
         table = result.tick_atb_table
-        assert len(table) == 17
-        assert table[0]["tick"] == "base+rune"
-        assert [row["tick"] for row in table[1:]] == list(range(16))
+        assert len(table) == 15
+        assert [row["tick"] for row in table] == list(range(1, 16))
         assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())
         assert "act_speed" not in table[0]
+        assert result.tick_headers is not None
+        assert len(result.tick_headers) == 4
 
 
-def test_tick_table_includes_base_rune_row():
+def test_tick_table_headers_include_base_rune():
     result = build_section1_detail_cached("Preset A", 10, 20, None, None, False)
     if result.status != "OK":
         return
     table = result.tick_atb_table
     assert table is not None
-    assert table[0]["tick"] == "base+rune"
-    assert all(isinstance(table[0][label], str) and "+" in table[0][label] for label in ("A1", "A2", "A3", "E"))
+    assert result.tick_headers is not None
+    assert all("(" in header and "+" in header for header in result.tick_headers)
 
 
 def test_preset_a_min_cut_respects_order():

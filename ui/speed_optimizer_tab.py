@@ -264,8 +264,7 @@ def _render_section_1_details() -> None:
                 _render_unit_detail_table("Effect → Min Rune Speed", result.effect_table)
             if result.tick_atb_table:
                 st.markdown("**Tick ATB Table (Effect 0)**")
-                headers = _parse_preset_headers(result.preset_label)
-                _render_tick_table(result.tick_atb_table, headers)
+                _render_tick_table(result.tick_atb_table, result.tick_headers)
 
 
 def _render_unit_detail_table(
@@ -306,24 +305,27 @@ def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> 
 def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | None) -> None:
     if not raw_table:
         return
-    df = pd.DataFrame(raw_table)
-    act_series = df.get("act")
-    tick_series = df.get("tick")
-    df = df.drop(columns=[col for col in ("act", "note") if col in df.columns])
+    df_raw = pd.DataFrame(raw_table)
+    df_raw = df_raw[df_raw["tick"].between(1, 15)]
+    if df_raw.empty:
+        return
+    act_series = df_raw.get("act")
+    df = df_raw.drop(columns=[col for col in ("act", "note") if col in df_raw.columns])
     name_headers = headers
     if name_headers:
         rename_map = {key: value for key, value in zip(["A1", "A2", "A3", "E"], name_headers)}
         df = df.rename(columns=rename_map)
-    highlight_columns = [col for col in df.columns if col not in {"tick"}]
+    for col in df.columns:
+        if col == "tick":
+            continue
+        df[col] = df[col].map(lambda value: round(value, 1) if isinstance(value, float) else value)
 
     def _highlight_actor(row: pd.Series) -> list[str]:
         styles = [""] * len(row)
-        if act_series is None or tick_series is None:
+        if act_series is None:
             return styles
         try:
             idx = row.name
-            if tick_series.iloc[idx] == "base+rune":
-                return styles
             actor = act_series.iloc[idx]
         except Exception:
             return styles
@@ -346,15 +348,6 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
         ]
     )
     st.dataframe(styler, use_container_width=True, hide_index=True)
-
-def _parse_preset_headers(preset_label: str) -> list[str] | None:
-    if not preset_label:
-        return None
-    title = preset_label.split("|")[0].strip()
-    parts = [part.strip() for part in title.split("/") if part.strip()]
-    if len(parts) != 3:
-        return None
-    return [parts[0], parts[1], parts[2], "적"]
 
 
 def _section_columns(input_weights: list[float]) -> tuple[list[st.delta_generator.DeltaGenerator], st.delta_generator.DeltaGenerator, st.delta_generator.DeltaGenerator]:

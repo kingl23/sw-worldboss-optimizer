@@ -44,6 +44,7 @@ class PresetDetailResult:
     effect_table: Optional[DetailTable]
     min_cut_result: Optional[Dict[str, Any]]
     tick_atb_table: Optional[List[Dict[str, Any]]]
+    tick_headers: Optional[List[str]] = None
     tick_atb_table_step1: Optional[List[Dict[str, Any]]] = None
     tick_atb_table_step2: Optional[List[Dict[str, Any]]] = None
     status: Optional[str] = None
@@ -104,6 +105,7 @@ def _build_preset_detail_type_general(
             effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
+            tick_headers=None,
             status="NO VALID SOLUTION",
         )
 
@@ -171,6 +173,7 @@ def _build_preset_detail_type_general(
             effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
+            tick_headers=None,
             status="NO VALID SOLUTION",
         )
 
@@ -282,6 +285,7 @@ def _build_preset_detail_type_general(
             effect_table=effect_table,
             min_cut_result=None,
             tick_atb_table=None,
+            tick_headers=None,
             status=effect_error or "NO VALID SOLUTION",
         )
     overrides_for_formula = dict(prefixed_overrides)
@@ -289,6 +293,7 @@ def _build_preset_detail_type_general(
         "rune_speed": min_speed,
         "speedIncreasingEffect": 0,
     }
+    tick_headers = _build_tick_headers(detail_preset, overrides_for_formula, case_display["name_label_map"])
     return PresetDetailResult(
         preset_name=preset_id,
         preset_label=case_display["preset_label"],
@@ -306,6 +311,7 @@ def _build_preset_detail_type_general(
         effect_table=effect_table,
         min_cut_result=None,
         tick_atb_table=tick_atb_table,
+        tick_headers=tick_headers,
         status="OK",
     )
 
@@ -334,6 +340,7 @@ def _build_preset_detail_type_b(
             effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
+            tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
             status="NO VALID SOLUTION",
@@ -398,6 +405,7 @@ def _build_preset_detail_type_b(
             effect_table=None,
             min_cut_result=None,
             tick_atb_table=None,
+            tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
             status="NO VALID SOLUTION",
@@ -502,6 +510,7 @@ def _build_preset_detail_type_b(
             effect_table=_build_no_solution_table(),
             min_cut_result=None,
             tick_atb_table=None,
+            tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
             status="NO VALID SOLUTION",
@@ -570,6 +579,7 @@ def _build_preset_detail_type_b(
             effect_table=effect_table,
             min_cut_result=None,
             tick_atb_table=None,
+            tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
             status=effect_error or "NO VALID SOLUTION",
@@ -579,6 +589,7 @@ def _build_preset_detail_type_b(
         "rune_speed": min_speed_a3,
         "speedIncreasingEffect": 0,
     }
+    tick_headers = _build_tick_headers(detail_preset, overrides_for_formula, case_display["name_label_map"])
     return PresetDetailResult(
         preset_name=preset_id,
         preset_label=case_display["preset_label"],
@@ -596,6 +607,7 @@ def _build_preset_detail_type_b(
         effect_table=effect_table,
         min_cut_result=None,
         tick_atb_table=tick_atb_table_step2,
+        tick_headers=tick_headers,
         tick_atb_table_step1=None,
         tick_atb_table_step2=None,
         status="OK",
@@ -951,13 +963,7 @@ def _build_tick_atb_table(
     overrides: Dict[str, Dict[str, int]],
     short_label_map: Dict[str, str],
 ) -> List[Dict[str, Any]]:
-    base_rune_row: Dict[str, Any] = {"tick": "base+rune", "act": ""}
     units = {unit.get("key"): unit for unit in detail_preset.get("allies", []) + detail_preset.get("enemies", [])}
-    for key, label in short_label_map.items():
-        unit = units.get(key, {})
-        base_speed = unit.get("base_speed", 0)
-        rune_speed = overrides.get(key, {}).get("rune_speed", unit.get("rune_speed", 0))
-        base_rune_row[label] = f"{base_speed} + {rune_speed}"
     name_map = {unit.get("key"): unit.get("name", unit.get("key")) for unit in units.values()}
     debug_atb_log = simulate_atb_table(
         detail_preset,
@@ -967,7 +973,26 @@ def _build_tick_atb_table(
         atb_labels=short_label_map,
         atb_names=name_map,
     )
-    return [base_rune_row, *_format_atb_log(debug_atb_log, short_label_map)]
+    formatted = _format_atb_log(debug_atb_log, short_label_map)
+    return [row for row in formatted if 1 <= int(row.get("tick", 0)) <= 15]
+
+
+def _build_tick_headers(
+    detail_preset: Dict[str, Any],
+    overrides: Dict[str, Dict[str, int]],
+    name_label_map: Dict[str, str],
+) -> List[str]:
+    units = {unit.get("key"): unit for unit in detail_preset.get("allies", []) + detail_preset.get("enemies", [])}
+    headers = []
+    for key in [*name_label_map.keys()]:
+        unit = units.get(key, {})
+        base_speed = unit.get("base_speed", 0)
+        rune_speed = overrides.get(key, {}).get("rune_speed", unit.get("rune_speed", 0))
+        label = name_label_map.get(key, unit.get("name", key))
+        if unit.get("isAlly") is False:
+            label = "적"
+        headers.append(f"{label} ({base_speed}+{rune_speed})")
+    return headers
 
 
 def _build_final_tick_table_for_a3(
