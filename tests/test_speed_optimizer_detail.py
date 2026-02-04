@@ -1,9 +1,12 @@
-from config.atb_simulator_presets import build_full_preset
+from config.atb_simulator_presets import ATB_MONSTER_LIBRARY, build_full_preset
 from domain.speed_optimizer_detail import (
     RequiredOrder,
     _build_enemy_mirror,
+    _build_detail_preset,
     _build_section1_overrides,
+    _find_minimum_rune_speed,
     _matches_required_order,
+    _resolve_required_order,
     build_section1_detail_cached,
 )
 from domain.atb_simulator_utils import prefix_monsters
@@ -128,6 +131,12 @@ def test_preset_e_uses_dark_harg():
     assert preset["allies"][1]["key"] == "dark_harg"
 
 
+def test_preset_library_rune_speed_adjustments():
+    assert ATB_MONSTER_LIBRARY["water_dancer"]["rune_speed"] == 220
+    assert ATB_MONSTER_LIBRARY["water_ciri"]["rune_speed"] == 220
+    assert ATB_MONSTER_LIBRARY["fire_centa"]["rune_speed"] == 220
+
+
 def test_preset_a_objective_uses_unit_labels():
     result = build_section1_detail_cached("Preset A", 10, 20, None, None, False)
     assert "water_pumpkin" in result.objective
@@ -181,3 +190,39 @@ def test_all_presets_return_with_tick_tables():
         assert [row["tick"] for row in table] == list(range(16))
         assert {"tick", "A1", "A2", "A3", "E", "act"}.issubset(table[0].keys())
         assert "act_speed" not in table[0]
+
+
+def test_preset_a_min_cut_respects_order():
+    preset = build_full_preset("Preset A")
+    allies, _ = prefix_monsters(preset["allies"], prefix="A")
+    enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
+    overrides, _, _ = _build_section1_overrides(
+        "Preset A",
+        allies,
+        enemies,
+        input_1=10,
+        input_2=20,
+        input_3=None,
+        allow_enemy_fallback=True,
+    )
+    enemy_mirror = _build_enemy_mirror("Preset A", allies, overrides, input_3=None)
+    detail_preset, detail_keys = _build_detail_preset(preset, allies, enemy_mirror)
+    required_order = _resolve_required_order("Preset A", detail_keys)
+    assert required_order is not None
+    min_speed = _find_minimum_rune_speed(
+        detail_preset,
+        required_order,
+        overrides,
+        detail_keys["a3"],
+        effect=0,
+        start_speed=150,
+        deadline=None,
+        debug=None,
+    )
+    if min_speed is None:
+        result = build_section1_detail_cached("Preset A", 10, 20, None, None, False)
+        assert result.status == "NO VALID SOLUTION"
+        return
+    overrides[detail_keys["a3"]] = {"rune_speed": min_speed, "speedIncreasingEffect": 0}
+    matched, _, _ = _matches_required_order(detail_preset, overrides, required_order)
+    assert matched is True

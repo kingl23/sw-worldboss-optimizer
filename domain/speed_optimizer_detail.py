@@ -1116,7 +1116,11 @@ def _matches_required_order(
     _, turn_events = simulate_with_turn_log(detail_preset, overrides)
     if required_order.mode == "a2_a3_e":
         actual_order = [event.get("key") for event in turn_events]
-        index_map = {key: idx for idx, key in enumerate(actual_order) if key is not None}
+        index_map: Dict[str, int] = {}
+        for idx, key in enumerate(actual_order):
+            if key is None or key in index_map:
+                continue
+            index_map[key] = idx
         a2, a3, enemy = required_order.order
         if a2 not in index_map or a3 not in index_map or enemy not in index_map:
             return False, actual_order, _trim_turn_events(turn_events, debug)
