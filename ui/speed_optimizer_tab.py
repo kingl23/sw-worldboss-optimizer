@@ -84,6 +84,9 @@ def _render_section_1() -> None:
             parsed_input_3,
             progress_callback=lambda value: progress_bar.progress(value),
         )
+        results = st.session_state.speedopt_sec1_results or []
+        if results:
+            payload["resolved_enemy_rune_speed"] = results[0].enemy_rune_speed_effective
         progress_bar.progress(1.0)
         st.session_state.speedopt_sec1_ran = True
 
@@ -101,6 +104,9 @@ def _render_section_1_details() -> None:
     with st.expander("Details", expanded=bool(st.session_state.get("speedopt_sec1_ran"))):
         if not st.session_state.get("speedopt_sec1_ran"):
             return
+        payload = st.session_state.get("speedopt_sec1_payload") or {}
+        if payload.get("resolved_enemy_rune_speed") is not None:
+            st.caption(f"resolved enemy rune speed: {payload['resolved_enemy_rune_speed']}")
         results = st.session_state.get("speedopt_sec1_results") or []
         if not results:
             st.info("No results yet.")

@@ -3,6 +3,7 @@ from domain.speed_optimizer_detail import (
     RequiredOrder,
     _build_enemy_mirror,
     _build_detail_preset,
+    _resolve_enemy_baseline_rune_speed,
     _build_section1_overrides,
     _find_minimum_rune_speed,
     _matches_required_order,
@@ -190,12 +191,56 @@ def test_input_3_optional_and_enemy_mirror_default_speed():
         input_3=None,
         allow_enemy_fallback=False,
     )
-    assert source == "default"
-    assert effective == 0
-    enemy = _build_enemy_mirror("Preset B", allies, overrides, input_3=None)
-    reference = allies[1]
-    expected_rune_speed = overrides[reference["key"]]["rune_speed"]
-    assert enemy["rune_speed"] == expected_rune_speed
+    assert source == "input_1"
+    assert effective == 10
+    enemy = _build_enemy_mirror("Preset B", allies, overrides, enemy_baseline_rune_speed=effective)
+    assert enemy["rune_speed"] == 10
+
+
+def test_enemy_baseline_resolution_default_and_override():
+    source_default, speed_default = _resolve_enemy_baseline_rune_speed("Preset A", input_1=120, input_3=None)
+    assert source_default == "input_1"
+    assert speed_default == 120
+
+    source_override, speed_override = _resolve_enemy_baseline_rune_speed("Preset A", input_1=120, input_3=95)
+    assert source_override == "input_3"
+    assert speed_override == 95
+
+
+def test_enemy_baseline_direct_assignment_not_additive():
+    preset = build_full_preset("Preset B")
+    allies, _ = prefix_monsters(preset["allies"], prefix="A")
+    enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
+
+    overrides, source, effective = _build_section1_overrides(
+        "Preset B",
+        allies,
+        enemies,
+        input_1=120,
+        input_2=20,
+        input_3=80,
+        allow_enemy_fallback=False,
+    )
+    assert source == "input_3"
+    assert effective == 80
+
+    enemy = _build_enemy_mirror("Preset B", allies, overrides, enemy_baseline_rune_speed=effective)
+    assert enemy["rune_speed"] == 80
+
+
+def test_input_3_lower_than_input_1_does_not_force_no_valid():
+    result_default = build_section1_detail_cached("Preset C", 120, 20, None, None, False)
+    result_lower_enemy = build_section1_detail_cached("Preset C", 120, 20, 80, None, False)
+
+    assert result_default.status == result_lower_enemy.status
+    assert result_lower_enemy.enemy_rune_speed_source == "input_3"
+    assert result_lower_enemy.enemy_rune_speed_effective == 80
+
+
+def test_input_3_higher_than_input_1_uses_override_baseline():
+    result_higher_enemy = build_section1_detail_cached("Preset C", 120, 20, 170, None, False)
+    assert result_higher_enemy.enemy_rune_speed_source == "input_3"
+    assert result_higher_enemy.enemy_rune_speed_effective == 170
 
 
 def test_preset_e_uses_dark_harg():
@@ -289,7 +334,7 @@ def test_preset_a_min_cut_respects_order():
         input_3=None,
         allow_enemy_fallback=True,
     )
-    enemy_mirror = _build_enemy_mirror("Preset A", allies, overrides, input_3=None)
+    enemy_mirror = _build_enemy_mirror("Preset A", allies, overrides, enemy_baseline_rune_speed=10)
     detail_preset, detail_keys = _build_detail_preset(preset, allies, enemy_mirror)
     required_order = _resolve_required_order("Preset A", detail_keys)
     assert required_order is not None

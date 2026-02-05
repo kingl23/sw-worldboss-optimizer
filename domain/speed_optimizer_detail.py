@@ -20,6 +20,18 @@ MAX_EFFECT = 60
 DEFAULT_INPUT_3 = 0
 
 
+def _resolve_enemy_baseline_rune_speed(
+    preset_id: str,
+    input_1: Optional[int],
+    input_3: Optional[int],
+) -> Tuple[str, int]:
+    if input_3 is not None:
+        return "input_3", input_3
+    if input_1 is not None:
+        return "input_1", input_1
+    return "default", DEFAULT_INPUT_3
+
+
 @dataclass
 class DetailTable:
     ranges: List[Dict[str, str]]
@@ -49,6 +61,8 @@ class PresetDetailResult:
     tick_headers: Optional[List[str]] = None
     tick_atb_table_step1: Optional[List[Dict[str, Any]]] = None
     tick_atb_table_step2: Optional[List[Dict[str, Any]]] = None
+    enemy_rune_speed_source: Optional[str] = None
+    enemy_rune_speed_effective: Optional[int] = None
     status: Optional[str] = None
 
 
@@ -109,6 +123,8 @@ def _build_preset_detail_type_general(
             unit_name_map=None,
             tick_atb_table=None,
             tick_headers=None,
+            enemy_rune_speed_source=None,
+            enemy_rune_speed_effective=None,
             status="NO VALID SOLUTION",
         )
 
@@ -155,7 +171,7 @@ def _build_preset_detail_type_general(
         preset_id,
         prefixed_allies,
         prefixed_overrides,
-        input_3,
+        enemy_speed_effective,
     )
     detail_preset, detail_keys = _build_detail_preset(
         preset,
@@ -178,6 +194,8 @@ def _build_preset_detail_type_general(
             unit_name_map=None,
             tick_atb_table=None,
             tick_headers=None,
+            enemy_rune_speed_source=None,
+            enemy_rune_speed_effective=None,
             status="NO VALID SOLUTION",
         )
 
@@ -291,6 +309,8 @@ def _build_preset_detail_type_general(
             unit_name_map=case_display["name_label_map"],
             tick_atb_table=None,
             tick_headers=None,
+            enemy_rune_speed_source=enemy_speed_source,
+            enemy_rune_speed_effective=enemy_speed_effective,
             status=effect_error or "NO VALID SOLUTION",
         )
     overrides_for_formula = dict(prefixed_overrides)
@@ -318,6 +338,8 @@ def _build_preset_detail_type_general(
         unit_name_map=case_display["name_label_map"],
         tick_atb_table=tick_atb_table,
         tick_headers=tick_headers,
+        enemy_rune_speed_source=enemy_speed_source,
+        enemy_rune_speed_effective=enemy_speed_effective,
         status="OK",
     )
 
@@ -350,6 +372,8 @@ def _build_preset_detail_type_b(
             tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
+            enemy_rune_speed_source=None,
+            enemy_rune_speed_effective=None,
             status="NO VALID SOLUTION",
         )
 
@@ -391,7 +415,7 @@ def _build_preset_detail_type_b(
         preset_id,
         prefixed_allies,
         prefixed_overrides,
-        input_3,
+        enemy_speed_effective,
     )
     detail_preset, detail_keys = _build_detail_preset(
         preset,
@@ -416,6 +440,8 @@ def _build_preset_detail_type_b(
             tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
+            enemy_rune_speed_source=None,
+            enemy_rune_speed_effective=None,
             status="NO VALID SOLUTION",
         )
 
@@ -522,6 +548,8 @@ def _build_preset_detail_type_b(
             tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
+            enemy_rune_speed_source=None,
+            enemy_rune_speed_effective=None,
             status="NO VALID SOLUTION",
         )
 
@@ -600,6 +628,8 @@ def _build_preset_detail_type_b(
             tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
+            enemy_rune_speed_source=enemy_speed_source,
+            enemy_rune_speed_effective=enemy_speed_effective,
             status=effect_error or "NO VALID SOLUTION",
         )
     overrides_for_formula = dict(fixed_overrides)
@@ -630,6 +660,8 @@ def _build_preset_detail_type_b(
         tick_headers=tick_headers,
         tick_atb_table_step1=None,
         tick_atb_table_step2=None,
+        enemy_rune_speed_source=enemy_speed_source,
+        enemy_rune_speed_effective=enemy_speed_effective,
         status="OK",
     )
 
@@ -673,8 +705,11 @@ def _build_section1_overrides(
         if a1_key:
             overrides[a1_key] = {"rune_speed": input_1 - 2}
 
-    resolved_enemy_speed = input_3 if input_3 is not None else DEFAULT_INPUT_3
-    enemy_speed_source = "input_3" if input_3 is not None else "default"
+    enemy_speed_source, resolved_enemy_speed = _resolve_enemy_baseline_rune_speed(
+        preset_id,
+        input_1,
+        input_3,
+    )
 
     return overrides, enemy_speed_source, resolved_enemy_speed
 
@@ -725,7 +760,7 @@ def _build_enemy_mirror(
     preset_id: str,
     prefixed_allies: List[Dict[str, Any]],
     overrides: Dict[str, Dict[str, int]],
-    input_3: Optional[int],
+    enemy_baseline_rune_speed: int,
 ) -> Dict[str, Any]:
     reference_index = 1 if preset_id in {"Preset A", "Preset B", "Preset C", "Preset D", "Preset E"} else 0
     reference = prefixed_allies[reference_index]
@@ -737,7 +772,7 @@ def _build_enemy_mirror(
     mirror["key"] = "E_MIRROR"
     mirror["name"] = f"E_{reference.get('name', 'mirror')}"
     mirror["isAlly"] = False
-    mirror["rune_speed"] = reference_rune_speed + (input_3 or DEFAULT_INPUT_3)
+    mirror["rune_speed"] = enemy_baseline_rune_speed
     mirror["isSwift"] = False
     return mirror
 
