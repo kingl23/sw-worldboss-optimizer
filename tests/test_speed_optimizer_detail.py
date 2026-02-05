@@ -191,20 +191,20 @@ def test_input_3_optional_and_enemy_mirror_default_speed():
         input_3=None,
         allow_enemy_fallback=False,
     )
-    assert source == "input_1"
-    assert effective == 10
+    assert source == "input_2"
+    assert effective == 20
     enemy = _build_enemy_mirror("Preset B", allies, overrides, enemy_baseline_rune_speed=effective)
-    assert enemy["rune_speed"] == 10
+    assert enemy["rune_speed"] == 20
 
 
 def test_enemy_baseline_resolution_default_and_override():
-    source_default, speed_default = _resolve_enemy_baseline_rune_speed("Preset A", input_1=120, input_3=None)
-    assert source_default == "input_1"
-    assert speed_default == 120
+    source_default, speed_default = _resolve_enemy_baseline_rune_speed("Preset A", input_1=120, input_2=95, input_3=None)
+    assert source_default == "input_2"
+    assert speed_default == 95
 
-    source_override, speed_override = _resolve_enemy_baseline_rune_speed("Preset A", input_1=120, input_3=95)
+    source_override, speed_override = _resolve_enemy_baseline_rune_speed("Preset D", input_1=120, input_2=95, input_3=95)
     assert source_override == "input_3"
-    assert speed_override == 95
+    assert speed_override == 94
 
 
 def test_enemy_baseline_direct_assignment_not_additive():
@@ -221,26 +221,54 @@ def test_enemy_baseline_direct_assignment_not_additive():
         input_3=80,
         allow_enemy_fallback=False,
     )
-    assert source == "input_3"
-    assert effective == 80
+    assert source == "input_2"
+    assert effective == 20
 
     enemy = _build_enemy_mirror("Preset B", allies, overrides, enemy_baseline_rune_speed=effective)
-    assert enemy["rune_speed"] == 80
+    assert enemy["rune_speed"] == 20
 
 
 def test_input_3_lower_than_input_1_does_not_force_no_valid():
-    result_default = build_section1_detail_cached("Preset C", 120, 20, None, None, False)
-    result_lower_enemy = build_section1_detail_cached("Preset C", 120, 20, 80, None, False)
+    result_default = build_section1_detail_cached("Preset D", 120, 20, None, None, False)
+    result_lower_enemy = build_section1_detail_cached("Preset D", 120, 20, 80, None, False)
 
     assert result_default.status == result_lower_enemy.status
     assert result_lower_enemy.enemy_rune_speed_source == "input_3"
-    assert result_lower_enemy.enemy_rune_speed_effective == 80
+    assert result_lower_enemy.enemy_rune_speed_effective == 79
 
 
 def test_input_3_higher_than_input_1_uses_override_baseline():
-    result_higher_enemy = build_section1_detail_cached("Preset C", 120, 20, 170, None, False)
+    result_higher_enemy = build_section1_detail_cached("Preset E", 120, 20, 170, None, False)
     assert result_higher_enemy.enemy_rune_speed_source == "input_3"
-    assert result_higher_enemy.enemy_rune_speed_effective == 170
+    assert result_higher_enemy.enemy_rune_speed_effective == 171
+
+
+def test_preset_ab_ignore_input_3_for_enemy_baseline():
+    for preset in ["Preset A", "Preset B"]:
+        result_without_input3 = build_section1_detail_cached(preset, 120, 24, None, None, False)
+        result_with_input3 = build_section1_detail_cached(preset, 120, 24, 999, None, False)
+        assert result_without_input3.enemy_rune_speed_source == "input_2"
+        assert result_with_input3.enemy_rune_speed_source == "input_2"
+        assert result_without_input3.enemy_rune_speed_effective == 24
+        assert result_with_input3.enemy_rune_speed_effective == 24
+
+
+def test_preset_cfg_enemy_baseline_offsets_from_input3_or_input1():
+    checks = [
+        ("Preset C", 120, 20, None, 120),
+        ("Preset D", 120, 20, None, 119),
+        ("Preset E", 120, 20, None, 121),
+        ("Preset F", 120, 20, None, 118),
+        ("Preset G", 120, 20, None, 118),
+        ("Preset C", 120, 20, 90, 90),
+        ("Preset D", 120, 20, 90, 89),
+        ("Preset E", 120, 20, 90, 91),
+        ("Preset F", 120, 20, 90, 88),
+        ("Preset G", 120, 20, 90, 88),
+    ]
+    for preset, input_1, input_2, input_3, expected in checks:
+        result = build_section1_detail_cached(preset, input_1, input_2, input_3, None, False)
+        assert result.enemy_rune_speed_effective == expected
 
 
 def test_effect_table_title_keys_resolve_from_monster_library_names_only():

@@ -23,13 +23,28 @@ DEFAULT_INPUT_3 = 0
 def _resolve_enemy_baseline_rune_speed(
     preset_id: str,
     input_1: Optional[int],
+    input_2: Optional[int],
     input_3: Optional[int],
 ) -> Tuple[str, int]:
-    if input_3 is not None:
-        return "input_3", input_3
-    if input_1 is not None:
-        return "input_1", input_1
-    return "default", DEFAULT_INPUT_3
+    if preset_id in {"Preset A", "Preset B"}:
+        if input_2 is None:
+            raise ValueError("input_2 is required for enemy baseline in preset mapping.")
+        return "input_2", input_2
+
+    source_input = input_3 if input_3 is not None else input_1
+    source = "input_3" if input_3 is not None else "input_1"
+    if source_input is None:
+        source_input = DEFAULT_INPUT_3
+        source = "default"
+
+    offset_map = {
+        "Preset C": 0,
+        "Preset D": -1,
+        "Preset E": 1,
+        "Preset F": -2,
+        "Preset G": -2,
+    }
+    return source, source_input + offset_map.get(preset_id, 0)
 
 
 @dataclass
@@ -375,8 +390,8 @@ def _build_preset_detail_type_b(
             tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
-            enemy_rune_speed_source=None,
-            enemy_rune_speed_effective=None,
+            enemy_rune_speed_source=enemy_speed_source,
+            enemy_rune_speed_effective=enemy_speed_effective,
             status="NO VALID SOLUTION",
         )
 
@@ -443,8 +458,8 @@ def _build_preset_detail_type_b(
             tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
-            enemy_rune_speed_source=None,
-            enemy_rune_speed_effective=None,
+            enemy_rune_speed_source=enemy_speed_source,
+            enemy_rune_speed_effective=enemy_speed_effective,
             status="NO VALID SOLUTION",
         )
 
@@ -552,8 +567,8 @@ def _build_preset_detail_type_b(
             tick_headers=None,
             tick_atb_table_step1=None,
             tick_atb_table_step2=None,
-            enemy_rune_speed_source=None,
-            enemy_rune_speed_effective=None,
+            enemy_rune_speed_source=enemy_speed_source,
+            enemy_rune_speed_effective=enemy_speed_effective,
             status="NO VALID SOLUTION",
         )
 
@@ -714,6 +729,7 @@ def _build_section1_overrides(
     enemy_speed_source, resolved_enemy_speed = _resolve_enemy_baseline_rune_speed(
         preset_id,
         input_1,
+        input_2,
         input_3,
     )
 
