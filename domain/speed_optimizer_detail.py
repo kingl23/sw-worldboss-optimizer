@@ -1262,9 +1262,6 @@ def _format_atb_log(
         speed_buff = entry.get("speed_buff", {})
         if isinstance(speed_buff, dict):
             row["speed_buff"] = {label_map.get(key, key): bool(value) for key, value in speed_buff.items()}
-        ally_target = entry.get("ally_atb_low_target")
-        if ally_target:
-            row["ally_atb_low_target"] = label_map.get(ally_target, ally_target)
         atb_values = entry.get("atb", {})
         for key, label in label_map.items():
             row[label] = atb_values.get(key)

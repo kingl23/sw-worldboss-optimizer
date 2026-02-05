@@ -187,7 +187,7 @@ ATB_MONSTER_LIBRARY = {
         "base_speed": 101,
         "rune_speed": 220,
         "isSwift": False,
-        "speedIncreasingEffect": 0,
+        "speedIncreasingEffect": 22,
     },
     "water_ciri": {
         "key": "water_ciri",
@@ -196,7 +196,7 @@ ATB_MONSTER_LIBRARY = {
         "base_speed": 106,
         "rune_speed": 220,
         "isSwift": False,
-        "speedIncreasingEffect": 0,
+        "speedIncreasingEffect": 22,
     },
     "fire_centa": {
         "key": "fire_centa",
@@ -205,7 +205,7 @@ ATB_MONSTER_LIBRARY = {
         "base_speed": 104,
         "rune_speed": 220,
         "isSwift": False,
-        "speedIncreasingEffect": 0,
+        "speedIncreasingEffect": 44,
     },
     "fire_twin": {
         "key": "fire_twin",

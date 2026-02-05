@@ -41,8 +41,8 @@ def load_monster_names():
 # Streamlit App
 # ============================================================
 
-st.set_page_config(page_title="Summoners War Analyzer", layout="wide")
-st.title("Summoners War Analyzer")
+st.set_page_config(page_title="밤공기좋은날에", layout="wide")
+st.markdown("<h1 style=\"font-size: 2.1rem;\">밤공기좋은날에</h1>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------
 # Sidebar: Access Key Input

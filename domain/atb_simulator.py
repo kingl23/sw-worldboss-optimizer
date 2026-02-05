@@ -363,14 +363,6 @@ def run_tick(
                 if skill.get("applyOnTurn") == monsters[move_index]["turn"] or skill.get("applyOnTurn") == -1
             ]
         skill_targets = get_skill_targets(skills, monsters, move_index)
-        ally_atb_low_target_key = None
-        for skill, targets in zip(skills, skill_targets):
-            if skill.get("target") == "ally_atb_low" and targets:
-                target_index = targets[0]
-                ally_atb_low_target_key = monsters[target_index].get("key")
-                break
-        if ally_atb_low_target_key and atb_log is not None and atb_log:
-            atb_log[-1]["ally_atb_low_target"] = ally_atb_low_target_key
 
         monsters[move_index]["attack_bar"] = 0
 

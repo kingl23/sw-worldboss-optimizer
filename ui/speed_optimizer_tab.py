@@ -332,15 +332,12 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
         return
     act_series = df_raw.get("act")
     speed_buff_series = df_raw.get("speed_buff")
-    ally_target_series = df_raw.get("ally_atb_low_target")
     df = df_raw.drop(columns=[col for col in ("act", "note") if col in df_raw.columns])
     df = df.drop(columns=[col for col in ("speed_buff", "ally_atb_low_target") if col in df.columns])
     name_headers = headers
     if name_headers:
         rename_map = {key: value for key, value in zip(["A1", "A2", "A3", "E"], name_headers)}
         df = df.rename(columns=rename_map)
-        if ally_target_series is not None:
-            ally_target_series = ally_target_series.map(lambda target: rename_map.get(target, target))
         if speed_buff_series is not None:
             def _map_buffs(buffs: Any) -> dict[str, bool]:
                 if not isinstance(buffs, dict):
@@ -348,33 +345,24 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
                 return {rename_map.get(key, key): value for key, value in buffs.items()}
 
             speed_buff_series = speed_buff_series.map(_map_buffs)
-    ally_targets = ally_target_series.tolist() if ally_target_series is not None else []
     for col in df.columns:
         if col == "tick":
             continue
         formatted_values = []
         for idx, value in enumerate(df[col].tolist()):
             formatted = f"{value:.2f}" if isinstance(value, (int, float)) else value
-            if ally_targets and idx < len(ally_targets) and ally_targets[idx] == col and formatted is not None:
-                formatted = f"{formatted} ▼"
+            if speed_buff_series is not None:
+                try:
+                    buff_map = speed_buff_series.iloc[idx]
+                except Exception:
+                    buff_map = {}
+                if isinstance(buff_map, dict) and buff_map.get(col) and formatted is not None:
+                    formatted = f"{formatted} ▲"
             formatted_values.append(formatted)
         df[col] = formatted_values
 
     def _highlight_actor(row: pd.Series) -> list[str]:
         styles = [""] * len(row)
-        buff_map: dict[str, bool] = {}
-        if speed_buff_series is not None:
-            try:
-                buff_map = speed_buff_series.iloc[row.name]
-            except Exception:
-                buff_map = {}
-        if not isinstance(buff_map, dict):
-            buff_map = {}
-        for col_name, is_buffed in buff_map.items():
-            if not is_buffed or col_name not in row.index:
-                continue
-            col_index = row.index.get_loc(col_name)
-            styles[col_index] = "border: 1px solid #c9e2c9;"
         if act_series is None:
             return styles
         try:
