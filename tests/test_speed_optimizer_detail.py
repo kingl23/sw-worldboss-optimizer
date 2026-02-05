@@ -243,6 +243,48 @@ def test_input_3_higher_than_input_1_uses_override_baseline():
     assert result_higher_enemy.enemy_rune_speed_effective == 170
 
 
+def test_effect_table_title_keys_resolve_from_monster_library_names_only():
+    all_results = [
+        build_section1_detail_cached(preset_id, 10, 20, None, None, False)
+        for preset_id in [
+            "Preset A",
+            "Preset B",
+            "Preset C",
+            "Preset D",
+            "Preset E",
+            "Preset F",
+            "Preset G",
+        ]
+    ]
+
+    for result in all_results:
+        keys = result.effect_title_keys or {}
+        target_key = keys.get("target")
+        assert target_key is not None
+        target_base_key = target_key.split("|", 1)[-1]
+        target_name = ATB_MONSTER_LIBRARY[target_base_key]["name"]
+        assert "A1" not in target_name
+        assert "A2" not in target_name
+        assert "A3" not in target_name
+
+        if result.preset_name == "Preset B":
+            step1_key = keys.get("step1")
+            assert step1_key is not None
+            step1_base_key = step1_key.split("|", 1)[-1]
+            step1_name = ATB_MONSTER_LIBRARY[step1_base_key]["name"]
+            assert "A1" not in step1_name
+            assert "A2" not in step1_name
+            assert "A3" not in step1_name
+
+
+def test_ui_effect_table_title_helper_uses_library_name_or_unknown():
+    from ui.speed_optimizer_tab import _effect_table_title_from_monster_key
+
+    assert _effect_table_title_from_monster_key("A|light_warewolf") == ATB_MONSTER_LIBRARY["light_warewolf"]["name"]
+    assert _effect_table_title_from_monster_key("unknown_key") == "UNKNOWN"
+    assert _effect_table_title_from_monster_key(None) == "UNKNOWN"
+
+
 def test_preset_e_uses_dark_harg():
     preset = build_full_preset("Preset E")
     assert preset["allies"][1]["key"] == "dark_harg"

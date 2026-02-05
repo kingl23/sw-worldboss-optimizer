@@ -57,6 +57,7 @@ class PresetDetailResult:
     effect_table_step1: Optional[DetailTable] = None
     min_cut_result: Optional[Dict[str, Any]] = None
     unit_name_map: Optional[Dict[str, str]] = None
+    effect_title_keys: Optional[Dict[str, str]] = None
     tick_atb_table: Optional[List[Dict[str, Any]]] = None
     tick_headers: Optional[List[str]] = None
     tick_atb_table_step1: Optional[List[Dict[str, Any]]] = None
@@ -307,6 +308,7 @@ def _build_preset_detail_type_general(
             effect_table=effect_table,
             min_cut_result=None,
             unit_name_map=case_display["name_label_map"],
+            effect_title_keys={"target": detail_keys["a3"]},
             tick_atb_table=None,
             tick_headers=None,
             enemy_rune_speed_source=enemy_speed_source,
@@ -336,6 +338,7 @@ def _build_preset_detail_type_general(
         effect_table=effect_table,
         min_cut_result=None,
         unit_name_map=case_display["name_label_map"],
+        effect_title_keys={"target": detail_keys["a3"]},
         tick_atb_table=tick_atb_table,
         tick_headers=tick_headers,
         enemy_rune_speed_source=enemy_speed_source,
@@ -544,6 +547,7 @@ def _build_preset_detail_type_b(
             effect_table=_build_no_solution_table(),
             min_cut_result=None,
             unit_name_map=case_display["name_label_map"],
+            effect_title_keys={"step1": detail_keys["a1"], "target": detail_keys["a3"]},
             tick_atb_table=None,
             tick_headers=None,
             tick_atb_table_step1=None,
@@ -624,6 +628,7 @@ def _build_preset_detail_type_b(
             effect_table=effect_table,
             min_cut_result=None,
             unit_name_map=case_display["name_label_map"],
+            effect_title_keys={"step1": detail_keys["a1"], "target": detail_keys["a3"]},
             tick_atb_table=None,
             tick_headers=None,
             tick_atb_table_step1=None,
@@ -656,6 +661,7 @@ def _build_preset_detail_type_b(
         effect_table_step1=effect_table_step1,
         min_cut_result=None,
         unit_name_map=case_display["name_label_map"],
+        effect_title_keys={"step1": detail_keys["a1"], "target": detail_keys["a3"]},
         tick_atb_table=tick_atb_table_step2,
         tick_headers=tick_headers,
         tick_atb_table_step1=None,

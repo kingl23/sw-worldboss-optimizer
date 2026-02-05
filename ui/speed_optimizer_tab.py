@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional
 import streamlit as st
 import pandas as pd
 
-from config.atb_simulator_presets import ATB_SIMULATOR_PRESETS
+from config.atb_simulator_presets import ATB_MONSTER_LIBRARY, ATB_SIMULATOR_PRESETS
 from domain.speed_optimizer_detail import (
     PresetDetailResult,
     build_section1_detail_cached,
@@ -100,6 +100,18 @@ def _render_progress_bar(container: st.delta_generator.DeltaGenerator) -> st.del
     return progress_row[0].progress(0)
 
 
+
+
+def _effect_table_title_from_monster_key(monster_key: Optional[str]) -> str:
+    if not monster_key:
+        return "UNKNOWN"
+    base_key = monster_key.split("|", 1)[-1]
+    monster = ATB_MONSTER_LIBRARY.get(base_key)
+    if not isinstance(monster, dict):
+        return "UNKNOWN"
+    name = monster.get("name")
+    return name if isinstance(name, str) and name else "UNKNOWN"
+
 def _render_section_1_details() -> None:
     with st.expander("Details", expanded=bool(st.session_state.get("speedopt_sec1_ran"))):
         if not st.session_state.get("speedopt_sec1_ran"):
@@ -114,17 +126,23 @@ def _render_section_1_details() -> None:
         for index, result in enumerate(results):
             st.markdown(f"#### {result.preset_label}")
             if result.preset_name == "Preset B":
-                unit_names = result.unit_name_map or {}
-                a1_name = unit_names.get("a1", "A1")
-                a3_name = unit_names.get("a3", "A3")
+                title_keys = result.effect_title_keys or {}
                 if result.effect_table_step1:
-                    _render_unit_detail_table(a1_name, result.effect_table_step1)
+                    _render_unit_detail_table(
+                        _effect_table_title_from_monster_key(title_keys.get("step1")),
+                        result.effect_table_step1,
+                    )
                 if result.effect_table:
-                    _render_unit_detail_table(a3_name, result.effect_table)
+                    _render_unit_detail_table(
+                        _effect_table_title_from_monster_key(title_keys.get("target")),
+                        result.effect_table,
+                    )
             elif result.effect_table:
-                unit_names = result.unit_name_map or {}
-                target_name = unit_names.get("a3", "A3")
-                _render_unit_detail_table(target_name, result.effect_table)
+                title_keys = result.effect_title_keys or {}
+                _render_unit_detail_table(
+                    _effect_table_title_from_monster_key(title_keys.get("target")),
+                    result.effect_table,
+                )
             if result.tick_atb_table:
                 st.markdown("**Tick ATB Table (Effect 0)**")
                 _render_tick_table(result.tick_atb_table, result.tick_headers)
