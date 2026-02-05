@@ -44,6 +44,9 @@ class PresetDetailResult:
     effect_table: Optional[DetailTable]
     min_cut_result: Optional[Dict[str, Any]]
     tick_atb_table: Optional[List[Dict[str, Any]]]
+    effect_table_title: Optional[str] = None
+    effect_table_step1: Optional[DetailTable] = None
+    effect_table_title_step1: Optional[str] = None
     tick_headers: Optional[List[str]] = None
     tick_atb_table_step1: Optional[List[Dict[str, Any]]] = None
     tick_atb_table_step2: Optional[List[Dict[str, Any]]] = None
@@ -259,6 +262,7 @@ def _build_preset_detail_type_general(
         required_order,
         case_display["name_label_map"],
     )
+    effect_table_title = f"{case_display['name_label_map'].get(detail_keys['a3'], detail_keys['a3'])} Effect–Speed Table"
     formula_notes = _build_formula_notes()
     if min_speed is None:
         no_solution_diagnostic = _build_no_solution_diagnostic(
@@ -283,6 +287,7 @@ def _build_preset_detail_type_general(
             ),
             no_solution_diagnostic=no_solution_diagnostic,
             effect_table=effect_table,
+            effect_table_title=effect_table_title,
             min_cut_result=None,
             tick_atb_table=None,
             tick_headers=None,
@@ -309,6 +314,7 @@ def _build_preset_detail_type_general(
         ),
         no_solution_diagnostic=None,
         effect_table=effect_table,
+        effect_table_title=effect_table_title,
         min_cut_result=None,
         tick_atb_table=tick_atb_table,
         tick_headers=tick_headers,
@@ -485,6 +491,10 @@ def _build_preset_detail_type_b(
         required_order,
         case_display["name_label_map"],
     )
+    effect_table_title_step1 = (
+        f"{case_display['name_label_map'].get(detail_keys['a1'], detail_keys['a1'])} Effect–Speed Table"
+    )
+    effect_table_title = f"{case_display['name_label_map'].get(detail_keys['a3'], detail_keys['a3'])} Effect–Speed Table"
     formula_notes = _build_formula_notes()
     if a1_min0 is None:
         return PresetDetailResult(
@@ -508,6 +518,7 @@ def _build_preset_detail_type_b(
                 case_display,
             ),
             effect_table=_build_no_solution_table(),
+            effect_table_title=effect_table_title,
             min_cut_result=None,
             tick_atb_table=None,
             tick_headers=None,
@@ -516,6 +527,14 @@ def _build_preset_detail_type_b(
             status="NO VALID SOLUTION",
         )
 
+    effect_table_step1, _ = _build_unit_detail_table(
+        detail_preset,
+        required_order_a1,
+        prefixed_overrides,
+        detail_keys["a1"],
+        deadline,
+        debug_payload,
+    )
     step1_overrides = dict(prefixed_overrides)
     step1_overrides[detail_keys["a1"]] = {
         "rune_speed": a1_min0,
@@ -577,6 +596,9 @@ def _build_preset_detail_type_b(
                 case_display,
             ),
             effect_table=effect_table,
+            effect_table_title=effect_table_title,
+            effect_table_step1=effect_table_step1,
+            effect_table_title_step1=effect_table_title_step1,
             min_cut_result=None,
             tick_atb_table=None,
             tick_headers=None,
@@ -605,6 +627,9 @@ def _build_preset_detail_type_b(
         ),
         no_solution_diagnostic=None,
         effect_table=effect_table,
+        effect_table_title=effect_table_title,
+        effect_table_step1=effect_table_step1,
+        effect_table_title_step1=effect_table_title_step1,
         min_cut_result=None,
         tick_atb_table=tick_atb_table_step2,
         tick_headers=tick_headers,
@@ -909,9 +934,11 @@ def _format_required_order_display(
 ) -> str:
     if preset_id == "Preset A":
         a2, a3, enemy = required_order.order
+        unconstrained_keys = [key for key in label_map.keys() if key not in required_order.order]
+        unconstrained_label = label_map.get(unconstrained_keys[0], "Ally") if unconstrained_keys else "Ally"
         return (
             f"{label_map.get(a2, a2)} → {label_map.get(a3, a3)} → "
-            f"{label_map.get(enemy, enemy)} (A1 unconstrained)"
+            f"{label_map.get(enemy, enemy)} ({unconstrained_label} unconstrained)"
         )
     return " → ".join(label_map.get(key, key) for key in required_order.order)
 
@@ -974,7 +1001,7 @@ def _build_tick_atb_table(
         atb_names=name_map,
     )
     formatted = _format_atb_log(debug_atb_log, short_label_map)
-    return [row for row in formatted if 1 <= int(row.get("tick", 0)) <= 15]
+    return [row for row in formatted if 0 <= int(row.get("tick", 0)) <= 15]
 
 
 def _build_tick_headers(
@@ -1232,6 +1259,13 @@ def _format_atb_log(
         atb_values = entry.get("atb", {})
         for key, label in label_map.items():
             row[label] = atb_values.get(key)
+        speed_buff_keys = entry.get("speed_buff_keys") or []
+        if speed_buff_keys:
+            row["speed_buff_labels"] = [label_map.get(key, key) for key in speed_buff_keys]
+        ally_atb_low_target = entry.get("ally_atb_low_target")
+        if ally_atb_low_target:
+            row["ally_atb_low_target"] = label_map.get(ally_atb_low_target, ally_atb_low_target)
+            row["ally_atb_low_target_name"] = entry.get("ally_atb_low_target_name")
         formatted.append(row)
     return formatted
 

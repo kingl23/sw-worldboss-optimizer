@@ -323,6 +323,21 @@ def run_tick(
         monster["tookTurn"] = False
 
     move_index = get_monster_that_moves(monsters)
+    actor_key = monsters[move_index].get("key") if move_index is not None else None
+    actor_label = atb_log_labels.get(actor_key) if atb_log_labels and actor_key else None
+    actual_monster = find_base_monster(simulator, monsters[move_index]) if move_index is not None else None
+    skills = []
+    if actual_monster:
+        skills = [
+            skill for skill in actual_monster.get("skills", [])
+            if skill.get("applyOnTurn") == monsters[move_index]["turn"] or skill.get("applyOnTurn") == -1
+        ]
+    skill_targets = get_skill_targets(skills, monsters, move_index) if move_index is not None else []
+    ally_atb_low_target = None
+    for skill, targets in zip(skills, skill_targets):
+        if skill.get("target") == "ally_atb_low" and targets:
+            ally_atb_low_target = monsters[targets[0]].get("key")
+            break
     if atb_log is not None and atb_log_keys:
         atb_snapshot = {}
         combat_snapshot = {}
@@ -330,14 +345,16 @@ def run_tick(
             monster = next((item for item in monsters if item.get("key") == key), None)
             atb_snapshot[key] = monster.get("attack_bar") if monster else None
             combat_snapshot[key] = monster.get("combat_speed") if monster else None
-        actor_key = monsters[move_index].get("key") if move_index is not None else None
-        actor_label = atb_log_labels.get(actor_key) if atb_log_labels and actor_key else None
+        speed_buff_keys = [monster.get("key") for monster in monsters if monster.get("has_speed_buff")]
         atb_log.append({
             "tick": tick_index,
             "atb": atb_snapshot,
             "v_combat": combat_snapshot,
             "actor_key": actor_key,
             "actor_label": actor_label,
+            "speed_buff_keys": speed_buff_keys,
+            "ally_atb_low_target": ally_atb_low_target,
+            "ally_atb_low_target_name": atb_log_names.get(ally_atb_low_target) if atb_log_names else None,
         })
     if move_index is not None:
         monsters[move_index]["turn"] += 1
@@ -352,15 +369,6 @@ def run_tick(
                 "attack_bar_before_reset": monsters[move_index].get("attack_bar"),
                 "combat_speed": monsters[move_index].get("combat_speed"),
             })
-        actual_monster = find_base_monster(simulator, monsters[move_index])
-        skills = []
-        if actual_monster:
-            skills = [
-                skill for skill in actual_monster.get("skills", [])
-                if skill.get("applyOnTurn") == monsters[move_index]["turn"] or skill.get("applyOnTurn") == -1
-            ]
-        skill_targets = get_skill_targets(skills, monsters, move_index)
-
         monsters[move_index]["attack_bar"] = 0
 
         if monsters[move_index].get("has_speed_buff"):
@@ -487,4 +495,3 @@ def get_skill_targets(
 def find_base_monster(simulator: Dict[str, Any], monster: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     source = simulator["allies"] if monster.get("isAlly") else simulator["enemies"]
     return next((item for item in source if item.get("key") == monster.get("key")), None)
-

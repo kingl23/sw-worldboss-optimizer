@@ -260,8 +260,16 @@ def _render_section_1_details() -> None:
             return
         for result in results:
             st.markdown(f"#### {result.preset_label}")
+            if result.effect_table_step1:
+                _render_unit_detail_table(
+                    result.effect_table_title_step1 or "Effect → Min Rune Speed",
+                    result.effect_table_step1,
+                )
             if result.effect_table:
-                _render_unit_detail_table("Effect → Min Rune Speed", result.effect_table)
+                _render_unit_detail_table(
+                    result.effect_table_title or "Effect → Min Rune Speed",
+                    result.effect_table,
+                )
             if result.tick_atb_table:
                 st.markdown("**Tick ATB Table (Effect 0)**")
                 _render_tick_table(result.tick_atb_table, result.tick_headers)
@@ -310,11 +318,20 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
     enemy_ticks = df_raw.loc[df_raw.get("act") == "E", "tick"]
     first_enemy_tick = int(enemy_ticks.min()) if not enemy_ticks.empty else 15
     end_tick = min(15, first_enemy_tick)
-    df_raw = df_raw[df_raw["tick"].between(1, end_tick)]
+    df_raw = df_raw[df_raw["tick"].between(0, end_tick)]
     if df_raw.empty:
         return
     act_series = df_raw.get("act")
-    df = df_raw.drop(columns=[col for col in ("act", "note") if col in df_raw.columns])
+    speed_buff_series = df_raw.get("speed_buff_labels")
+    ally_atb_low_series = df_raw.get("ally_atb_low_target")
+    ally_atb_low_name_series = df_raw.get("ally_atb_low_target_name")
+    df = df_raw.drop(
+        columns=[
+            col
+            for col in ("act", "note", "speed_buff_labels", "ally_atb_low_target", "ally_atb_low_target_name")
+            if col in df_raw.columns
+        ]
+    )
     name_headers = headers
     if name_headers:
         rename_map = {key: value for key, value in zip(["A1", "A2", "A3", "E"], name_headers)}
@@ -323,6 +340,19 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
         if col == "tick":
             continue
         df[col] = df[col].map(lambda value: f"{value:.2f}" if isinstance(value, (int, float)) else value)
+    df["tick"] = df["tick"].map(lambda value: str(int(value) + 1))
+    if ally_atb_low_series is not None and ally_atb_low_name_series is not None:
+        for idx, target_label in ally_atb_low_series.items():
+            if target_label is None or pd.isna(target_label):
+                continue
+            target_name = ally_atb_low_name_series.get(idx) or target_label
+            df.at[idx, "tick"] = f"{df.at[idx, 'tick']} (ally_atb_low → {target_name})"
+            column = target_label
+            if name_headers:
+                mapping = {"A1": name_headers[0], "A2": name_headers[1], "A3": name_headers[2], "E": name_headers[3]}
+                column = mapping.get(target_label, target_label)
+            if column in df.columns and pd.notna(df.at[idx, column]):
+                df.at[idx, column] = f"{df.at[idx, column]}*"
 
     def _highlight_actor(row: pd.Series) -> list[str]:
         styles = [""] * len(row)
@@ -333,15 +363,39 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
             actor = act_series.iloc[idx]
         except Exception:
             return styles
-        if not actor:
-            return styles
-        column = actor
+        actor_column = None
+        if actor:
+            actor_column = actor
+            if name_headers:
+                mapping = {"A1": name_headers[0], "A2": name_headers[1], "A3": name_headers[2], "E": name_headers[3]}
+                actor_column = mapping.get(actor, actor)
+        speed_buffs = []
+        if speed_buff_series is not None:
+            try:
+                raw_buffs = speed_buff_series.iloc[idx]
+            except Exception:
+                raw_buffs = None
+            if isinstance(raw_buffs, list):
+                speed_buffs = raw_buffs
         if name_headers:
-            mapping = {"A1": name_headers[0], "A2": name_headers[1], "A3": name_headers[2], "E": name_headers[3]}
-            column = mapping.get(actor, actor)
-        if column in row.index:
-            col_index = row.index.get_loc(column)
-            styles[col_index] = "background-color: #fff2cc; color: #333333"
+            speed_buffs = [
+                {"A1": name_headers[0], "A2": name_headers[1], "A3": name_headers[2], "E": name_headers[3]}.get(
+                    buff,
+                    buff,
+                )
+                for buff in speed_buffs
+            ]
+        for index, column in enumerate(row.index):
+            if column == "tick":
+                continue
+            style_parts = []
+            if column in speed_buffs:
+                style_parts.append("box-shadow: inset 0 0 0 1px #9fc5e8")
+            if actor_column and column == actor_column:
+                style_parts.append("background-color: #fff2cc")
+                style_parts.append("color: #333333")
+            if style_parts:
+                styles[index] = "; ".join(style_parts)
         return styles
 
     styler = df.style.apply(_highlight_actor, axis=1)
