@@ -11,14 +11,6 @@ from domain.speed_optimizer_detail import (
     build_section1_detail_cached,
 )
 
-DROPDOWN_OPTIONS = [19, 21, 24, 28, 33]
-PRESET_VALUES = {
-    "Manual": None,
-    "Preset A": {"v2": 19, "v3": 100, "v4": 190},
-    "Preset B": {"v2": 24, "v3": 102, "v4": 190},
-    "Preset C": {"v2": 33, "v3": 106, "v4": 190},
-}
-
 
 def render_speed_optimizer_tab(state: Dict[str, Any], monster_names: Dict[int, str]) -> None:
     _initialize_speedopt_state()
@@ -26,10 +18,6 @@ def render_speed_optimizer_tab(state: Dict[str, Any], monster_names: Dict[int, s
     st.subheader("Speed Optimizer")
 
     _render_section_1()
-    st.divider()
-    _render_section_2()
-    st.divider()
-    _render_section_3()
 
 
 def _initialize_speedopt_state() -> None:
@@ -39,23 +27,9 @@ def _initialize_speedopt_state() -> None:
         "speedopt_sec1_results": None,
         "speedopt_sec1_cache": {},
         "speedopt_sec1_max_runtime_s": 10.0,
-        "speedopt_sec2_ran": False,
-        "speedopt_sec2_payload": None,
-        "speedopt_sec3_ran": False,
-        "speedopt_sec3_payload": None,
         "speedopt_sec1_in1": "",
         "speedopt_sec1_in2": "",
         "speedopt_sec1_in3": "",
-        "speedopt_sec2_in1": "",
-        "speedopt_sec2_in2": "",
-        "speedopt_sec2_in3": None,
-        "speedopt_sec2_in4": 0,
-        "speedopt_sec2_in5": 0,
-        "speedopt_sec3_preset": "Manual",
-        "speedopt_sec3_prev_preset": "Manual",
-        "speedopt_sec3_in2": None,
-        "speedopt_sec3_in3": 0,
-        "speedopt_sec3_in4": 0,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -64,15 +38,18 @@ def _initialize_speedopt_state() -> None:
 
 def _render_section_1() -> None:
     st.markdown("### Section 1")
-    _render_control_labels([1, 1, 1], ["Input 1", "Input 2", "Input 3"])
+    _render_control_labels(
+        [1, 1, 1],
+        ["최신속 (빛늑 기준)", "신의 (물호박 기준)", "적 최신속 (빛늑 기준)"],
+    )
     with st.form("speedopt_sec1_form", clear_on_submit=False):
         input_cols, spacer_col, run_col = _section_columns([1, 1, 1])
         with input_cols[0]:
-            st.text_input("Input 1", key="speedopt_sec1_in1", label_visibility="collapsed")
+            st.text_input("최신속 (빛늑 기준)", key="speedopt_sec1_in1", label_visibility="collapsed")
         with input_cols[1]:
-            st.text_input("Input 2", key="speedopt_sec1_in2", label_visibility="collapsed")
+            st.text_input("신의 (물호박 기준)", key="speedopt_sec1_in2", label_visibility="collapsed")
         with input_cols[2]:
-            st.text_input("Input 3", key="speedopt_sec1_in3", label_visibility="collapsed")
+            st.text_input("적 최신속 (빛늑 기준)", key="speedopt_sec1_in3", label_visibility="collapsed")
         with spacer_col:
             st.empty()
         with run_col:
@@ -84,9 +61,9 @@ def _render_section_1() -> None:
         input_1 = st.session_state.speedopt_sec1_in1
         input_2 = st.session_state.speedopt_sec1_in2
         input_3 = st.session_state.speedopt_sec1_in3
-        parsed_input_1 = _parse_optional_int(input_1, label="Input 1")
-        parsed_input_2 = _parse_optional_int(input_2, label="Input 2")
-        parsed_input_3 = _parse_optional_int(input_3, label="Input 3")
+        parsed_input_1 = _parse_optional_int(input_1, label="최신속 (빛늑 기준)")
+        parsed_input_2 = _parse_optional_int(input_2, label="신의 (물호박 기준)")
+        parsed_input_3 = _parse_optional_int(input_3, label="적 최신속 (빛늑 기준)")
         if parsed_input_1 is None and input_1.strip():
             st.stop()
         if parsed_input_2 is None and input_2.strip():
@@ -114,140 +91,10 @@ def _render_section_1() -> None:
 
 
 
-def _render_section_2() -> None:
-    st.markdown("### Section 2")
-    _render_control_labels(
-        [1, 1, 1, 1, 1],
-        ["Input 1", "Input 2", "Input 3", "Input 4", "Input 5"],
-    )
-    with st.form("speedopt_sec2_form", clear_on_submit=False):
-        input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1, 1])
-        with input_cols[0]:
-            st.text_input("Input 1", key="speedopt_sec2_in1", label_visibility="collapsed")
-        with input_cols[1]:
-            st.text_input("Input 2", key="speedopt_sec2_in2", label_visibility="collapsed")
-        with input_cols[2]:
-            st.selectbox(
-                "Input 3",
-                options=DROPDOWN_OPTIONS,
-                key="speedopt_sec2_in3",
-                index=_resolve_dropdown_index("speedopt_sec2_in3"),
-                placeholder="Select value",
-                label_visibility="collapsed",
-            )
-        with input_cols[3]:
-            st.number_input("Input 4", key="speedopt_sec2_in4", step=1, label_visibility="collapsed")
-        with input_cols[4]:
-            st.number_input("Input 5", key="speedopt_sec2_in5", step=1, label_visibility="collapsed")
-        with spacer_col:
-            st.empty()
-        with run_col:
-            run_clicked = st.form_submit_button("Run", key="speedopt_sec2_run")
-
-    if run_clicked:
-        payload = {
-            "input_1": st.session_state.speedopt_sec2_in1,
-            "input_2": st.session_state.speedopt_sec2_in2,
-            "input_3": st.session_state.speedopt_sec2_in3,
-            "input_4": st.session_state.speedopt_sec2_in4,
-            "input_5": st.session_state.speedopt_sec2_in5,
-        }
-        st.session_state.speedopt_sec2_payload = payload
-        st.session_state.speedopt_sec2_ran = True
-
-    _render_details("speedopt_sec2")
-
-
-def _render_section_3() -> None:
-    st.markdown("### Section 3")
-    _render_control_labels([1, 1, 1, 1], ["Preset", "Input 2", "Input 3", "Input 4"])
-    _apply_preset_if_changed()
-    with st.form("speedopt_sec3_form", clear_on_submit=False):
-        input_cols, spacer_col, run_col = _section_columns([1, 1, 1, 1])
-        with input_cols[0]:
-            st.selectbox(
-                "Preset",
-                options=list(PRESET_VALUES.keys()),
-                key="speedopt_sec3_preset",
-                label_visibility="collapsed",
-            )
-        with input_cols[1]:
-            st.selectbox(
-                "Input 2",
-                options=DROPDOWN_OPTIONS,
-                key="speedopt_sec3_in2",
-                index=_resolve_dropdown_index("speedopt_sec3_in2"),
-                placeholder="Select value",
-                label_visibility="collapsed",
-            )
-        with input_cols[2]:
-            st.number_input("Input 3", key="speedopt_sec3_in3", step=1, label_visibility="collapsed")
-        with input_cols[3]:
-            st.number_input("Input 4", key="speedopt_sec3_in4", step=1, label_visibility="collapsed")
-        with spacer_col:
-            st.empty()
-        with run_col:
-            run_clicked = st.form_submit_button("Run", key="speedopt_sec3_run")
-
-    if run_clicked:
-        payload = {
-            "preset": st.session_state.speedopt_sec3_preset,
-            "input_2": st.session_state.speedopt_sec3_in2,
-            "input_3": st.session_state.speedopt_sec3_in3,
-            "input_4": st.session_state.speedopt_sec3_in4,
-        }
-        st.session_state.speedopt_sec3_payload = payload
-        st.session_state.speedopt_sec3_ran = True
-
-    _render_details("speedopt_sec3")
-
-
-def _apply_preset_values() -> None:
-    preset_key = st.session_state.speedopt_sec3_preset
-    preset = PRESET_VALUES.get(preset_key)
-    if not preset:
-        return
-    preset_v2 = preset.get("v2")
-    if preset_v2 in DROPDOWN_OPTIONS:
-        st.session_state.speedopt_sec3_in2 = preset_v2
-    st.session_state.speedopt_sec3_in3 = preset.get("v3", 0)
-    st.session_state.speedopt_sec3_in4 = preset.get("v4", 0)
-
-
-def _apply_preset_if_changed() -> None:
-    current = st.session_state.get("speedopt_sec3_preset")
-    previous = st.session_state.get("speedopt_sec3_prev_preset")
-    if current == previous:
-        return
-    st.session_state.speedopt_sec3_prev_preset = current
-    _apply_preset_values()
-
-
-def _resolve_dropdown_index(state_key: str) -> int | None:
-    current_value = st.session_state.get(state_key)
-    if current_value in DROPDOWN_OPTIONS:
-        return DROPDOWN_OPTIONS.index(current_value)
-    return None
-
-
 def _render_progress_bar(container: st.delta_generator.DeltaGenerator) -> st.delta_generator.DeltaGenerator:
     container.markdown("<div style='height: 6px'></div>", unsafe_allow_html=True)
     progress_row = container.columns([3.5])
     return progress_row[0].progress(0)
-
-
-def _render_details(prefix: str) -> None:
-    ran_key = f"{prefix}_ran"
-    payload_key = f"{prefix}_payload"
-    with st.expander("Details", expanded=bool(st.session_state.get(ran_key))):
-        if not st.session_state.get(ran_key):
-            return
-        payload = st.session_state.get(payload_key) or {}
-        if not payload:
-            st.info("No results yet.")
-            return
-        rows = [{"Field": key, "Value": value} for key, value in payload.items()]
-        st.dataframe(rows, use_container_width=True, hide_index=True, height=180)
 
 
 def _render_section_1_details() -> None:
@@ -275,7 +122,12 @@ def _render_section_1_details() -> None:
                         result.effect_table,
                     )
             elif result.effect_table:
-                _render_unit_detail_table("Effect → Min Rune Speed", result.effect_table)
+                unit_names = result.unit_name_map or {}
+                target_name = unit_names.get("a3", "A3")
+                _render_unit_detail_table(
+                    f"Effect → Min Rune Speed ({target_name})",
+                    result.effect_table,
+                )
             if result.tick_atb_table:
                 st.markdown("**Tick ATB Table (Effect 0)**")
                 _render_tick_table(result.tick_atb_table, result.tick_headers)
