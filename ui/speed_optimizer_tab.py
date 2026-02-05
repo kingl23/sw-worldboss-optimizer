@@ -144,8 +144,9 @@ def _render_section_1_details() -> None:
                     result.effect_table,
                 )
             if result.tick_atb_table:
-                st.markdown("**Tick ATB Table (Effect 0)**")
-                _render_tick_table(result.tick_atb_table, result.tick_headers)
+                with st.expander("틱 테이블 보기", expanded=False):
+                    st.markdown("**Tick ATB Table (Effect 0)**")
+                    _render_tick_table(result.tick_atb_table, result.tick_headers)
             if index < len(results) - 1:
                 st.divider()
 
@@ -170,19 +171,31 @@ def _render_unit_detail_table(
 def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> None:
     if not effect_ranges:
         return
-    split_index = (len(effect_ranges) + 1) // 2
-    parts = [
-        (effect_ranges[:split_index], speeds[:split_index]),
-        (effect_ranges[split_index:], speeds[split_index:]),
-    ]
-    for ranges, values in parts:
-        if not ranges:
-            continue
-        table_df = pd.DataFrame(
-            [["속증", *ranges], ["공속", *values]],
-        )
-        html = table_df.to_html(index=False, header=False, escape=False)
-        st.markdown(html, unsafe_allow_html=True)
+    table_df = pd.DataFrame(
+        [["속증", *effect_ranges], ["공속", *speeds]],
+    )
+    html = table_df.to_html(index=False, header=False, escape=False)
+    st.markdown(
+        """
+        <style>
+        .compact-effect-table table {
+            border-collapse: collapse;
+            table-layout: auto;
+            width: auto;
+            margin: 0;
+        }
+        .compact-effect-table td {
+            font-size: 11px;
+            padding: 2px 4px;
+            white-space: nowrap;
+            line-height: 1.1;
+            text-align: center;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"<div class='compact-effect-table'>{html}</div>", unsafe_allow_html=True)
 
 
 def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | None) -> None:
