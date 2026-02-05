@@ -171,31 +171,19 @@ def _render_unit_detail_table(
 def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> None:
     if not effect_ranges:
         return
-    table_df = pd.DataFrame(
-        [["속증", *effect_ranges], ["공속", *speeds]],
-    )
-    html = table_df.to_html(index=False, header=False, escape=False)
-    st.markdown(
-        """
-        <style>
-        .compact-effect-table table {
-            border-collapse: collapse;
-            table-layout: auto;
-            width: auto;
-            margin: 0;
-        }
-        .compact-effect-table td {
-            font-size: 11px;
-            padding: 2px 4px;
-            white-space: nowrap;
-            line-height: 1.1;
-            text-align: center;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown(f"<div class='compact-effect-table'>{html}</div>", unsafe_allow_html=True)
+    split_index = min(2, len(effect_ranges))
+    parts = [
+        (effect_ranges[:split_index], speeds[:split_index]),
+        (effect_ranges[split_index:], speeds[split_index:]),
+    ]
+    for ranges, values in parts:
+        if not ranges:
+            continue
+        table_df = pd.DataFrame(
+            [["속증", *ranges], ["공속", *values]],
+        )
+        html = table_df.to_html(index=False, header=False, escape=False)
+        st.markdown(html, unsafe_allow_html=True)
 
 
 def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | None) -> None:
