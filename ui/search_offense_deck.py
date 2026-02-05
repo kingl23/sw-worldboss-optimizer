@@ -137,7 +137,16 @@ def _normalize_matchups(df: pd.DataFrame, limit: int) -> pd.DataFrame:
             return 0.0
         return float(w) / float(t) * 100.0
 
-    d["win_rate"] = d.apply(lambda r: _calc_wr(r) if (r.get("win_rate") is None) else float(r.get("win_rate") or 0), axis=1)
+    def _normalized_wr(r):
+        wr = r.get("win_rate")
+        if wr is None or pd.isna(wr):
+            return _calc_wr(r)
+        wr = float(wr or 0)
+        if wr == 0.0 and int(r.get("total", 0) or 0) > 0 and int(r.get("win", 0) or 0) > 0:
+            return _calc_wr(r)
+        return wr
+
+    d["win_rate"] = d.apply(_normalized_wr, axis=1)
 
     d = d.sort_values(["total", "win_rate"], ascending=[False, False]).head(int(limit)).reset_index(drop=True)
     return d
