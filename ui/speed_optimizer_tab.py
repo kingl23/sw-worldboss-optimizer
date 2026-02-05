@@ -112,22 +112,13 @@ def _render_section_1_details() -> None:
                 a1_name = unit_names.get("a1", "A1")
                 a3_name = unit_names.get("a3", "A3")
                 if result.effect_table_step1:
-                    _render_unit_detail_table(
-                        f"Effect → Min Rune Speed ({a1_name})",
-                        result.effect_table_step1,
-                    )
+                    _render_unit_detail_table(a1_name, result.effect_table_step1)
                 if result.effect_table:
-                    _render_unit_detail_table(
-                        f"Effect → Min Rune Speed ({a3_name})",
-                        result.effect_table,
-                    )
+                    _render_unit_detail_table(a3_name, result.effect_table)
             elif result.effect_table:
                 unit_names = result.unit_name_map or {}
                 target_name = unit_names.get("a3", "A3")
-                _render_unit_detail_table(
-                    f"Effect → Min Rune Speed ({target_name})",
-                    result.effect_table,
-                )
+                _render_unit_detail_table(target_name, result.effect_table)
             if result.tick_atb_table:
                 st.markdown("**Tick ATB Table (Effect 0)**")
                 _render_tick_table(result.tick_atb_table, result.tick_headers)
@@ -164,7 +155,7 @@ def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> 
         if not ranges:
             continue
         table_df = pd.DataFrame(
-            [["effect", *ranges], ["speed", *values]],
+            [["속증", *ranges], ["공속", *values]],
         )
         html = table_df.to_html(index=False, header=False, escape=False)
         st.markdown(html, unsafe_allow_html=True)
