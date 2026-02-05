@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, Optional
 
 import streamlit as st
 import pandas as pd
+from html import escape
 
 from config.atb_simulator_presets import ATB_MONSTER_LIBRARY, ATB_SIMULATOR_PRESETS
 from domain.speed_optimizer_detail import (
@@ -171,19 +172,48 @@ def _render_unit_detail_table(
 def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> None:
     if not effect_ranges:
         return
-    split_index = min(2, len(effect_ranges))
-    parts = [
-        (effect_ranges[:split_index], speeds[:split_index]),
-        (effect_ranges[split_index:], speeds[split_index:]),
-    ]
-    for ranges, values in parts:
-        if not ranges:
-            continue
-        table_df = pd.DataFrame(
-            [["속증", *ranges], ["공속", *values]],
+    tiles = []
+    for effect_range, speed in zip(effect_ranges, speeds):
+        tiles.append(
+            f"""
+            <div class='effect-speed-tile'>
+                <div class='effect-speed-label'>속증 {escape(str(effect_range))}</div>
+                <div class='effect-speed-value'>공속 {escape(str(speed))}</div>
+            </div>
+            """
         )
-        html = table_df.to_html(index=False, header=False, escape=False)
-        st.markdown(html, unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <style>
+        .effect-speed-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            width: 100%;
+            margin: 0.25rem 0 0.5rem 0;
+        }
+        .effect-speed-tile {
+            border: 1px solid rgba(120, 120, 120, 0.35);
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(250, 250, 250, 0.9);
+        }
+        .effect-speed-label {
+            padding: 6px 8px;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(120, 120, 120, 0.25);
+            background: rgba(0, 0, 0, 0.03);
+        }
+        .effect-speed-value {
+            padding: 7px 8px;
+            font-weight: 500;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"<div class='effect-speed-grid'>{''.join(tiles)}</div>", unsafe_allow_html=True)
 
 
 def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | None) -> None:
