@@ -326,10 +326,12 @@ def run_tick(
     if atb_log is not None and atb_log_keys:
         atb_snapshot = {}
         combat_snapshot = {}
+        speed_buff_snapshot = {}
         for key in atb_log_keys:
             monster = next((item for item in monsters if item.get("key") == key), None)
             atb_snapshot[key] = monster.get("attack_bar") if monster else None
             combat_snapshot[key] = monster.get("combat_speed") if monster else None
+            speed_buff_snapshot[key] = bool(monster.get("has_speed_buff")) if monster else False
         actor_key = monsters[move_index].get("key") if move_index is not None else None
         actor_label = atb_log_labels.get(actor_key) if atb_log_labels and actor_key else None
         atb_log.append({
@@ -338,6 +340,7 @@ def run_tick(
             "v_combat": combat_snapshot,
             "actor_key": actor_key,
             "actor_label": actor_label,
+            "speed_buff": speed_buff_snapshot,
         })
     if move_index is not None:
         monsters[move_index]["turn"] += 1
@@ -360,6 +363,14 @@ def run_tick(
                 if skill.get("applyOnTurn") == monsters[move_index]["turn"] or skill.get("applyOnTurn") == -1
             ]
         skill_targets = get_skill_targets(skills, monsters, move_index)
+        ally_atb_low_target_key = None
+        for skill, targets in zip(skills, skill_targets):
+            if skill.get("target") == "ally_atb_low" and targets:
+                target_index = targets[0]
+                ally_atb_low_target_key = monsters[target_index].get("key")
+                break
+        if ally_atb_low_target_key and atb_log is not None and atb_log:
+            atb_log[-1]["ally_atb_low_target"] = ally_atb_low_target_key
 
         monsters[move_index]["attack_bar"] = 0
 
@@ -487,4 +498,3 @@ def get_skill_targets(
 def find_base_monster(simulator: Dict[str, Any], monster: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     source = simulator["allies"] if monster.get("isAlly") else simulator["enemies"]
     return next((item for item in source if item.get("key") == monster.get("key")), None)
-

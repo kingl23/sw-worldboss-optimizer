@@ -258,13 +258,29 @@ def _render_section_1_details() -> None:
         if not results:
             st.info("No results yet.")
             return
-        for result in results:
+        for index, result in enumerate(results):
             st.markdown(f"#### {result.preset_label}")
-            if result.effect_table:
+            if result.preset_name == "Preset B":
+                unit_names = result.unit_name_map or {}
+                a1_name = unit_names.get("a1", "A1")
+                a3_name = unit_names.get("a3", "A3")
+                if result.effect_table_step1:
+                    _render_unit_detail_table(
+                        f"Effect → Min Rune Speed ({a1_name})",
+                        result.effect_table_step1,
+                    )
+                if result.effect_table:
+                    _render_unit_detail_table(
+                        f"Effect → Min Rune Speed ({a3_name})",
+                        result.effect_table,
+                    )
+            elif result.effect_table:
                 _render_unit_detail_table("Effect → Min Rune Speed", result.effect_table)
             if result.tick_atb_table:
                 st.markdown("**Tick ATB Table (Effect 0)**")
                 _render_tick_table(result.tick_atb_table, result.tick_headers)
+            if index < len(results) - 1:
+                st.divider()
 
 
 def _render_unit_detail_table(
@@ -310,22 +326,55 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
     enemy_ticks = df_raw.loc[df_raw.get("act") == "E", "tick"]
     first_enemy_tick = int(enemy_ticks.min()) if not enemy_ticks.empty else 15
     end_tick = min(15, first_enemy_tick)
-    df_raw = df_raw[df_raw["tick"].between(1, end_tick)]
+    df_raw = df_raw[df_raw["tick"].between(0, end_tick)]
+    df_raw["tick"] = df_raw["tick"] + 1
     if df_raw.empty:
         return
     act_series = df_raw.get("act")
+    speed_buff_series = df_raw.get("speed_buff")
+    ally_target_series = df_raw.get("ally_atb_low_target")
     df = df_raw.drop(columns=[col for col in ("act", "note") if col in df_raw.columns])
+    df = df.drop(columns=[col for col in ("speed_buff", "ally_atb_low_target") if col in df.columns])
     name_headers = headers
     if name_headers:
         rename_map = {key: value for key, value in zip(["A1", "A2", "A3", "E"], name_headers)}
         df = df.rename(columns=rename_map)
+        if ally_target_series is not None:
+            ally_target_series = ally_target_series.map(lambda target: rename_map.get(target, target))
+        if speed_buff_series is not None:
+            def _map_buffs(buffs: Any) -> dict[str, bool]:
+                if not isinstance(buffs, dict):
+                    return {}
+                return {rename_map.get(key, key): value for key, value in buffs.items()}
+
+            speed_buff_series = speed_buff_series.map(_map_buffs)
+    ally_targets = ally_target_series.tolist() if ally_target_series is not None else []
     for col in df.columns:
         if col == "tick":
             continue
-        df[col] = df[col].map(lambda value: f"{value:.2f}" if isinstance(value, (int, float)) else value)
+        formatted_values = []
+        for idx, value in enumerate(df[col].tolist()):
+            formatted = f"{value:.2f}" if isinstance(value, (int, float)) else value
+            if ally_targets and idx < len(ally_targets) and ally_targets[idx] == col and formatted is not None:
+                formatted = f"{formatted} ▼"
+            formatted_values.append(formatted)
+        df[col] = formatted_values
 
     def _highlight_actor(row: pd.Series) -> list[str]:
         styles = [""] * len(row)
+        buff_map: dict[str, bool] = {}
+        if speed_buff_series is not None:
+            try:
+                buff_map = speed_buff_series.iloc[row.name]
+            except Exception:
+                buff_map = {}
+        if not isinstance(buff_map, dict):
+            buff_map = {}
+        for col_name, is_buffed in buff_map.items():
+            if not is_buffed or col_name not in row.index:
+                continue
+            col_index = row.index.get_loc(col_name)
+            styles[col_index] = "border: 1px solid #c9e2c9;"
         if act_series is None:
             return styles
         try:
@@ -341,7 +390,7 @@ def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | Non
             column = mapping.get(actor, actor)
         if column in row.index:
             col_index = row.index.get_loc(column)
-            styles[col_index] = "background-color: #fff2cc; color: #333333"
+            styles[col_index] = f"{styles[col_index]}background-color: #fff2cc; color: #333333"
         return styles
 
     styler = df.style.apply(_highlight_actor, axis=1)

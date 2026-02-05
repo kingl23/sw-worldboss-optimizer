@@ -42,8 +42,10 @@ class PresetDetailResult:
     formula_table: List[Dict[str, Any]]
     no_solution_diagnostic: Optional[Dict[str, Any]]
     effect_table: Optional[DetailTable]
-    min_cut_result: Optional[Dict[str, Any]]
-    tick_atb_table: Optional[List[Dict[str, Any]]]
+    effect_table_step1: Optional[DetailTable] = None
+    min_cut_result: Optional[Dict[str, Any]] = None
+    unit_name_map: Optional[Dict[str, str]] = None
+    tick_atb_table: Optional[List[Dict[str, Any]]] = None
     tick_headers: Optional[List[str]] = None
     tick_atb_table_step1: Optional[List[Dict[str, Any]]] = None
     tick_atb_table_step2: Optional[List[Dict[str, Any]]] = None
@@ -104,6 +106,7 @@ def _build_preset_detail_type_general(
             no_solution_diagnostic=None,
             effect_table=None,
             min_cut_result=None,
+            unit_name_map=None,
             tick_atb_table=None,
             tick_headers=None,
             status="NO VALID SOLUTION",
@@ -172,6 +175,7 @@ def _build_preset_detail_type_general(
             no_solution_diagnostic=None,
             effect_table=None,
             min_cut_result=None,
+            unit_name_map=None,
             tick_atb_table=None,
             tick_headers=None,
             status="NO VALID SOLUTION",
@@ -284,6 +288,7 @@ def _build_preset_detail_type_general(
             no_solution_diagnostic=no_solution_diagnostic,
             effect_table=effect_table,
             min_cut_result=None,
+            unit_name_map=case_display["name_label_map"],
             tick_atb_table=None,
             tick_headers=None,
             status=effect_error or "NO VALID SOLUTION",
@@ -310,6 +315,7 @@ def _build_preset_detail_type_general(
         no_solution_diagnostic=None,
         effect_table=effect_table,
         min_cut_result=None,
+        unit_name_map=case_display["name_label_map"],
         tick_atb_table=tick_atb_table,
         tick_headers=tick_headers,
         status="OK",
@@ -339,6 +345,7 @@ def _build_preset_detail_type_b(
             no_solution_diagnostic=None,
             effect_table=None,
             min_cut_result=None,
+            unit_name_map=None,
             tick_atb_table=None,
             tick_headers=None,
             tick_atb_table_step1=None,
@@ -404,6 +411,7 @@ def _build_preset_detail_type_b(
             no_solution_diagnostic=None,
             effect_table=None,
             min_cut_result=None,
+            unit_name_map=None,
             tick_atb_table=None,
             tick_headers=None,
             tick_atb_table_step1=None,
@@ -509,6 +517,7 @@ def _build_preset_detail_type_b(
             ),
             effect_table=_build_no_solution_table(),
             min_cut_result=None,
+            unit_name_map=case_display["name_label_map"],
             tick_atb_table=None,
             tick_headers=None,
             tick_atb_table_step1=None,
@@ -528,6 +537,14 @@ def _build_preset_detail_type_b(
         detail_keys,
         required_order,
         fixed_overrides,
+    )
+    effect_table_step1, _ = _build_unit_detail_table(
+        detail_preset,
+        required_order_a1,
+        prefixed_overrides,
+        detail_keys["a1"],
+        deadline,
+        debug_payload,
     )
     effect_table, effect_error = _build_unit_detail_table(
         detail_preset,
@@ -578,6 +595,7 @@ def _build_preset_detail_type_b(
             ),
             effect_table=effect_table,
             min_cut_result=None,
+            unit_name_map=case_display["name_label_map"],
             tick_atb_table=None,
             tick_headers=None,
             tick_atb_table_step1=None,
@@ -605,7 +623,9 @@ def _build_preset_detail_type_b(
         ),
         no_solution_diagnostic=None,
         effect_table=effect_table,
+        effect_table_step1=effect_table_step1,
         min_cut_result=None,
+        unit_name_map=case_display["name_label_map"],
         tick_atb_table=tick_atb_table_step2,
         tick_headers=tick_headers,
         tick_atb_table_step1=None,
@@ -668,7 +688,17 @@ def _resolve_required_order(
         if any(key is None for key in order):
             return None
         return RequiredOrder(mode="a2_a3_e", order=order)
-    if preset_id in {"Preset B", "Preset C", "Preset D", "Preset E"}:
+    if preset_id == "Preset E":
+        order = [
+            detail_keys.get("a2"),
+            detail_keys.get("a3"),
+            detail_keys.get("a1"),
+            detail_keys.get("e_fast"),
+        ]
+        if any(key is None for key in order):
+            return None
+        return RequiredOrder(mode="strict", order=order)
+    if preset_id in {"Preset B", "Preset C", "Preset D"}:
         order = [
             detail_keys.get("a2"),
             detail_keys.get("a1"),
@@ -974,7 +1004,7 @@ def _build_tick_atb_table(
         atb_names=name_map,
     )
     formatted = _format_atb_log(debug_atb_log, short_label_map)
-    return [row for row in formatted if 1 <= int(row.get("tick", 0)) <= 15]
+    return [row for row in formatted if 0 <= int(row.get("tick", 0)) <= 15]
 
 
 def _build_tick_headers(
@@ -1229,6 +1259,12 @@ def _format_atb_log(
             "tick": entry.get("tick"),
             "act": entry.get("actor_label"),
         }
+        speed_buff = entry.get("speed_buff", {})
+        if isinstance(speed_buff, dict):
+            row["speed_buff"] = {label_map.get(key, key): bool(value) for key, value in speed_buff.items()}
+        ally_target = entry.get("ally_atb_low_target")
+        if ally_target:
+            row["ally_atb_low_target"] = label_map.get(ally_target, ally_target)
         atb_values = entry.get("atb", {})
         for key, label in label_map.items():
             row[label] = atb_values.get(key)
