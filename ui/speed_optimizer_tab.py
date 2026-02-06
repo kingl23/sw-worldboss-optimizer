@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 from html import escape
 
@@ -166,54 +167,50 @@ def _render_unit_detail_table(
     speeds = [row.get("Rune Speed") for row in ranges]
     speed_values = [speed for effect_range, speed in zip(effect_ranges, speeds) if effect_range]
     display_ranges = [effect_range for effect_range in effect_ranges if effect_range]
-    _render_wrapped_range_table(display_ranges, speed_values)
+    _render_effect_speed_scroll_row(display_ranges, speed_values)
 
 
-def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> None:
+def _render_effect_speed_scroll_row(effect_ranges: list[str], speeds: list[Any]) -> None:
     if not effect_ranges:
         return
-    tiles = []
+    tiles: list[str] = []
     for effect_range, speed in zip(effect_ranges, speeds):
+        safe_range = escape(str(effect_range))
+        safe_speed = escape(str(speed))
         tiles.append(
-            f"""
-            <div class='effect-speed-tile'>
-                <div class='effect-speed-label'>속증 {escape(str(effect_range))}</div>
-                <div class='effect-speed-value'>공속 {escape(str(speed))}</div>
-            </div>
-            """
+            '<div class="tile">'
+            f'<div class="label">속증 {safe_range}</div>'
+            f'<div class="value">공속 {safe_speed}</div>'
+            '</div>'
         )
 
     html = (
+        '<html><head><meta charset="utf-8" />'
         "<style>"
-        ".effect-speed-container {"
+        "body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }"
+        ".container {"
         "display:flex;"
         "flex-wrap:nowrap;"
         "overflow-x:auto;"
         "gap:8px;"
-        "padding:4px 2px;"
-        "margin:0.25rem 0 0.5rem 0;"
+        "padding:6px 4px;"
+        "align-items:stretch;"
         "}"
-        ".effect-speed-tile {"
-        "border:1px solid #ddd;"
-        "border-radius:8px;"
-        "padding:6px 8px;"
-        "min-width:90px;"
+        ".tile {"
         "flex:0 0 auto;"
-        "background:#fff;"
+        "min-width:92px;"
+        "border:1px solid rgba(0,0,0,0.2);"
+        "border-radius:10px;"
+        "padding:6px 8px;"
+        "background:rgba(255,255,255,0.85);"
         "}"
-        ".effect-speed-label {"
-        "font-size:12px;"
-        "font-weight:600;"
-        "opacity:0.85;"
-        "}"
-        ".effect-speed-value {"
-        "font-size:12px;"
-        "margin-top:2px;"
-        "}"
-        "</style>"
-        f"<div class='effect-speed-container'>{''.join(tiles)}</div>"
+        ".label { font-size:12px; font-weight:600; opacity:0.85; }"
+        ".value { font-size:12px; margin-top:2px; }"
+        "</style></head><body>"
+        f'<div class="container">{''.join(tiles)}</div>'
+        "</body></html>"
     )
-    st.markdown(html, unsafe_allow_html=True)
+    components.html(html, height=90, scrolling=True)
 
 
 def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | None) -> None:
