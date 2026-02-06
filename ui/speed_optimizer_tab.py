@@ -183,36 +183,36 @@ def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> 
             """
         )
 
-    html = f"""
-    <style>
-    .effect-speed-container {{
-        display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        gap: 8px;
-        padding: 4px 2px;
-        margin: 0.25rem 0 0.5rem 0;
-    }}
-    .effect-speed-tile {{
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 6px 8px;
-        min-width: 90px;
-        flex: 0 0 auto;
-        background: #fff;
-    }}
-    .effect-speed-label {{
-        font-size: 12px;
-        font-weight: 600;
-        opacity: 0.85;
-    }}
-    .effect-speed-value {{
-        font-size: 12px;
-        margin-top: 2px;
-    }}
-    </style>
-    <div class='effect-speed-container'>{''.join(tiles)}</div>
-    """
+    html = (
+        "<style>"
+        ".effect-speed-container {"
+        "display:flex;"
+        "flex-wrap:nowrap;"
+        "overflow-x:auto;"
+        "gap:8px;"
+        "padding:4px 2px;"
+        "margin:0.25rem 0 0.5rem 0;"
+        "}"
+        ".effect-speed-tile {"
+        "border:1px solid #ddd;"
+        "border-radius:8px;"
+        "padding:6px 8px;"
+        "min-width:90px;"
+        "flex:0 0 auto;"
+        "background:#fff;"
+        "}"
+        ".effect-speed-label {"
+        "font-size:12px;"
+        "font-weight:600;"
+        "opacity:0.85;"
+        "}"
+        ".effect-speed-value {"
+        "font-size:12px;"
+        "margin-top:2px;"
+        "}"
+        "</style>"
+        f"<div class='effect-speed-container'>{''.join(tiles)}</div>"
+    )
     st.markdown(html, unsafe_allow_html=True)
 
 

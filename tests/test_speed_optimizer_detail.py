@@ -202,12 +202,16 @@ def test_enemy_baseline_resolution_default_and_override():
     assert source_default == "input_2"
     assert speed_default == 95
 
+    source_ab_input3, speed_ab_input3 = _resolve_enemy_baseline_rune_speed("Preset A", input_1=120, input_2=95, input_3=100)
+    assert source_ab_input3 == "input_3"
+    assert speed_ab_input3 == 139
+
     source_override, speed_override = _resolve_enemy_baseline_rune_speed("Preset D", input_1=120, input_2=95, input_3=95)
     assert source_override == "input_3"
     assert speed_override == 94
 
 
-def test_enemy_baseline_direct_assignment_not_additive():
+def test_enemy_baseline_direct_assignment_not_additive_for_preset_b_input3():
     preset = build_full_preset("Preset B")
     allies, _ = prefix_monsters(preset["allies"], prefix="A")
     enemies, _ = prefix_monsters(preset["enemies"], prefix="E")
@@ -221,11 +225,11 @@ def test_enemy_baseline_direct_assignment_not_additive():
         input_3=80,
         allow_enemy_fallback=False,
     )
-    assert source == "input_2"
-    assert effective == 20
+    assert source == "input_3"
+    assert effective == 119
 
     enemy = _build_enemy_mirror("Preset B", allies, overrides, enemy_baseline_rune_speed=effective)
-    assert enemy["rune_speed"] == 20
+    assert enemy["rune_speed"] == 119
 
 
 def test_input_3_lower_than_input_1_does_not_force_no_valid():
@@ -243,14 +247,14 @@ def test_input_3_higher_than_input_1_uses_override_baseline():
     assert result_higher_enemy.enemy_rune_speed_effective == 171
 
 
-def test_preset_ab_ignore_input_3_for_enemy_baseline():
+def test_preset_ab_enemy_baseline_uses_input3_with_plus_39_or_falls_back_to_input2():
     for preset in ["Preset A", "Preset B"]:
         result_without_input3 = build_section1_detail_cached(preset, 120, 24, None, None, False)
         result_with_input3 = build_section1_detail_cached(preset, 120, 24, 999, None, False)
         assert result_without_input3.enemy_rune_speed_source == "input_2"
-        assert result_with_input3.enemy_rune_speed_source == "input_2"
         assert result_without_input3.enemy_rune_speed_effective == 24
-        assert result_with_input3.enemy_rune_speed_effective == 24
+        assert result_with_input3.enemy_rune_speed_source == "input_3"
+        assert result_with_input3.enemy_rune_speed_effective == 1038
 
 
 def test_preset_cfg_enemy_baseline_offsets_from_input3_or_input1():
