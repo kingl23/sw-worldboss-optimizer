@@ -41,7 +41,15 @@ def _optimize_with_runes(u, runes, k):
     # Group runes by slot
     slot_idx = {i: [] for i in range(1, 7)}
     for i, r in enumerate(runes):
-        slot_idx[int(r.get("slot_no", 0))].append(i)
+        try:
+            slot_no = int(r.get("slot_no", 0))
+        except (TypeError, ValueError):
+            continue
+
+        if slot_no not in slot_idx:
+            continue
+
+        slot_idx[slot_no].append(i)
 
     best_score = -1e18
     best_pick = None
