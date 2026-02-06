@@ -186,34 +186,41 @@ def _render_wrapped_range_table(effect_ranges: list[str], speeds: list[Any]) -> 
     st.markdown(
         """
         <style>
-        .effect-speed-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        .effect-speed-scroll {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
             gap: 8px;
-            width: 100%;
+            padding: 4px 2px 8px 2px;
             margin: 0.25rem 0 0.5rem 0;
+            white-space: nowrap;
         }
         .effect-speed-tile {
             border: 1px solid rgba(120, 120, 120, 0.35);
             border-radius: 8px;
-            overflow: hidden;
             background: rgba(250, 250, 250, 0.9);
+            min-width: 108px;
+            display: inline-flex;
+            flex-direction: column;
+            flex: 0 0 auto;
+            overflow: hidden;
         }
         .effect-speed-label {
-            padding: 6px 8px;
+            padding: 6px 9px;
             font-weight: 600;
             border-bottom: 1px solid rgba(120, 120, 120, 0.25);
             background: rgba(0, 0, 0, 0.03);
         }
         .effect-speed-value {
-            padding: 7px 8px;
+            padding: 6px 9px;
             font-weight: 500;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(f"<div class='effect-speed-grid'>{''.join(tiles)}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='effect-speed-scroll'>{''.join(tiles)}</div>", unsafe_allow_html=True)
 
 
 def _render_tick_table(raw_table: list[dict[str, Any]], headers: list[str] | None) -> None:
