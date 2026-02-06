@@ -211,6 +211,14 @@ def test_enemy_baseline_resolution_default_and_override():
     assert speed_override == 94
 
 
+
+
+def test_preset_ab_input3_uses_fixed_rune_offset_not_leader_tower_components():
+    for preset in ["Preset A", "Preset B"]:
+        source, speed = _resolve_enemy_baseline_rune_speed(preset, input_1=120, input_2=95, input_3=100)
+        assert source == "input_3"
+        assert speed == 139
+
 def test_enemy_baseline_direct_assignment_not_additive_for_preset_b_input3():
     preset = build_full_preset("Preset B")
     allies, _ = prefix_monsters(preset["allies"], prefix="A")

@@ -18,6 +18,7 @@ MIN_RUNE_SPEED = 150
 COARSE_STEP = 10
 MAX_EFFECT = 60
 DEFAULT_INPUT_3 = 0
+PRESET_AB_INPUT_OFFSET = 39
 
 
 def _resolve_enemy_baseline_rune_speed(
@@ -28,7 +29,7 @@ def _resolve_enemy_baseline_rune_speed(
 ) -> Tuple[str, int]:
     if preset_id in {"Preset A", "Preset B"}:
         if input_3 is not None:
-            return "input_3", input_3 + TOWER_PERCENT + get_leader_percent(preset_id)
+            return "input_3", input_3 + PRESET_AB_INPUT_OFFSET
         if input_2 is None:
             raise ValueError("input_2 is required for enemy baseline in preset mapping.")
         return "input_2", input_2
