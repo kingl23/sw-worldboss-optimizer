@@ -28,11 +28,9 @@ def _resolve_enemy_baseline_rune_speed(
     input_3: Optional[int],
 ) -> Tuple[str, int]:
     if preset_id in {"Preset A", "Preset B"}:
-        if input_3 is not None:
-            return "input_3", input_3 + PRESET_AB_INPUT_OFFSET
         if input_2 is None:
             raise ValueError("input_2 is required for enemy baseline in preset mapping.")
-        return "input_2", input_2
+        return "input_2", input_2 + PRESET_AB_INPUT_OFFSET
 
     source_input = input_3 if input_3 is not None else input_1
     source = "input_3" if input_3 is not None else "input_1"

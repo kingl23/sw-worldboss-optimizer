@@ -192,19 +192,19 @@ def test_input_3_optional_and_enemy_mirror_default_speed():
         allow_enemy_fallback=False,
     )
     assert source == "input_2"
-    assert effective == 20
+    assert effective == 59
     enemy = _build_enemy_mirror("Preset B", allies, overrides, enemy_baseline_rune_speed=effective)
-    assert enemy["rune_speed"] == 20
+    assert enemy["rune_speed"] == 59
 
 
 def test_enemy_baseline_resolution_default_and_override():
     source_default, speed_default = _resolve_enemy_baseline_rune_speed("Preset A", input_1=120, input_2=95, input_3=None)
     assert source_default == "input_2"
-    assert speed_default == 95
+    assert speed_default == 134
 
     source_ab_input3, speed_ab_input3 = _resolve_enemy_baseline_rune_speed("Preset A", input_1=120, input_2=95, input_3=100)
-    assert source_ab_input3 == "input_3"
-    assert speed_ab_input3 == 139
+    assert source_ab_input3 == "input_2"
+    assert speed_ab_input3 == 134
 
     source_override, speed_override = _resolve_enemy_baseline_rune_speed("Preset D", input_1=120, input_2=95, input_3=95)
     assert source_override == "input_3"
@@ -213,11 +213,20 @@ def test_enemy_baseline_resolution_default_and_override():
 
 
 
-def test_preset_ab_input3_uses_fixed_rune_offset_not_leader_tower_components():
+def test_preset_ab_enemy_always_uses_input2_plus_39_and_ignores_input3():
     for preset in ["Preset A", "Preset B"]:
-        source, speed = _resolve_enemy_baseline_rune_speed(preset, input_1=120, input_2=95, input_3=100)
-        assert source == "input_3"
-        assert speed == 139
+        source_none, speed_none = _resolve_enemy_baseline_rune_speed(preset, input_1=120, input_2=220, input_3=None)
+        source_low, speed_low = _resolve_enemy_baseline_rune_speed(preset, input_1=120, input_2=220, input_3=0)
+        source_mid, speed_mid = _resolve_enemy_baseline_rune_speed(preset, input_1=120, input_2=220, input_3=200)
+        source_high, speed_high = _resolve_enemy_baseline_rune_speed(preset, input_1=120, input_2=220, input_3=999)
+        assert source_none == "input_2"
+        assert source_low == "input_2"
+        assert source_mid == "input_2"
+        assert source_high == "input_2"
+        assert speed_none == 259
+        assert speed_low == 259
+        assert speed_mid == 259
+        assert speed_high == 259
 
 def test_enemy_baseline_direct_assignment_not_additive_for_preset_b_input3():
     preset = build_full_preset("Preset B")
@@ -233,11 +242,11 @@ def test_enemy_baseline_direct_assignment_not_additive_for_preset_b_input3():
         input_3=80,
         allow_enemy_fallback=False,
     )
-    assert source == "input_3"
-    assert effective == 119
+    assert source == "input_2"
+    assert effective == 59
 
     enemy = _build_enemy_mirror("Preset B", allies, overrides, enemy_baseline_rune_speed=effective)
-    assert enemy["rune_speed"] == 119
+    assert enemy["rune_speed"] == 59
 
 
 def test_input_3_lower_than_input_1_does_not_force_no_valid():
@@ -255,14 +264,14 @@ def test_input_3_higher_than_input_1_uses_override_baseline():
     assert result_higher_enemy.enemy_rune_speed_effective == 171
 
 
-def test_preset_ab_enemy_baseline_uses_input3_with_plus_39_or_falls_back_to_input2():
+def test_preset_ab_enemy_baseline_always_uses_input2_plus_39_even_when_input3_provided():
     for preset in ["Preset A", "Preset B"]:
         result_without_input3 = build_section1_detail_cached(preset, 120, 24, None, None, False)
         result_with_input3 = build_section1_detail_cached(preset, 120, 24, 999, None, False)
         assert result_without_input3.enemy_rune_speed_source == "input_2"
-        assert result_without_input3.enemy_rune_speed_effective == 24
-        assert result_with_input3.enemy_rune_speed_source == "input_3"
-        assert result_with_input3.enemy_rune_speed_effective == 1038
+        assert result_without_input3.enemy_rune_speed_effective == 63
+        assert result_with_input3.enemy_rune_speed_source == "input_2"
+        assert result_with_input3.enemy_rune_speed_effective == 63
 
 
 def test_preset_cfg_enemy_baseline_offsets_from_input3_or_input1():
